@@ -1564,4 +1564,237 @@ src/
 ---
 
 **Última atualização:** Janeiro 2025  
-**Versão:** 2.0 (Ajustado com cenários reais)
+**Versão:** 2.0 (Ajustado com cenários reais)# 🏢 MyImoMate 3.0 - CRM Imobiliário
+
+## 📋 VISÃO GERAL DO PROJETO
+
+### 🎯 Conceito
+CRM especializado para o setor imobiliário com foco no ciclo completo: Lead → Cliente → Oportunidades → Negócios → Fecho
+
+### 🚀 Fluxo Principal
+```
+ENTRADA → LEADS → CONVERSÃO RÁPIDA → CLIENTE → OPORTUNIDADES → DEALS → FECHO
+```
+
+### 🛠️ Stack Tecnológico
+- **Frontend:** React + Vite + Tailwind CSS
+- **Backend:** Firebase (Firestore + Auth)
+- **Routing:** React Router DOM
+- **Sistema de Temas:** 6 Temas Personalizados (Corporate, Fun, Casual, Feminino, Masculino, Milionário)
+- **Integrações:** Google Drive, WhatsApp, Email
+
+---
+
+## 🎨 SISTEMA DE TEMAS COMPLETO
+
+### **✅ IMPLEMENTADO (Agosto 2025)**
+O sistema de temas personalizados está 100% funcional com:
+
+#### **6 Temas Disponíveis:**
+1. **🏢 Corporate** - Azul marinho, profissional, Roboto
+2. **🌈 Fun** - Cores vibrantes, playful, Poppins
+3. **☕ Casual** - Tons terra, acolhedor, Merriweather
+4. **💖 Feminino** - Rosa/roxo, elegante, Playfair Display
+5. **⚡ Masculino** - Preto/laranja, forte, Oswald
+6. **💎 Milionário** - Dourado/preto, luxuoso, Playfair Display
+
+#### **Funcionalidades do Sistema:**
+- ✅ Seletor de temas no header da landing page
+- ✅ Persistência da escolha no localStorage
+- ✅ Transições suaves entre temas
+- ✅ Todos os componentes adaptativos (botões, cards, textos)
+- ✅ Fontes do Google Fonts dinâmicas
+- ✅ Paletas de cores personalizadas por tema
+- ✅ Suporte para temas dark/light automático
+
+#### **Arquivos Implementados:**
+- `src/constants/themes.js` - Configuração completa dos 6 temas
+- `src/contexts/ThemeContext.jsx` - Context com localStorage e gestão
+- `src/components/common/ThemeSelector.jsx` - Seletor de temas
+- `src/components/common/ThemedComponents.jsx` - Componentes adaptativos
+- `src/App.jsx` - Integração com ThemeProvider
+- `src/pages/landing/LandingPage.jsx` - Landing page totalmente temática
+
+---
+
+## 🗂️ ESTRUTURA DE NAVEGAÇÃO
+
+### 1. **Landing Page** ✅ COMPLETA
+- Apresentação do CRM com sistema de temas
+- Seletor de temas funcional
+- 6 seções completas (hero, features, pricing, testimonials, CTA, footer)
+- Planos de subscrição
+- Call-to-action para registo
+
+### 2. **Sistema de Autenticação** 🔄 PRÓXIMO
+- Login/Registo
+- Recuperação password
+- Gestão de sessão
+
+### 3. **Dashboard Principal** (Após login)
+- Resumo de atividade
+- Métricas principais (funil de conversão)
+- Tarefas pendentes
+- Próximas reuniões/eventos
+
+### 4. **Módulos Principais**
+- 📋 **Leads** - Gestão de prospects (conversão rápida)
+- 🤝 **Clientes** - Base de dados completa
+- 🎯 **Oportunidades** - Roles por cliente
+- 💼 **Negócios (Deals)** - Pipeline de vendas
+- ✅ **Tarefas** - Gestão de atividades
+- 📅 **Calendário** - Agenda e eventos
+
+---
+
+## 🎯 ESTRATÉGIA DE IMPLEMENTAÇÃO
+
+### **Fase 1 - Base (COMPLETA ✅)**
+1. ✅ Projeto React + Vite + Tailwind configurado
+2. ✅ Firebase conectado e funcionando  
+3. ✅ React Router DOM com rotas básicas
+4. ✅ Landing Page criada e funcional
+5. ✅ **Sistema de 6 Temas Implementado** (Agosto 2025)
+
+### **Fase 2 - Autenticação (PRÓXIMA 🎯)**
+6. 🔐 Sistema de autenticação Firebase
+7. 📱 Páginas de Login/Registo com temas
+8. 🔒 Proteção de rotas e sessões
+9. 👤 Gestão de perfis de utilizador
+
+### **Fase 3 - Core CRM (6 semanas)**
+10. 📋 Módulo Leads (com conversão rápida)
+11. 🤝 Módulo Clientes (com verificação duplicados)
+12. 🏠 Sistema de Visitas (inserção manual)
+13. 📞 Sistema de Interações
+14. 📝 Templates básicos
+
+### **Fase 4 - Automatização (4 semanas)**
+15. 🎯 Módulo Oportunidades
+16. ⏰ Lembretes automáticos (Email + WhatsApp)
+17. ✅ Sistema de Tarefas avançado
+18. 📅 Calendário integrado
+
+### **Fase 5 - Pipeline de Vendas (4 semanas)**
+19. 💼 Módulo Deals com fases
+20. 📊 Dashboard analítico avançado
+21. 📁 Integração Google Drive
+22. 📱 Otimização mobile
+
+### **Fase 6 - Otimização (2 semanas)**
+23. 📈 Relatórios avançados
+24. 🤖 Automação de workflows
+25. 🔔 Notificações push
+26. 🎨 UX/UI refinamento
+
+---
+
+## 📂 ESTRUTURA DE PASTAS ATUALIZADA
+
+```
+src/
+├── components/          # Componentes reutilizáveis
+│   ├── common/         # Botões, inputs, modais, temas ✅
+│   ├── forms/          # Formulários específicos
+│   ├── layout/         # Header, sidebar, footer
+│   ├── charts/         # Gráficos e dashboards
+│   └── visits/         # Componentes de visitas
+├── pages/              # Páginas principais
+│   ├── landing/        # Landing Page ✅
+│   ├── auth/           # Login, registo 🔄
+│   ├── dashboard/      # Dashboard principal
+│   ├── leads/          # Gestão de leads
+│   ├── clients/        # Gestão de clientes
+│   ├── visits/         # Sistema de visitas
+│   ├── opportunities/  # Oportunidades
+│   ├── deals/          # Negócios
+│   ├── tasks/          # Tarefas
+│   ├── calendar/       # Calendário
+│   └── templates/      # Gestão de templates
+├── hooks/              # Custom hooks
+│   ├── useLeads.js     # Hook para leads
+│   ├── useClients.js   # Hook para clientes
+│   ├── useVisits.js    # Hook para visitas
+│   └── useReminders.js # Hook para lembretes
+├── utils/              # Funções utilitárias
+│   ├── validation.js   # Validações
+│   ├── duplicates.js   # Verificação duplicados
+│   └── notifications.js # Notificações
+├── contexts/           # Contextos React ✅
+│   └── ThemeContext.jsx # Context de temas ✅
+├── services/           # Serviços (Firebase, API)
+│   ├── firebase.js     # Configuração Firebase ✅
+│   ├── whatsapp.js     # Integração WhatsApp
+│   └── email.js        # Serviço de email
+├── constants/          # Constantes e enums ✅
+│   └── themes.js       # 6 Temas configurados ✅
+└── config/             # Configurações
+    └── firebase.js     # Config Firebase ✅
+```
+
+---
+
+## 🗒️ NOTAS DE DESENVOLVIMENTO
+
+### **Estado Atual (Agosto 2025)**
+- ✅ Projeto React + Vite configurado
+- ✅ Firebase conectado e funcionando
+- ✅ Tailwind CSS configurado
+- ✅ React Router DOM instalado
+- ✅ ESLint configurado
+- ✅ Landing Page completa e funcional
+- ✅ **Sistema de 6 Temas totalmente implementado**
+- ✅ Seletor de temas funcional
+- ✅ Componentes adaptativos criados
+- ✅ Persistência localStorage funcionando
+
+### **Próximos Passos Imediatos**
+1. **🔐 Sistema de Autenticação Firebase**
+   - Páginas de Login/Registo com design temático
+   - Integração Firebase Auth
+   - Proteção de rotas
+   - Gestão de sessões
+
+2. **📱 Dashboard Principal**
+   - Layout base com temas
+   - Navegação lateral
+   - Métricas principais
+
+3. **📋 Módulo de Leads**
+   - Interface de captação
+   - Sistema de conversão rápida
+   - Integração com Firebase
+
+### **Funcionalidades Críticas**
+1. **Conversão rápida** Lead→Cliente durante chamada
+2. **Agendamento de visitas** com dados manuais
+3. **Sistema de partilhas** entre consultores
+4. **Feedback pós-visita** estruturado
+5. **Follow-up automático** multi-canal
+
+### **Observações Importantes**
+- **Sistema de temas** 100% funcional e escalável
+- **Verificação de duplicados obrigatória** na criação de clientes
+- **Sistema de visitas** é o core do negócio (inserção manual)
+- **Lembretes automáticos** são críticos (imediato + 6h antes)
+- **Integração WhatsApp** é essencial para comunicação
+- **Google Drive** para documentos de cada processo
+- **GDPR compliance** obrigatório
+- **Sistema não gere imóveis** - apenas referencia externos
+
+---
+
+**Última atualização:** Agosto 2025  
+**Versão:** 3.1 (Sistema de Temas Completo)
+
+## 🚀 MARCOS IMPORTANTES
+
+### **Agosto 2025**
+- ✅ **Sistema de 6 Temas Implementado**
+- ✅ **Landing Page Completa com Temas**
+- ✅ **Arquitetura Escalável de Componentes**
+
+### **Próximo Marco: Setembro 2025**
+- 🎯 **Sistema de Autenticação Completo**
+- 🎯 **Dashboard Principal Temático**
+- 🎯 **Módulo de Leads Básico**
