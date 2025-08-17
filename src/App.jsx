@@ -1,59 +1,126 @@
+// src/App.jsx
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { db } from './config/firebase';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 
-// Theme System
+// Context Providers
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ThemedContainer } from './components/common/ThemedComponents';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Pages
 import LandingPage from './pages/landing/LandingPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import DashboardPage from './pages/dashboard/DashboardPage';
 
-// Temporary placeholder components (to be created later)
-const LoginPage = () => (
-  <ThemedContainer>
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8 p-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold">Login</h2>
-          <p className="mt-2 text-gray-600">Página em desenvolvimento</p>
-          <div className="mt-6">
-            <a 
-              href="/" 
-              className="text-blue-600 hover:text-blue-500 transition-colors"
-            >
-              ← Voltar à página inicial
-            </a>
-          </div>
-        </div>
+// Placeholder components para páginas futuras
+const LeadsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Gestão de Leads</h1>
+    <p className="text-gray-600">Módulo de leads em desenvolvimento...</p>
+  </div>
+);
+
+const ClientsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Gestão de Clientes</h1>
+    <p className="text-gray-600">Módulo de clientes em desenvolvimento...</p>
+  </div>
+);
+
+const VisitsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Sistema de Visitas</h1>
+    <p className="text-gray-600">Sistema de visitas em desenvolvimento...</p>
+  </div>
+);
+
+const OpportunitiesPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Oportunidades</h1>
+    <p className="text-gray-600">Módulo de oportunidades em desenvolvimento...</p>
+  </div>
+);
+
+const DealsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Pipeline de Negócios</h1>
+    <p className="text-gray-600">Pipeline de negócios em desenvolvimento...</p>
+  </div>
+);
+
+const TasksPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Gestão de Tarefas</h1>
+    <p className="text-gray-600">Sistema de tarefas em desenvolvimento...</p>
+  </div>
+);
+
+const CalendarPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Calendário</h1>
+    <p className="text-gray-600">Calendário integrado em desenvolvimento...</p>
+  </div>
+);
+
+const SettingsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Configurações</h1>
+    <p className="text-gray-600">Página de configurações em desenvolvimento...</p>
+  </div>
+);
+
+const SupportPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Suporte</h1>
+    <p className="text-gray-600">Centro de suporte em desenvolvimento...</p>
+  </div>
+);
+
+const ProfilePage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Perfil do Utilizador</h1>
+    <p className="text-gray-600">Gestão de perfil em desenvolvimento...</p>
+  </div>
+);
+
+const BillingPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Faturação</h1>
+    <p className="text-gray-600">Gestão de faturação em desenvolvimento...</p>
+  </div>
+);
+
+// Componente para páginas não encontradas
+const NotFoundPage = () => (
+  <ThemedContainer className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <div className="text-6xl mb-4">🔍</div>
+      <h1 className="text-4xl font-bold text-gray-900 mb-4">Página não encontrada</h1>
+      <p className="text-gray-600 mb-8">A página que procura não existe ou foi movida.</p>
+      <div className="space-x-4">
+        <a 
+          href="/dashboard" 
+          className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Ir para Dashboard
+        </a>
+        <a 
+          href="/" 
+          className="inline-block bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          Página Inicial
+        </a>
       </div>
     </div>
   </ThemedContainer>
 );
 
-const RegisterPage = () => (
-  <ThemedContainer>
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8 p-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold">Registo</h2>
-          <p className="mt-2 text-gray-600">Página em desenvolvimento</p>
-          <div className="mt-6">
-            <a 
-              href="/" 
-              className="text-blue-600 hover:text-blue-500 transition-colors"
-            >
-              ← Voltar à página inicial
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </ThemedContainer>
-);
-
-// Firebase connection test component (temporary)
+// Firebase connection test component (mantido para debug)
 const FirebaseTest = () => {
   const [connectionStatus, setConnectionStatus] = useState('🔄 Testando conexão Firebase...');
   const [isLoading, setIsLoading] = useState(true);
@@ -88,9 +155,9 @@ const FirebaseTest = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8">
           <div className="text-center">
-            <div className="text-6xl mb-4">🏡</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">MyImoMate 3.0</h1>
-            <p className="text-gray-600 mb-6">CRM Imobiliário - Sistema de Temas Ativo</p>
+            <div className="text-6xl mb-4">🔥</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Firebase Connection Test</h1>
+            <p className="text-gray-600 mb-6">MyImoMate 3.0 - Sistema de Temas + Auth</p>
             
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="text-sm text-gray-500 mb-2">Status da Conexão:</div>
@@ -112,12 +179,12 @@ const FirebaseTest = () => {
                 <div className="text-green-700">Firebase</div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3">
-                <div className="font-medium text-purple-900">Styling</div>
-                <div className="text-purple-700">Tailwind + Themes</div>
+                <div className="font-medium text-purple-900">Auth</div>
+                <div className="text-purple-700">Firebase Auth</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="font-medium text-gray-900">Temas</div>
-                <div className="text-green-600">🎨 6 Temas Ativos</div>
+              <div className="bg-yellow-50 rounded-lg p-3">
+                <div className="font-medium text-yellow-900">Temas</div>
+                <div className="text-yellow-700">6 Temas Ativos</div>
               </div>
             </div>
 
@@ -128,10 +195,23 @@ const FirebaseTest = () => {
               >
                 🏠 Ver Landing Page
               </a>
-              <p className="text-xs text-gray-500">
-                🎨 Teste os 6 temas na Landing Page!
-              </p>
+              <a 
+                href="/login" 
+                className="block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                🔐 Testar Login
+              </a>
+              <a 
+                href="/register" 
+                className="block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                📝 Testar Registo
+              </a>
             </div>
+            
+            <p className="text-xs text-gray-500 mt-4">
+              🎨 Sistema completo: Temas + Auth + Dashboard + Rotas Protegidas
+            </p>
           </div>
         </div>
       </div>
@@ -142,27 +222,215 @@ const FirebaseTest = () => {
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            {/* Landing Page - Página principal */}
-            <Route path="/" element={<LandingPage />} />
-            
-            {/* Páginas de autenticação */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* Teste Firebase - página temporária */}
-            <Route path="/firebase-test" element={<FirebaseTest />} />
-            
-            {/* Dashboard - futuro (redireciona para login por agora) */}
-            <Route path="/dashboard" element={<Navigate to="/login" replace />} />
-            
-            {/* Rota catch-all - redireciona para home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              {/* Páginas Públicas */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* Teste Firebase - Página de debug */}
+              <Route path="/firebase-test" element={<FirebaseTest />} />
+              
+              {/* Páginas Protegidas - Requerem Autenticação */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/leads" 
+                element={
+                  <ProtectedRoute>
+                    <LeadsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/clients" 
+                element={
+                  <ProtectedRoute>
+                    <ClientsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/visits" 
+                element={
+                  <ProtectedRoute>
+                    <VisitsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/opportunities" 
+                element={
+                  <ProtectedRoute>
+                    <OpportunitiesPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/deals" 
+                element={
+                  <ProtectedRoute>
+                    <DealsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/tasks" 
+                element={
+                  <ProtectedRoute>
+                    <TasksPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/calendar" 
+                element={
+                  <ProtectedRoute>
+                    <CalendarPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/settings" 
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/support" 
+                element={
+                  <ProtectedRoute>
+                    <SupportPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/billing" 
+                element={
+                  <ProtectedRoute>
+                    <BillingPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Rotas de Redirecionamento */}
+              
+              {/* Redirecionar /app para /dashboard */}
+              <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Redirecionar rotas antigas */}
+              <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/crm" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Subrotas futuras */}
+              
+              {/* Leads subrotas */}
+              <Route path="/leads/new" element={
+                <ProtectedRoute>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Novo Lead</h1>
+                    <p className="text-gray-600">Formulário para novo lead em desenvolvimento...</p>
+                  </div>
+                </ProtectedRoute>
+              } />
+              
+              {/* Clients subrotas */}
+              <Route path="/clients/new" element={
+                <ProtectedRoute>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Novo Cliente</h1>
+                    <p className="text-gray-600">Formulário para novo cliente em desenvolvimento...</p>
+                  </div>
+                </ProtectedRoute>
+              } />
+              
+              {/* Visits subrotas */}
+              <Route path="/visits/schedule" element={
+                <ProtectedRoute>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Agendar Visita</h1>
+                    <p className="text-gray-600">Formulário de agendamento em desenvolvimento...</p>
+                  </div>
+                </ProtectedRoute>
+              } />
+              
+              {/* Deals subrotas */}
+              <Route path="/deals/new" element={
+                <ProtectedRoute>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Novo Negócio</h1>
+                    <p className="text-gray-600">Formulário para novo negócio em desenvolvimento...</p>
+                  </div>
+                </ProtectedRoute>
+              } />
+              
+              {/* Tasks subrotas */}
+              <Route path="/tasks/new" element={
+                <ProtectedRoute>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Nova Tarefa</h1>
+                    <p className="text-gray-600">Formulário para nova tarefa em desenvolvimento...</p>
+                  </div>
+                </ProtectedRoute>
+              } />
+
+              {/* Páginas de Erro e Legal */}
+              
+              {/* Páginas legais (futuras) */}
+              <Route path="/terms" element={
+                <ThemedContainer className="min-h-screen p-6">
+                  <div className="max-w-4xl mx-auto">
+                    <h1 className="text-3xl font-bold mb-6">Termos e Condições</h1>
+                    <p className="text-gray-600">Termos e condições em desenvolvimento...</p>
+                  </div>
+                </ThemedContainer>
+              } />
+              
+              <Route path="/privacy" element={
+                <ThemedContainer className="min-h-screen p-6">
+                  <div className="max-w-4xl mx-auto">
+                    <h1 className="text-3xl font-bold mb-6">Política de Privacidade</h1>
+                    <p className="text-gray-600">Política de privacidade em desenvolvimento...</p>
+                  </div>
+                </ThemedContainer>
+              } />
+
+              {/* Página 404 - Deve ser a última rota */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
