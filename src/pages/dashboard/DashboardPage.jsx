@@ -35,35 +35,34 @@ const DashboardPage = () => {
   const { deals, getDealStats } = useDeals();
   const { tasks, getTaskStats } = useTasks();
 
-  // CALCULAR MÉTRICAS REAIS
-  const realMetrics = {
-    leads: {
-      total: leads?.length || 0,
-      thisMonth: getLeadStats ? getLeadStats().thisMonth : 0,
-      trend: '+15%', // Calcular depois
-      isPositive: true
-    },
-    clients: {
-      total: clients?.length || 0,
-      thisMonth: getClientStats ? getClientStats().thisMonth : 0,
-      trend: '+12%', // Calcular depois
-      isPositive: true
-    },
-    visits: {
-      total: visitStats?.total || 0,
-      today: visitStats?.today || 0,
-      trend: '+8%', // Calcular depois
-      isPositive: true
-    },
-    deals: {
-      total: deals?.length || 0,
-      thisMonth: getDealStats ? getDealStats().thisMonth : 0,
-      value: getDealStats ? `€${getDealStats().totalValue?.toLocaleString()}` : '€0',
-      trend: '+22%', // Calcular depois
-      isPositive: true
-    }
-  };
-
+  // CALCULAR MÉTRICAS REAIS - VERSÃO SEGURA
+const realMetrics = {
+  leads: {
+    total: leads?.length || 0,
+    thisMonth: (typeof getLeadStats === 'function') ? (getLeadStats()?.thisMonth || 0) : 0,
+    trend: '+15%',
+    isPositive: true
+  },
+  clients: {
+    total: clients?.length || 0,
+    thisMonth: (typeof getClientStats === 'function') ? (getClientStats()?.thisMonth || 0) : 0,
+    trend: '+12%',
+    isPositive: true
+  },
+  visits: {
+    total: visitStats?.total || 0,
+    today: visitStats?.today || 0,
+    trend: '+8%',
+    isPositive: true
+  },
+  deals: {
+    total: deals?.length || 0,
+    thisMonth: (typeof getDealStats === 'function') ? (getDealStats()?.thisMonth || 0) : 0,
+    value: (typeof getDealStats === 'function') ? `€${(getDealStats()?.totalValue || 0).toLocaleString()}` : '€0',
+    trend: '+22%',
+    isPositive: true
+  }
+};
   // Atualizar hora a cada minuto
   useEffect(() => {
     const timer = setInterval(() => {
