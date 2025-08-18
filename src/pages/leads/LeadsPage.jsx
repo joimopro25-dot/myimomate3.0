@@ -1,0 +1,654 @@
+// src/pages/leads/LeadsPage.jsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
+import { useTheme } from '../../contexts/ThemeContext';
+import useLeads from '../../hooks/useLeads';
+
+// 🎯 PÁGINA PRINCIPAL DO MÓDULO DE LEADS
+// =====================================
+// MyImoMate 3.0 - Interface completa para gestão de leads
+// Funcionalidades: Listagem, Filtros, CRUD, Conversão rápida
+
+const LeadsPage = () => {
+  const navigate = useNavigate();
+  const { theme } = useTheme();
+  
+  // Hook personalizado de leads
+  const {
+    leads,
+    loading,
+    error,
+    creating,
+    converting,
+    duplicateCheck,
+    filters,
+    createLead,
+    convertLeadToClient,
+    updateLeadStatus,
+    deleteLead,
+    searchLeads,
+    setFilters,
+    checkForDuplicates,
+    getLeadStats,
+    LEAD_STATUS,
+    LEAD_INTEREST_TYPES,
+    BUDGET_RANGES,
+    LEAD_STATUS_COLORS
+  } = useLeads();
+
+  // Estados locais
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackType, setFeedbackType] = useState(''); // success, error, info
+
+  // Estados do formulário
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    interestType: LEAD_INTEREST_TYPES.COMPRA_CASA,
+    budgetRange: 'undefined',
+    location: '',
+    notes: '',
+    source: 'manual',
+    priority: 'normal'
+  });
+
+  // Obter estatísticas
+  const stats = getLeadStats();
+
+  // 📝 MANIPULAR MUDANÇAS NO FORMULÁRIO
+  const handleFormChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 🔄 RESET DO FORMULÁRIO
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      phone: '',
+      email: '',
+      interestType: LEAD_INTEREST_TYPES.COMPRA_CASA,
+      budgetRange: 'undefined',
+      location: '',
+      notes: '',
+      source: 'manual',
+      priority: 'normal'
+    });
+  };
+
+  // 📝 SUBMETER FORMULÁRIO DE CRIAÇÃO
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const result = await createLead(formData);
+      
+      if (result.success) {
+        setFeedbackMessage('Lead criado com sucesso!');
+        setFeedbackType('success');
+        setShowCreateForm(false);
+        resetForm();
+      } else {
+        setFeedbackMessage(result.message || 'Erro ao criar lead');
+        setFeedbackType('error');
+      }
+    } catch (err) {
+      setFeedbackMessage(`Erro inesperado: ${err.message}`);
+      setFeedbackType('error');
+    }
+  };
+
+  // 🔄 CONVERTER LEAD PARA CLIENTE
+  const handleConvertLead = async (lead) => {
+    try {
+      const result = await convertLeadToClient(lead.id, {
+        // Dados adicionais do cliente se necessário
+        preferredContactTime: 'anytime',
+        source_details: {
+          converted_from_lead: true,
+          conversion_date: new Date().toISOString()
+        }
+      });
+
+      if (result.success) {
+        setFeedbackMessage(`Lead "${lead.name}" convertido para cliente com sucesso!`);
+        setFeedbackType('success');
+        setShowConvertModal(false);
+        setSelectedLead(null);
+        
+        // Navegar para o cliente criado (implementar later)
+        // navigate(`/clients/${result.clientId}`);
+      } else {
+        setFeedbackMessage(result.message || 'Erro ao converter lead');
+        setFeedbackType('error');
+      }
+    } catch (err) {
+      setFeedbackMessage(`Erro inesperado: ${err.message}`);
+      setFeedbackType('error');
+    }
+  };
+
+  // 🔄 ATUALIZAR STATUS
+  const handleStatusChange = async (leadId, newStatus) => {
+    const result = await updateLeadStatus(leadId, newStatus);
+    
+    if (result.success) {
+      setFeedbackMessage('Status atualizado com sucesso!');
+      setFeedbackType('success');
+    } else {
+      setFeedbackMessage(result.error || 'Erro ao atualizar status');
+      setFeedbackType('error');
+    }
+  };
+
+  // 🗑️ ELIMINAR LEAD
+  const handleDeleteLead = async (leadId, leadName) => {
+    if (!window.confirm(`Tem certeza que deseja eliminar o lead "${leadName}"?`)) {
+      return;
+    }
+
+    const result = await deleteLead(leadId);
+    
+    if (result.success) {
+      setFeedbackMessage('Lead eliminado com sucesso!');
+      setFeedbackType('success');
+    } else {
+      setFeedbackMessage(result.error || 'Erro ao eliminar lead');
+      setFeedbackType('error');
+    }
+  };
+
+  // 🔍 OBTER RÓTULO LEGÍVEL PARA TIPO DE INTERESSE
+  const getInterestTypeLabel = (type) => {
+    const labels = {
+      [LEAD_INTEREST_TYPES.COMPRA_CASA]: 'Compra Casa',
+      [LEAD_INTEREST_TYPES.COMPRA_APARTAMENTO]: 'Compra Apartamento',
+      [LEAD_INTEREST_TYPES.COMPRA_TERRENO]: 'Compra Terreno',
+      [LEAD_INTEREST_TYPES.COMPRA_COMERCIAL]: 'Compra Comercial',
+      [LEAD_INTEREST_TYPES.VENDA_CASA]: 'Venda Casa',
+      [LEAD_INTEREST_TYPES.VENDA_APARTAMENTO]: 'Venda Apartamento',
+      [LEAD_INTEREST_TYPES.VENDA_TERRENO]: 'Venda Terreno',
+      [LEAD_INTEREST_TYPES.VENDA_COMERCIAL]: 'Venda Comercial',
+      [LEAD_INTEREST_TYPES.ARRENDAMENTO_CASA]: 'Arrendamento Casa',
+      [LEAD_INTEREST_TYPES.ARRENDAMENTO_APARTAMENTO]: 'Arrendamento Apartamento',
+      [LEAD_INTEREST_TYPES.ARRENDAMENTO_COMERCIAL]: 'Arrendamento Comercial',
+      [LEAD_INTEREST_TYPES.INVESTIMENTO]: 'Investimento',
+      [LEAD_INTEREST_TYPES.AVALIACAO]: 'Avaliação',
+      [LEAD_INTEREST_TYPES.CONSULTORIA]: 'Consultoria'
+    };
+    return labels[type] || type;
+  };
+
+  // 🔍 OBTER RÓTULO LEGÍVEL PARA STATUS
+  const getStatusLabel = (status) => {
+    const labels = {
+      [LEAD_STATUS.NOVO]: 'Novo',
+      [LEAD_STATUS.CONTACTADO]: 'Contactado',
+      [LEAD_STATUS.QUALIFICADO]: 'Qualificado',
+      [LEAD_STATUS.CONVERTIDO]: 'Convertido',
+      [LEAD_STATUS.PERDIDO]: 'Perdido',
+      [LEAD_STATUS.INATIVO]: 'Inativo'
+    };
+    return labels[status] || status;
+  };
+
+  // 🧹 Limpar feedback após 5 segundos
+  useEffect(() => {
+    if (feedbackMessage) {
+      const timer = setTimeout(() => {
+        setFeedbackMessage('');
+        setFeedbackType('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMessage]);
+
+  return (
+    <DashboardLayout>
+      <ThemedContainer className="space-y-6">
+        
+        {/* HEADER COM TÍTULO E ESTATÍSTICAS */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Gestão de Leads
+            </h1>
+            <p className="text-gray-600">
+              Gerencie prospects e converta-os rapidamente em clientes
+            </p>
+          </div>
+
+          {/* Estatísticas rápidas */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
+              <div className="text-sm text-gray-500">Total Leads</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{stats.byStatus.novo || 0}</div>
+              <div className="text-sm text-gray-500">Novos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{stats.byStatus.convertido || 0}</div>
+              <div className="text-sm text-gray-500">Convertidos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.conversionRate}%</div>
+              <div className="text-sm text-gray-500">Taxa Conversão</div>
+            </div>
+          </div>
+        </div>
+
+        {/* FEEDBACK MESSAGE */}
+        {feedbackMessage && (
+          <div className={`p-4 rounded-lg ${
+            feedbackType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+            feedbackType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+            'bg-blue-100 text-blue-800 border border-blue-200'
+          }`}>
+            {feedbackMessage}
+          </div>
+        )}
+
+        {/* BARRA DE AÇÕES E FILTROS */}
+        <ThemedCard className="p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            
+            {/* Botão Criar Lead */}
+            <ThemedButton
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="lg:w-auto"
+              disabled={creating}
+            >
+              {creating ? '⏳ Criando...' : '➕ Novo Lead'}
+            </ThemedButton>
+
+            {/* Barra de pesquisa */}
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Pesquisar por nome, email ou telefone..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => searchLeads(e.target.value)}
+                value={filters.searchTerm}
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex gap-2">
+              {/* Filtro por Status */}
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos os Status</option>
+                {Object.values(LEAD_STATUS).map(status => (
+                  <option key={status} value={status}>
+                    {getStatusLabel(status)}
+                  </option>
+                ))}
+              </select>
+
+              {/* Filtro por Tipo de Interesse */}
+              <select
+                value={filters.interestType}
+                onChange={(e) => setFilters(prev => ({ ...prev, interestType: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos os Tipos</option>
+                {Object.values(LEAD_INTEREST_TYPES).map(type => (
+                  <option key={type} value={type}>
+                    {getInterestTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </ThemedCard>
+
+        {/* FORMULÁRIO DE CRIAÇÃO DE LEAD */}
+        {showCreateForm && (
+          <ThemedCard className="p-6">
+            <h3 className="text-xl font-bold mb-4">Criar Novo Lead</h3>
+            
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Nome */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nome completo do lead"
+                  />
+                </div>
+
+                {/* Telefone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="9XX XXX XXX"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleFormChange('email', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="email@exemplo.com"
+                  />
+                </div>
+
+                {/* Tipo de Interesse */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Interesse
+                  </label>
+                  <select
+                    value={formData.interestType}
+                    onChange={(e) => handleFormChange('interestType', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+                      <option key={value} value={value}>
+                        {getInterestTypeLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Faixa de Orçamento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Faixa de Orçamento
+                  </label>
+                  <select
+                    value={formData.budgetRange}
+                    onChange={(e) => handleFormChange('budgetRange', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(BUDGET_RANGES).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Localização */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Localização Preferida
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => handleFormChange('location', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Cidade, distrito, zona..."
+                  />
+                </div>
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notas / Observações
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Informações adicionais sobre o lead..."
+                />
+              </div>
+
+              {/* Botões do formulário */}
+              <div className="flex gap-3 pt-4">
+                <ThemedButton
+                  type="submit"
+                  disabled={creating || duplicateCheck}
+                  className="flex-1 md:flex-none"
+                >
+                  {creating ? '⏳ Criando...' : duplicateCheck ? '🔍 Verificando...' : '✅ Criar Lead'}
+                </ThemedButton>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    resetForm();
+                  }}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </ThemedCard>
+        )}
+
+        {/* LISTA DE LEADS */}
+        <ThemedCard className="p-6">
+          <div className="mb-4">
+            <h3 className="text-xl font-bold">
+              Lista de Leads ({leads.length})
+            </h3>
+            {loading && (
+              <p className="text-gray-500 mt-2">⏳ Carregando leads...</p>
+            )}
+            {error && (
+              <p className="text-red-600 mt-2">❌ {error}</p>
+            )}
+          </div>
+
+          {/* Tabela de leads */}
+          {leads.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left p-3 font-medium text-gray-700">Nome</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Contacto</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Interesse</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Orçamento</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Status</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Criado</th>
+                    <th className="text-center p-3 font-medium text-gray-700">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map((lead) => (
+                    <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      
+                      {/* Nome */}
+                      <td className="p-3">
+                        <div className="font-medium text-gray-900">{lead.name}</div>
+                        {lead.location && (
+                          <div className="text-sm text-gray-500">📍 {lead.location}</div>
+                        )}
+                      </td>
+
+                      {/* Contacto */}
+                      <td className="p-3">
+                        {lead.phone && (
+                          <div className="text-sm">📞 {lead.phone}</div>
+                        )}
+                        {lead.email && (
+                          <div className="text-sm">✉️ {lead.email}</div>
+                        )}
+                      </td>
+
+                      {/* Interesse */}
+                      <td className="p-3">
+                        <div className="text-sm font-medium">
+                          {getInterestTypeLabel(lead.interestType)}
+                        </div>
+                      </td>
+
+                      {/* Orçamento */}
+                      <td className="p-3">
+                        <div className="text-sm">
+                          {BUDGET_RANGES[lead.budgetRange] || 'N/A'}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status]}`}>
+                          {getStatusLabel(lead.status)}
+                        </span>
+                      </td>
+
+                      {/* Data de criação */}
+                      <td className="p-3">
+                        <div className="text-sm text-gray-500">
+                          {lead.createdAt?.toLocaleDateString('pt-PT')}
+                        </div>
+                      </td>
+
+                      {/* Ações */}
+                      <td className="p-3">
+                        <div className="flex justify-center gap-2">
+                          
+                          {/* Converter para Cliente */}
+                          {lead.status !== LEAD_STATUS.CONVERTIDO && (
+                            <button
+                              onClick={() => {
+                                setSelectedLead(lead);
+                                setShowConvertModal(true);
+                              }}
+                              disabled={converting}
+                              className="text-green-600 hover:text-green-800 text-sm font-medium"
+                              title="Converter para Cliente"
+                            >
+                              🔄 Converter
+                            </button>
+                          )}
+
+                          {/* Atualizar Status */}
+                          <select
+                            value={lead.status}
+                            onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                            className="text-xs border border-gray-300 rounded px-2 py-1"
+                            title="Alterar Status"
+                          >
+                            {Object.values(LEAD_STATUS).map(status => (
+                              <option key={status} value={status}>
+                                {getStatusLabel(status)}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Eliminar */}
+                          <button
+                            onClick={() => handleDeleteLead(lead.id, lead.name)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                            title="Eliminar Lead"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            // Estado vazio
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📋</div>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">
+                Nenhum lead encontrado
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {filters.searchTerm || filters.status || filters.interestType
+                  ? 'Tente ajustar os filtros de pesquisa'
+                  : 'Comece criando o seu primeiro lead'
+                }
+              </p>
+              {!showCreateForm && (
+                <ThemedButton
+                  onClick={() => setShowCreateForm(true)}
+                >
+                  ➕ Criar Primeiro Lead
+                </ThemedButton>
+              )}
+            </div>
+          )}
+        </ThemedCard>
+
+        {/* MODAL DE CONFIRMAÇÃO DE CONVERSÃO */}
+        {showConvertModal && selectedLead && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Converter Lead para Cliente</h3>
+              
+              <div className="mb-6">
+                <p className="text-gray-600 mb-2">
+                  Confirma a conversão do lead para cliente?
+                </p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="font-medium">{selectedLead.name}</div>
+                  <div className="text-sm text-gray-600">{selectedLead.phone}</div>
+                  <div className="text-sm text-gray-600">{selectedLead.email}</div>
+                  <div className="text-sm font-medium mt-2">
+                    {getInterestTypeLabel(selectedLead.interestType)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <ThemedButton
+                  onClick={() => handleConvertLead(selectedLead)}
+                  disabled={converting}
+                  className="flex-1"
+                >
+                  {converting ? '⏳ Convertendo...' : '✅ Converter'}
+                </ThemedButton>
+                
+                <button
+                  onClick={() => {
+                    setShowConvertModal(false);
+                    setSelectedLead(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </ThemedContainer>
+    </DashboardLayout>
+  );
+};
+
+export default LeadsPage;
