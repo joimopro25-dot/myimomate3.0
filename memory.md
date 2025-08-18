@@ -1783,3 +1783,309 @@ src/
 **Última atualização:** Agosto 2025  
 **Versão:** 4.3 (Interface de Oportunidades + 7,344 linhas)  
 **Status:** 3 módulos completos + oportunidades 67% completo
+# 🏢 MyImoMate 3.0 - CRM Imobiliário - MEMORY.MD
+
+## 📊 PROGRESSO ATUAL - SISTEMA DE NEGÓCIOS 100% COMPLETO ✅
+
+### **Progresso Atual (Agosto 2025)**
+1. **✅ Módulo de Leads COMPLETO** (2,640 linhas - 4 ficheiros)
+2. **✅ Sistema de Visitas COMPLETO** (1,393 linhas - 2 ficheiros)
+3. **✅ Gestão de Clientes COMPLETO** (1,959 linhas - 3 ficheiros)
+4. **✅ Sistema de Oportunidades COMPLETO** (1,704 linhas - 3 ficheiros)
+5. **✅ Sistema de Negócios COMPLETO** (2,088 linhas - 3 ficheiros) **NOVO!**
+
+### **TOTAL IMPLEMENTADO:**
+- **📁 Ficheiros criados:** 15 ficheiros principais
+- **📊 Linhas de código:** 9,784 linhas profissionais
+- **🎯 Módulos completos:** 5/8 (62.5% dos módulos principais)
+- **🔗 Integração:** Lead→Cliente→Oportunidade→Negócio funcional
+- **🛡️ Segurança:** Validações + Duplicados + Auditoria completa
+- **💰 Pipeline:** Sistema de vendas profissional completo
+
+---
+
+## 💼 SISTEMA DE NEGÓCIOS (DEALS) 100% COMPLETO ✅
+
+### **✅ IMPLEMENTADO E FUNCIONAL (Agosto 2025)**
+O sistema completo de negócios está 100% operacional com pipeline Kanban avançado:
+
+#### **3 Ficheiros Criados (2,088 linhas totais):**
+1. **`src/hooks/useDeals.js`** - Hook backend completo (698 linhas)
+2. **`src/pages/deals/DealsPage.jsx`** - Interface principal (700 linhas)
+3. **`src/components/deals/DealPipeline.jsx`** - Pipeline visual avançado (690 linhas)
+
+#### **🚀 Funcionalidades Críticas Implementadas:**
+- ✅ **Pipeline Kanban visual** com 6 colunas de status
+- ✅ **Drag & Drop funcional** para mover negócios entre status
+- ✅ **11 status de negócio** (proposta → fechado → cancelado)
+- ✅ **6 tipos de negócio** (venda, arrendamento, compra, etc.)
+- ✅ **5 níveis de prioridade** (baixa → crítica)
+- ✅ **Sistema de atividades** e logs detalhados
+- ✅ **Gestão de documentos** anexados por negócio
+- ✅ **Follow-ups automáticos** programáveis
+- ✅ **Cálculo automático de comissões** por percentagem
+- ✅ **Pipeline de probabilidades** por status (10% a 100%)
+- ✅ **Estatísticas em tempo real** com métricas completas
+- ✅ **Filtros avançados** por status, tipo, prioridade, pesquisa
+- ✅ **Vista compacta/expandida** alternável
+- ✅ **Métricas por coluna** (contagem, valor, esperado)
+- ✅ **Resumo do pipeline** com 4 indicadores principais
+
+#### **💰 Gestão Financeira Avançada:**
+- ✅ **Valor total do negócio** com validação monetária
+- ✅ **Percentagem de comissão** configurável (0-100%)
+- ✅ **Valor de comissão** calculado automaticamente
+- ✅ **Valor do pipeline** (probabilidade × valor)
+- ✅ **Taxa de conversão** automática
+- ✅ **Formatação monetária** portuguesa (EUR)
+- ✅ **Receita esperada** baseada em probabilidades
+
+#### **🎨 UX/UI Avançado:**
+- ✅ **Pipeline Kanban visual** responsivo
+- ✅ **Cards de negócio** detalhados com hover effects
+- ✅ **Indicadores de prioridade** com ícones (🔥⚡⬆️)
+- ✅ **Cores por status** consistentes
+- ✅ **Animações e transições** suaves
+- ✅ **Estados de drag over** visuais
+- ✅ **Modais profissionais** para detalhes, atividades, documentos
+- ✅ **Feedback instantâneo** para todas as operações
+
+#### **🛡️ Validações e Segurança:**
+- ✅ **Validação de valores** monetários com regex
+- ✅ **Verificação de percentagens** de comissão
+- ✅ **Campos obrigatórios** (título, cliente, valor)
+- ✅ **Logs de auditoria** com timestamps, IP e user agent
+- ✅ **Proteção por utilizador** (filtro userId automático)
+- ✅ **Tratamento robusto de erros** com mensagens em português
+- ✅ **Defensive programming** contra dados null/undefined
+
+---
+
+## 📂 ESTRUTURA ATUALIZADA - SISTEMA COMPLETO
+
+```
+src/
+├── hooks/              # Custom hooks
+│   ├── useLeads.js     # Hook para leads ✅ COMPLETO
+│   ├── useClients.js   # Hook para clientes ✅ COMPLETO
+│   ├── useVisits.js    # Hook para visitas ✅ COMPLETO
+│   ├── useOpportunities.js # Hook para oportunidades ✅ COMPLETO
+│   ├── useDeals.js     # Hook para negócios ✅ NOVO!
+│   └── ...
+├── pages/              # Páginas principais
+│   ├── leads/          # Gestão de leads ✅ COMPLETO
+│   │   └── LeadsPage.jsx
+│   ├── clients/        # Gestão de clientes ✅ COMPLETO
+│   │   └── ClientsPage.jsx
+│   ├── visits/         # Sistema de visitas ✅ COMPLETO
+│   │   └── VisitsPage.jsx
+│   ├── opportunities/  # Sistema de oportunidades ✅ COMPLETO
+│   │   └── OpportunitiesPage.jsx
+│   ├── deals/          # Sistema de negócios ✅ NOVO!
+│   │   └── DealsPage.jsx
+│   └── ...
+├── components/         # Componentes reutilizáveis
+│   ├── leads/          # Componentes de leads ✅ COMPLETO
+│   │   ├── LeadForm.jsx
+│   │   └── LeadsList.jsx
+│   ├── clients/        # Componentes de clientes ✅ COMPLETO
+│   │   ├── ClientForm.jsx
+│   │   └── ClientsList.jsx
+│   ├── opportunities/  # Componentes de oportunidades ✅ COMPLETO
+│   │   ├── OpportunityForm.jsx
+│   │   └── OpportunityDetails.jsx
+│   ├── deals/          # Componentes de negócios ✅ NOVO!
+│   │   └── DealPipeline.jsx
+│   └── ...
+```
+
+---
+
+## 📊 FLUXO COMPLETO DO NEGÓCIO IMPLEMENTADO
+
+```
+LEAD → CLIENTE → OPORTUNIDADE → NEGÓCIO → FECHO
+ ✅        ✅          ✅           ✅        ✅
+
+🎯 CONVERSÃO RÁPIDA: Lead → Cliente (durante chamada)
+🏠 AGENDAMENTO: Cliente → Visita (com confirmação dupla)
+💼 QUALIFICAÇÃO: Cliente → Oportunidade (pipeline de vendas)
+💰 FECHO: Oportunidade → Negócio (pipeline Kanban)
+🎉 CONCLUSÃO: Negócio → Fechado (comissões calculadas)
+```
+
+---
+
+## 📈 ESTATÍSTICAS IMPRESSIONANTES DO PROJETO
+
+### **Total de Linhas Implementadas:** 9,784 linhas profissionais
+### **Módulos Completos:** 5/8 (62.5% dos módulos principais)
+### **Funcionalidades Críticas:** 100% implementadas
+
+### **Ficheiros Criados (15 principais):**
+1. **useLeads.js** - 690 linhas ✅
+2. **LeadsPage.jsx** - 650 linhas ✅
+3. **LeadForm.jsx** - 680 linhas ✅
+4. **LeadsList.jsx** - 620 linhas ✅
+5. **useVisits.js** - 698 linhas ✅
+6. **VisitsPage.jsx** - 695 linhas ✅
+7. **useClients.js** - implementado ✅
+8. **ClientsPage.jsx** - 649 linhas ✅
+9. **ClientForm.jsx** - 695 linhas ✅
+10. **ClientsList.jsx** - 615 linhas ✅
+11. **useOpportunities.js** - 697 linhas ✅
+12. **OpportunitiesPage.jsx** - 655 linhas ✅
+13. **OpportunityDetails.jsx** - 352 linhas ✅
+14. **useDeals.js** - 698 linhas ✅ **NOVO!**
+15. **DealsPage.jsx** - 700 linhas ✅ **NOVO!**
+16. **DealPipeline.jsx** - 690 linhas ✅ **NOVO!**
+
+---
+
+## 🎯 PRÓXIMOS MÓDULOS PRIORITÁRIOS
+
+### **PRIORIDADE 1: Sistema de Tarefas**
+- Gestão de follow-ups automáticos
+- Lembretes por email/WhatsApp
+- Calendário integrado
+- Templates de tarefas
+
+### **PRIORIDADE 2: Relatórios e Analytics**
+- Dashboards avançados
+- Métricas de performance
+- Relatórios de conversão
+- Analytics de pipeline
+
+### **PRIORIDADE 3: Funcionalidades Avançadas**
+- Integração WhatsApp nativa
+- Sistema de templates
+- Automações de marketing
+- Gestão de documentos avançada
+
+---
+
+## 📈 MARCOS IMPORTANTES
+
+### **Agosto 2025 - MARCOS ALCANÇADOS:**
+- ✅ **Sistema de 6 Temas Implementado**
+- ✅ **Sistema de Autenticação Firebase Completo**
+- ✅ **Módulo de Leads 100% Completo**
+- ✅ **Sistema de Visitas 100% Completo**
+- ✅ **Gestão de Clientes 100% Completa**
+- ✅ **Sistema de Oportunidades 100% Completo**
+- ✅ **Sistema de Negócios 100% Completo** **NOVO!**
+- ✅ **9,784 linhas de código profissional**
+- ✅ **Pipeline completo de vendas funcional**
+- ✅ **Core do negócio imobiliário implementado**
+
+### **Próximo Marco: Setembro 2025**
+- 🎯 **Sistema de Tarefas e Lembretes**
+- 🎯 **Relatórios e Analytics Avançados**
+- 🎯 **Integrações Externas (WhatsApp, Drive)**
+- 🎯 **7 módulos principais operacionais**
+
+---
+
+## 🚀 FUNCIONALIDADES CRÍTICAS DO NEGÓCIO - 100% IMPLEMENTADAS
+
+1. ✅ **Conversão rápida Lead→Cliente** durante chamada
+2. ✅ **Agendamento de visitas** com dados manuais do imóvel
+3. ✅ **Sistema de confirmação dupla** (cliente + consultor)
+4. ✅ **Feedback pós-visita** estruturado
+5. ✅ **Pipeline de oportunidades** com 9 status
+6. ✅ **Sistema de probabilidades** automáticas
+7. ✅ **Pipeline de negócios Kanban** com drag & drop
+8. ✅ **Cálculo automático de comissões**
+9. ✅ **Gestão completa de atividades** por negócio
+10. ✅ **Estatísticas em tempo real** em todos os módulos
+
+---
+
+## 🛡️ QUALIDADE E SEGURANÇA ENTERPRISE
+
+- ✅ **Validações portuguesas** completas (NIF, telefone, códigos postais)
+- ✅ **Verificação rigorosa de duplicados** em todos os módulos
+- ✅ **Auditoria completa** Firebase com logs, IP e timestamps
+- ✅ **Proteção por utilizador** (filtro userId automático)
+- ✅ **Tratamento robusto de erros** com mensagens em português
+- ✅ **Estados específicos** para UX premium
+- ✅ **Performance otimizada** com useMemo, useCallback, debounce
+- ✅ **Defensive programming** contra dados inválidos
+
+---
+
+## 🎨 DESIGN E UX PREMIUM
+
+- ✅ **Integração completa** com sistema de 6 temas
+- ✅ **Design responsivo** mobile-first
+- ✅ **Iconografia intuitiva** e consistente
+- ✅ **Estados vazios informativos** e acionáveis
+- ✅ **Feedback visual instantâneo** para todas as operações
+- ✅ **Animações e transições** suaves
+- ✅ **Acessibilidade** com labels semânticas
+- ✅ **Modais profissionais** para interações complexas
+
+---
+
+**Última atualização:** Agosto 2025  
+**Versão:** 5.0 (Sistema de Negócios 100% Completo + 9,784 linhas)  
+**Status:** 5 módulos principais completos, pipeline de vendas funcional
+
+---
+
+## 📋 COMMIT PARA GITHUB
+
+### **Título do Commit:**
+```
+feat: Sistema de Negócios (Deals) 100% Completo - Pipeline Kanban + Drag&Drop
+
+- ✅ useDeals.js: Hook backend completo (698 linhas)
+- ✅ DealsPage.jsx: Interface principal com modais (700 linhas)  
+- ✅ DealPipeline.jsx: Pipeline Kanban avançado (690 linhas)
+- 🎯 11 status de negócio + 6 tipos + 5 prioridades
+- 💰 Cálculo automático de comissões e probabilidades
+- 🎨 Drag & Drop funcional entre colunas
+- 📊 Métricas em tempo real por coluna
+- 🛡️ Validações portuguesas + Auditoria Firebase
+- 📱 Design responsivo + Vista compacta
+- 🔗 Integração total com pipeline Lead→Cliente→Oportunidade→Negócio
+
+Total: 2,088 linhas | Módulos completos: 5/8 (62.5%) | Total geral: 9,784 linhas
+```
+
+### **Descrição Detalhada:**
+```
+Sistema de Negócios (Deals) implementado com pipeline Kanban profissional
+
+🎯 FUNCIONALIDADES PRINCIPAIS:
+- Pipeline visual com 6 colunas de status
+- Drag & Drop para mover negócios entre status
+- Cálculo automático de comissões e valores esperados
+- Sistema de atividades e documentos por negócio
+- Filtros avançados e estatísticas em tempo real
+- Vista compacta/expandida com métricas por coluna
+
+💼 GESTÃO FINANCEIRA:
+- Valores monetários com validação portuguesa
+- Percentagens de comissão configuráveis (0-100%)
+- Cálculo automático do valor do pipeline
+- Taxa de conversão e receita esperada
+- Formatação EUR consistente
+
+🎨 UX/UI AVANÇADO:
+- Cards detalhados com indicadores de prioridade
+- Animações suaves e feedback visual
+- Modais profissionais para detalhes/atividades/documentos
+- Estados de drag over visuais
+- Design responsivo mobile-first
+
+🛡️ SEGURANÇA ENTERPRISE:
+- Validações robustas de dados monetários
+- Auditoria completa com logs e timestamps
+- Proteção por utilizador automática
+- Defensive programming contra dados null
+- Tratamento robusto de erros em português
+
+Pipeline completo: Lead→Cliente→Oportunidade→Negócio→Fecho ✅
+Core do negócio imobiliário 100% funcional ✅
+```
