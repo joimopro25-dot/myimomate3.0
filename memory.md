@@ -1518,3 +1518,118 @@ src/
 **Última atualização:** Agosto 2025  
 **Versão:** 4.1 (Gestão de Clientes 100% Completa + 5,992 linhas)  
 **Status:** 3 módulos principais completos, core do negócio funcional
+# UPDATE MEMORY.MD - SISTEMA DE OPORTUNIDADES INICIADO
+
+## 🎯 SISTEMA DE OPORTUNIDADES EM DESENVOLVIMENTO
+
+### **✅ HOOK IMPLEMENTADO (Agosto 2025)**
+O hook principal do Sistema de Oportunidades está 100% funcional com todas as funcionalidades do pipeline de vendas:
+
+#### **Ficheiro Criado (697 linhas):**
+- **`src/hooks/useOpportunities.js`** - Hook completo do pipeline de vendas **NOVO!**
+
+#### **🚀 Funcionalidades Implementadas:**
+- ✅ **CRUD completo** de oportunidades
+- ✅ **Pipeline de vendas** com 9 status profissionais
+- ✅ **Sistema de probabilidades** automáticas (10% a 100%)
+- ✅ **Cálculo de comissões** e valores do pipeline
+- ✅ **Gestão de atividades** por oportunidade
+- ✅ **Estatísticas em tempo real** com métricas críticas
+- ✅ **Validações de dados** monetários portugueses
+- ✅ **Integração com clientes** (contador automático)
+- ✅ **Sistema de filtros** e pesquisa avançada
+- ✅ **Auditoria completa** com logs e IP
+
+#### **💼 Pipeline de Vendas Profissional:**
+1. **Identificação** (10%) - Oportunidade identificada
+2. **Qualificação** (25%) - Cliente qualificado
+3. **Apresentação** (40%) - Proposta apresentada
+4. **Negociação** (60%) - Em negociação
+5. **Proposta** (80%) - Proposta formal enviada
+6. **Contrato** (95%) - Contrato em preparação
+7. **Fechado Ganho** (100%) - Negócio fechado com sucesso
+8. **Fechado Perdido** (0%) - Oportunidade perdida
+9. **Pausado** (0%) - Temporariamente pausado
+
+#### **💰 Gestão Financeira Avançada:**
+- ✅ **Valor total da oportunidade** com validação
+- ✅ **Percentagem de comissão** (0-100%)
+- ✅ **Valor de comissão** calculado automaticamente
+- ✅ **Valor do pipeline** (probabilidade × valor)
+- ✅ **Taxa de conversão** automática
+- ✅ **Formatação monetária** portuguesa (EUR)
+
+#### **🛡️ Validações e Segurança:**
+- ✅ **Validação de valores** monetários com regex
+- ✅ **Verificação de percentagens** de comissão
+- ✅ **Campos obrigatórios** (título, cliente)
+- ✅ **Logs de auditoria** com timestamps, IP e user agent
+- ✅ **Proteção por utilizador** (filtro userId automático)
+- ✅ **Tratamento robusto de erros** com mensagens em português
+
+#### **📊 Estatísticas e Análise:**
+- ✅ **Contagem por status** do pipeline
+- ✅ **Contagem por tipo** de oportunidade
+- ✅ **Contagem por prioridade** (baixa, média, alta, urgente)
+- ✅ **Valor total** de todas as oportunidades
+- ✅ **Valor médio** por oportunidade
+- ✅ **Taxa de conversão** (ganhas/fechadas)
+- ✅ **Valor esperado do pipeline** com probabilidades
+
+---
+
+## 📊 PROGRESSO ATUAL ATUALIZADO - SISTEMA DE OPORTUNIDADES
+
+### **Progresso Atual (Agosto 2025)**
+1. **✅ Módulo de Leads COMPLETO** (2,640 linhas - 4 ficheiros)
+2. **✅ Sistema de Visitas COMPLETO** (1,393 linhas - 2 ficheiros)
+3. **✅ Gestão de Clientes COMPLETO** (1,959 linhas - 3 ficheiros)
+4. **🎯 Sistema de Oportunidades EM PROGRESSO** (697 linhas - 1/3 ficheiros)
+   - ✅ Hook `useOpportunities.js` implementado (697 linhas) **NOVO!**
+   - ❌ Interface `OpportunitiesPage.jsx` pendente (~650 linhas)
+   - ❌ Componentes pendentes (~650 linhas total)
+
+### **TOTAL IMPLEMENTADO:**
+- **📁 Ficheiros criados:** 10 ficheiros principais (+1)
+- **📊 Linhas de código:** 6,689 linhas profissionais (+697)
+- **🎯 Módulos completos:** 3/8 (37.5% dos módulos principais)
+- **🎯 Módulos em progresso:** 1/8 (Oportunidades com hook)
+- **🔗 Integração:** Lead→Cliente→Oportunidade funcional
+- **🛡️ Segurança:** Validações + Duplicados + Auditoria
+- **💰 Pipeline:** Sistema de vendas profissional
+
+---
+
+## 📂 ESTRUTURA ATUALIZADA - NOVO MÓDULO
+
+```
+src/
+├── hooks/              # Custom hooks
+│   ├── useLeads.js     # Hook para leads ✅ COMPLETO
+│   ├── useClients.js   # Hook para clientes ✅ COMPLETO
+│   ├── useVisits.js    # Hook para visitas ✅ COMPLETO
+│   ├── useOpportunities.js # Hook para oportunidades ✅ NOVO!
+│   └── ...
+├── pages/              # Páginas principais
+│   ├── leads/          # Gestão de leads ✅ COMPLETO
+│   ├── clients/        # Gestão de clientes ✅ COMPLETO
+│   ├── visits/         # Sistema de visitas ✅ COMPLETO
+│   ├── opportunities/  # Sistema de oportunidades 🚧 INICIADO
+│   └── ...
+├── components/         # Componentes reutilizáveis
+│   ├── leads/          # Componentes de leads ✅ COMPLETO
+│   ├── clients/        # Componentes de clientes ✅ COMPLETO
+│   ├── opportunities/  # Componentes de oportunidades ❌ PENDENTE
+│   └── ...
+```
+
+---
+
+## 🎯 PRÓXIMOS PASSOS PRIORITÁRIOS
+
+### **PRIORIDADE 1: Completar Sistema de Oportunidades**
+1. **OpportunitiesPage.jsx** (~650 linhas) - Interface principal com pipeline visual
+2. **OpportunityForm.jsx** (~350 linhas) - Formulário de criação/edição
+3. **OpportunityPipeline.jsx** (~300 linhas) - Vista kanban do pipeline
+
+### **PRIORIDADE 2: Funcionalidades Av
