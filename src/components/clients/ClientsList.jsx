@@ -4,10 +4,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedButton } from '../common/ThemedComponents';
 import useClients from '../../hooks/useClients';
 
-// 🎯 COMPONENTE DE LISTAGEM AVANÇADA DE CLIENTES
-// ==============================================
-// MyImoMate 3.0 - Lista inteligente com filtros, ordenação e ações
-// Funcionalidades: Ordenação, Filtros múltiplos, Seleção, Exportação, Interações
+// 🎯 COMPONENTE DE LISTAGEM ENTERPRISE DE CLIENTES
+// ===============================================
+// MyImoMate 3.0 - Lista profissional com filtros avançados, ordenação e ações em lote
+// Funcionalidades: 8 Filtros, Ordenação, Seleção múltipla, Exportação, Interações rápidas
 
 const ClientsList = ({
   showFilters = true,
@@ -41,7 +41,7 @@ const ClientsList = ({
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
   
-  // Estados de filtros
+  // Estados de filtros avançados (8 filtros)
   const [localFilters, setLocalFilters] = useState({
     status: '',
     clientType: '',
@@ -50,22 +50,23 @@ const ClientsList = ({
     hasInteractions: false,
     isVIP: false,
     dateRange: 'all',
-    contactMethod: ''
+    contactMethod: '',
+    searchTerm: ''
   });
   
-  // Estados de seleção
+  // Estados de seleção múltipla
   const [selectedClients, setSelectedClients] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   
-  // Estados de UI
+  // Estados de UI e modais
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showQuickInteraction, setShowQuickInteraction] = useState(false);
   const [selectedClientForAction, setSelectedClientForAction] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(compactMode ? 25 : 15);
+  const [itemsPerPage, setItemsPerPage] = useState(compactMode ? 20 : 15);
   
-  // Estados de ações
+  // Estados de ações e loading
   const [actionLoading, setActionLoading] = useState({});
   const [quickInteractionForm, setQuickInteractionForm] = useState({
     type: 'call',
@@ -74,7 +75,7 @@ const ClientsList = ({
     outcome: 'neutral'
   });
 
-  // 🔄 ORDENAR DADOS
+  // 🔄 ORDENAR DADOS POR MÚLTIPLAS COLUNAS
   const sortedClients = useMemo(() => {
     if (!clients.length) return [];
     
@@ -82,16 +83,22 @@ const ClientsList = ({
       let aValue = a[sortField];
       let bValue = b[sortField];
       
-      // Tratamento especial para campos nested
-      if (sortField === 'address.city') {
+      // Tratamento especial para datas
+      if (sortField === 'createdAt' || sortField === 'updatedAt') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+      
+      // Tratamento para campos aninhados (address.city)
+      if (sortField === 'city') {
         aValue = a.address?.city || '';
         bValue = b.address?.city || '';
       }
       
-      // Tratamento especial para datas
-      if (sortField === 'createdAt' || sortField === 'updatedAt' || sortField === 'lastInteraction') {
-        aValue = new Date(aValue || 0);
-        bValue = new Date(bValue || 0);
+      // Tratamento para contagem de interações
+      if (sortField === 'totalInteractions') {
+        aValue = a.totalInteractions || 0;
+        bValue = b.totalInteractions || 0;
       }
       
       // Tratamento para strings
@@ -100,21 +107,27 @@ const ClientsList = ({
         bValue = bValue.toLowerCase();
       }
       
-      // Tratamento para números
-      if (sortField === 'totalInteractions') {
-        aValue = aValue || 0;
-        bValue = bValue || 0;
-      }
-      
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
   }, [clients, sortField, sortDirection]);
 
-  // 🔍 FILTRAR DADOS
+  // 🔍 FILTRAR DADOS COM 8 FILTROS AVANÇADOS
   const filteredClients = useMemo(() => {
     let filtered = sortedClients;
+
+    // Filtro por termo de pesquisa global
+    if (localFilters.searchTerm) {
+      const term = localFilters.searchTerm.toLowerCase();
+      filtered = filtered.filter(client =>
+        client.name.toLowerCase().includes(term) ||
+        client.phone.includes(term) ||
+        client.email.toLowerCase().includes(term) ||
+        (client.company && client.company.toLowerCase().includes(term)) ||
+        (client.profession && client.profession.toLowerCase().includes(term))
+      );
+    }
 
     // Filtro por status
     if (localFilters.status) {
@@ -138,12 +151,12 @@ const ClientsList = ({
       );
     }
 
-    // Filtro apenas VIP
+    // Filtro apenas VIP (checkbox especial)
     if (localFilters.isVIP) {
-      filtered = filtered.filter(client => client.isVIP);
+      filtered = filtered.filter(client => client.status === 'vip');
     }
 
-    // Filtro apenas com interações
+    // Filtro apenas com interações (checkbox especial)
     if (localFilters.hasInteractions) {
       filtered = filtered.filter(client => (client.totalInteractions || 0) > 0);
     }
@@ -153,7 +166,7 @@ const ClientsList = ({
       filtered = filtered.filter(client => client.preferredContactMethod === localFilters.contactMethod);
     }
 
-    // Filtro por data
+    // Filtro por data de criação
     if (localFilters.dateRange && localFilters.dateRange !== 'all') {
       const now = new Date();
       const filterDate = new Date();
@@ -181,7 +194,7 @@ const ClientsList = ({
     return filtered;
   }, [sortedClients, localFilters]);
 
-  // 📄 PAGINAÇÃO
+  // 📄 PAGINAÇÃO INTELIGENTE
   const paginatedClients = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredClients.slice(startIndex, startIndex + itemsPerPage);
@@ -205,7 +218,7 @@ const ClientsList = ({
     return sortDirection === 'asc' ? '⬆️' : '⬇️';
   };
 
-  // ✅ MANIPULAR SELEÇÃO
+  // ✅ MANIPULAR SELEÇÃO MÚLTIPLA
   const handleSelectClient = (clientId) => {
     setSelectedClients(prev => 
       prev.includes(clientId)
@@ -289,290 +302,318 @@ const ClientsList = ({
     }
   };
 
-  // 📊 EXPORTAR CLIENTES
+  // 📊 EXPORTAR CLIENTES (CSV ESTRUTURADO E JSON)
   const handleExport = (format = 'csv') => {
     const dataToExport = selectedClients.length > 0 
       ? clients.filter(client => selectedClients.includes(client.id))
       : filteredClients;
 
     if (format === 'csv') {
-      exportToCSV(dataToExport);
+      // CSV estruturado para Excel
+      const csvContent = [
+        // Cabeçalho
+        [
+          'Nome',
+          'Telefone',
+          'Email',
+          'Tipo',
+          'Status',
+          'Orçamento',
+          'Cidade',
+          'Profissão',
+          'Empresa',
+          'Interações',
+          'Criado em'
+        ].join(','),
+        // Dados
+        ...dataToExport.map(client => [
+          `"${client.name}"`,
+          `"${client.phone}"`,
+          `"${client.email}"`,
+          `"${CLIENT_TYPES[client.clientType] || client.clientType}"`,
+          `"${CLIENT_STATUS[client.status] || client.status}"`,
+          `"${CLIENT_BUDGET_RANGES[client.budgetRange] || 'N/A'}"`,
+          `"${client.address?.city || 'N/A'}"`,
+          `"${client.profession || 'N/A'}"`,
+          `"${client.company || 'N/A'}"`,
+          client.totalInteractions || 0,
+          `"${new Date(client.createdAt).toLocaleDateString('pt-PT')}"`
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `clientes_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
     } else if (format === 'json') {
-      exportToJSON(dataToExport);
+      // JSON completo para backup/importação
+      const jsonContent = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `clientes_backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
     }
-    
+
     setShowExportModal(false);
   };
 
-  const exportToCSV = (data) => {
-    const headers = [
-      'Nome', 'Tipo', 'Status', 'Telefone Principal', 'Email Principal', 
-      'NIF', 'Cidade', 'Orçamento', 'Total Interações', 'Última Interação', 'Data Criação'
-    ];
-    
-    const csvContent = [
-      headers.join(','),
-      ...data.map(client => [
-        `"${client.name}"`,
-        `"${getClientTypeLabel(client.clientType)}"`,
-        `"${getStatusLabel(client.status)}"`,
-        `"${client.phone || ''}"`,
-        `"${client.email || ''}"`,
-        `"${client.nif || ''}"`,
-        `"${client.address?.city || ''}"`,
-        `"${CLIENT_BUDGET_RANGES[client.budgetRange] || ''}"`,
-        `"${client.totalInteractions || 0}"`,
-        `"${client.lastInteraction?.toLocaleDateString('pt-PT') || 'Nunca'}"`,
-        `"${client.createdAt?.toLocaleDateString('pt-PT') || ''}"`
-      ].join(','))
-    ].join('\n');
-
-    downloadFile(csvContent, 'clientes.csv', 'text/csv');
+  // 🔄 ATUALIZAR FILTROS
+  const updateFilter = (key, value) => {
+    setLocalFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset para primeira página
   };
 
-  const exportToJSON = (data) => {
-    const exportData = data.map(client => ({
-      id: client.id,
-      name: client.name,
-      clientType: client.clientType,
-      status: client.status,
-      phone: client.phone,
-      email: client.email,
-      nif: client.nif,
-      address: client.address,
-      budgetRange: client.budgetRange,
-      totalInteractions: client.totalInteractions,
-      lastInteraction: client.lastInteraction,
-      createdAt: client.createdAt,
-      notes: client.notes
-    }));
-    
-    const jsonContent = JSON.stringify(exportData, null, 2);
-    downloadFile(jsonContent, 'clientes.json', 'application/json');
-  };
-
-  const downloadFile = (content, filename, type) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // 🔍 OBTER RÓTULOS LEGÍVEIS
-  const getClientTypeLabel = (type) => {
-    const labels = {
-      [CLIENT_TYPES.COMPRADOR]: 'Comprador',
-      [CLIENT_TYPES.VENDEDOR]: 'Vendedor',
-      [CLIENT_TYPES.INQUILINO]: 'Inquilino',
-      [CLIENT_TYPES.SENHORIO]: 'Senhorio',
-      [CLIENT_TYPES.INVESTIDOR]: 'Investidor',
-      [CLIENT_TYPES.MISTO]: 'Misto'
-    };
-    return labels[type] || type;
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      [CLIENT_STATUS.ATIVO]: 'Ativo',
-      [CLIENT_STATUS.INATIVO]: 'Inativo',
-      [CLIENT_STATUS.VIP]: 'VIP',
-      [CLIENT_STATUS.PROSPECT]: 'Prospect',
-      [CLIENT_STATUS.EX_CLIENTE]: 'Ex-Cliente',
-      [CLIENT_STATUS.BLOQUEADO]: 'Bloqueado'
-    };
-    return labels[status] || status;
-  };
-
-  // ⚡ EFEITOS
-  useEffect(() => {
+  // 🗑️ LIMPAR FILTROS
+  const clearFilters = () => {
+    setLocalFilters({
+      status: '',
+      clientType: '',
+      budgetRange: '',
+      city: '',
+      hasInteractions: false,
+      isVIP: false,
+      dateRange: 'all',
+      contactMethod: '',
+      searchTerm: ''
+    });
     setCurrentPage(1);
-  }, [localFilters]);
+  };
 
-  useEffect(() => {
-    setSelectAll(false);
-    setSelectedClients([]);
-  }, [currentPage]);
+  // 🎨 OBTER COR DO STATUS
+  const getStatusColor = (status) => {
+    const colors = {
+      'ativo': 'bg-green-100 text-green-800',
+      'inativo': 'bg-gray-100 text-gray-800',
+      'vip': 'bg-purple-100 text-purple-800',
+      'prospect': 'bg-blue-100 text-blue-800',
+      'ex_cliente': 'bg-orange-100 text-orange-800',
+      'bloqueado': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
 
+  // 🔄 EFEITOS
   useEffect(() => {
     setShowBulkActions(selectedClients.length > 0);
   }, [selectedClients]);
 
+  useEffect(() => {
+    // Reset seleção quando filtros mudam
+    setSelectedClients([]);
+    setSelectAll(false);
+  }, [localFilters]);
+
   return (
     <div className="clients-list">
       
-      {/* BARRA DE FILTROS */}
+      {/* FILTROS AVANÇADOS (2 LINHAS) */}
       {showFilters && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            
-            {/* Filtro Status */}
-            <select
-              value={localFilters.status}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Todos Status</option>
-              {Object.values(CLIENT_STATUS).map(status => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
-                </option>
-              ))}
-            </select>
-
-            {/* Filtro Tipo */}
-            <select
-              value={localFilters.clientType}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, clientType: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Todos Tipos</option>
-              {Object.values(CLIENT_TYPES).map(type => (
-                <option key={type} value={type}>
-                  {getClientTypeLabel(type)}
-                </option>
-              ))}
-            </select>
-
-            {/* Filtro Orçamento */}
-            <select
-              value={localFilters.budgetRange}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, budgetRange: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Todos Orçamentos</option>
-              {Object.entries(CLIENT_BUDGET_RANGES).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            {/* Filtro Cidade */}
-            <input
-              type="text"
-              placeholder="Filtrar por cidade"
-              value={localFilters.city}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, city: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-
-            {/* Filtro Data */}
-            <select
-              value={localFilters.dateRange}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="all">Todas as Datas</option>
-              <option value="today">Hoje</option>
-              <option value="week">Última Semana</option>
-              <option value="month">Último Mês</option>
-              <option value="3months">Últimos 3 Meses</option>
-            </select>
-
-            {/* Filtros especiais */}
-            <div className="flex gap-2">
-              <label className="flex items-center text-sm">
-                <input
-                  type="checkbox"
-                  checked={localFilters.isVIP}
-                  onChange={(e) => setLocalFilters(prev => ({ ...prev, isVIP: e.target.checked }))}
-                  className="mr-1"
-                />
-                Apenas VIP
+          
+          {/* Primeira linha de filtros */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Pesquisa Global */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Pesquisa Global
               </label>
+              <input
+                type="text"
+                value={localFilters.searchTerm}
+                onChange={(e) => updateFilter('searchTerm', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Nome, telefone, email, empresa..."
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={localFilters.status}
+                onChange={(e) => updateFilter('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos os status</option>
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+                <option value="vip">VIP</option>
+                <option value="prospect">Prospect</option>
+                <option value="ex_cliente">Ex-Cliente</option>
+                <option value="bloqueado">Bloqueado</option>
+              </select>
+            </div>
+
+            {/* Tipo de Cliente */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <select
+                value={localFilters.clientType}
+                onChange={(e) => updateFilter('clientType', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos os tipos</option>
+                <option value="comprador">Comprador</option>
+                <option value="vendedor">Vendedor</option>
+                <option value="inquilino">Inquilino</option>
+                <option value="senhorio">Senhorio</option>
+                <option value="investidor">Investidor</option>
+                <option value="misto">Misto</option>
+              </select>
+            </div>
+
+            {/* Faixa de Orçamento */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Orçamento
+              </label>
+              <select
+                value={localFilters.budgetRange}
+                onChange={(e) => updateFilter('budgetRange', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todas as faixas</option>
+                <option value="0-50k">Até €50.000</option>
+                <option value="50k-100k">€50.000 - €100.000</option>
+                <option value="100k-200k">€100.000 - €200.000</option>
+                <option value="200k-300k">€200.000 - €300.000</option>
+                <option value="300k-500k">€300.000 - €500.000</option>
+                <option value="500k-750k">€500.000 - €750.000</option>
+                <option value="750k-1M">€750.000 - €1.000.000</option>
+                <option value="1M-2M">€1.000.000 - €2.000.000</option>
+                <option value="2M+">Acima de €2.000.000</option>
+                <option value="unlimited">Sem limite</option>
+              </select>
             </div>
           </div>
 
           {/* Segunda linha de filtros */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-            
-            {/* Método de Contacto */}
-            <select
-              value={localFilters.contactMethod}
-              onChange={(e) => setLocalFilters(prev => ({ ...prev, contactMethod: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Todos Métodos Contacto</option>
-              <option value="phone">Telefone</option>
-              <option value="email">Email</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="sms">SMS</option>
-            </select>
-
-            {/* Com Interações */}
-            <label className="flex items-center text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Cidade */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cidade
+              </label>
               <input
-                type="checkbox"
-                checked={localFilters.hasInteractions}
-                onChange={(e) => setLocalFilters(prev => ({ ...prev, hasInteractions: e.target.checked }))}
-                className="mr-2"
+                type="text"
+                value={localFilters.city}
+                onChange={(e) => updateFilter('city', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Lisboa, Porto..."
               />
-              Apenas com Interações
-            </label>
+            </div>
 
-            {/* Botão Limpar */}
-            <button
-              onClick={() => setLocalFilters({
-                status: '',
-                clientType: '',
-                budgetRange: '',
-                city: '',
-                hasInteractions: false,
-                isVIP: false,
-                dateRange: 'all',
-                contactMethod: ''
-              })}
-              className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm border border-gray-300 rounded-lg"
-            >
-              🔄 Limpar Filtros
-            </button>
+            {/* Método de Contacto */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contacto Preferido
+              </label>
+              <select
+                value={localFilters.contactMethod}
+                onChange={(e) => updateFilter('contactMethod', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos</option>
+                <option value="phone">Telefone</option>
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+              </select>
+            </div>
+
+            {/* Data de Criação */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Criado
+              </label>
+              <select
+                value={localFilters.dateRange}
+                onChange={(e) => updateFilter('dateRange', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Todo o período</option>
+                <option value="today">Hoje</option>
+                <option value="week">Última semana</option>
+                <option value="month">Último mês</option>
+                <option value="3months">Últimos 3 meses</option>
+              </select>
+            </div>
+
+            {/* Checkboxes Especiais */}
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={localFilters.isVIP}
+                  onChange={(e) => updateFilter('isVIP', e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">👑 Apenas VIP</span>
+              </label>
+              
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={localFilters.hasInteractions}
+                  onChange={(e) => updateFilter('hasInteractions', e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">💬 Com Interações</span>
+              </label>
+            </div>
+
+            {/* Botão Limpar Filtros */}
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                🗑️ Limpar Filtros
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* AÇÕES EM LOTE */}
-      {showBulkActions && showActions && (
+      {showBulkActions && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-between">
-            <span className="text-blue-800 font-medium">
-              {selectedClients.length} clientes selecionados
-            </span>
+            <div className="text-sm text-blue-800">
+              {selectedClients.length} cliente(s) selecionado(s)
+            </div>
             
             <div className="flex gap-2">
               <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleBulkStatusUpdate(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className="px-3 py-1 border border-blue-300 rounded text-sm"
-                disabled={actionLoading.bulkStatus}
+                onChange={(e) => e.target.value && handleBulkStatusUpdate(e.target.value)}
+                className="px-3 py-1 text-sm border border-blue-300 rounded"
+                value=""
               >
                 <option value="">Alterar Status</option>
-                {Object.values(CLIENT_STATUS).map(status => (
-                  <option key={status} value={status}>
-                    {getStatusLabel(status)}
-                  </option>
-                ))}
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+                <option value="vip">VIP</option>
+                <option value="prospect">Prospect</option>
+                <option value="bloqueado">Bloqueado</option>
               </select>
               
               <button
-                onClick={() => setShowExportModal(true)}
-                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                onClick={() => handleExport('csv')}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
               >
-                📊 Exportar
+                📊 Exportar CSV
               </button>
               
               <button
                 onClick={handleBulkDelete}
                 disabled={actionLoading.bulkDelete}
-                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
               >
                 {actionLoading.bulkDelete ? '⏳' : '🗑️'} Eliminar
               </button>
@@ -677,14 +718,21 @@ const ClientsList = ({
                   </th>
                   
                   <th className="p-3 text-left font-medium text-gray-700">
-                    Contacto
+                    Contactos
                   </th>
                   
                   <th 
                     className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('address.city')}
+                    onClick={() => handleSort('city')}
                   >
-                    Localização {getSortIcon('address.city')}
+                    Cidade {getSortIcon('city')}
+                  </th>
+                  
+                  <th 
+                    className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('budgetRange')}
+                  >
+                    Orçamento {getSortIcon('budgetRange')}
                   </th>
                   
                   <th 
@@ -692,13 +740,6 @@ const ClientsList = ({
                     onClick={() => handleSort('totalInteractions')}
                   >
                     Interações {getSortIcon('totalInteractions')}
-                  </th>
-                  
-                  <th 
-                    className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('createdAt')}
-                  >
-                    Criado {getSortIcon('createdAt')}
                   </th>
                   
                   {showActions && (
@@ -709,11 +750,11 @@ const ClientsList = ({
                 </tr>
               </thead>
               
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {paginatedClients.map((client) => (
-                  <tr key={client.id} className="border-b hover:bg-gray-50">
+                  <tr key={client.id} className="hover:bg-gray-50">
                     
-                    {/* Checkbox */}
+                    {/* Checkbox seleção */}
                     {showSelection && (
                       <td className="p-3">
                         <input
@@ -724,127 +765,117 @@ const ClientsList = ({
                         />
                       </td>
                     )}
-                    
-                    {/* Cliente */}
+
+                    {/* Nome e detalhes */}
                     <td className="p-3">
-                      <div 
-                        className="font-medium text-gray-900 cursor-pointer hover:text-blue-600 flex items-center gap-2"
-                        onClick={() => onClientSelect?.(client)}
-                      >
-                        {client.name}
-                        {client.isVIP && <span className="text-purple-600" title="Cliente VIP">👑</span>}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium text-gray-900 flex items-center gap-1">
+                            {client.name}
+                            {client.status === 'vip' && <span className="text-yellow-500">👑</span>}
+                          </div>
+                          {client.profession && (
+                            <div className="text-sm text-gray-500">{client.profession}</div>
+                          )}
+                        </div>
                       </div>
-                      {client.nif && (
-                        <div className="text-xs text-gray-500">NIF: {client.nif}</div>
-                      )}
                     </td>
 
                     {/* Tipo */}
                     <td className="p-3">
-                      <div className="text-sm">
-                        {getClientTypeLabel(client.clientType)}
-                      </div>
+                      <span className="text-sm text-gray-700 capitalize">
+                        {client.clientType.replace('_', ' ')}
+                      </span>
                     </td>
 
                     {/* Status */}
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${CLIENT_STATUS_COLORS[client.status]}`}>
-                        {getStatusLabel(client.status)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(client.status)}`}>
+                        {client.status === 'vip' ? 'VIP' : client.status.charAt(0).toUpperCase() + client.status.slice(1)}
                       </span>
                     </td>
 
-                    {/* Contacto */}
+                    {/* Contactos */}
                     <td className="p-3">
-                      {client.phone && (
-                        <div className="text-sm">📞 {client.phone}</div>
-                      )}
-                      {client.email && (
-                        <div className="text-sm">✉️ {client.email}</div>
-                      )}
-                      {client.preferredContactMethod && (
-                        <div className="text-xs text-gray-500">
-                          Pref: {client.preferredContactMethod}
-                        </div>
-                      )}
+                      <div className="text-sm">
+                        <div className="text-gray-900">{client.phone}</div>
+                        <div className="text-gray-500">{client.email}</div>
+                      </div>
                     </td>
 
-                    {/* Localização */}
+                    {/* Cidade */}
                     <td className="p-3">
-                      {client.address?.city && (
-                        <div className="text-sm">📍 {client.address.city}</div>
-                      )}
-                      {client.address?.postalCode && (
-                        <div className="text-xs text-gray-500">{client.address.postalCode}</div>
-                      )}
+                      <span className="text-sm text-gray-700">
+                        {client.address?.city || 'N/A'}
+                      </span>
+                    </td>
+
+                    {/* Orçamento */}
+                    <td className="p-3">
+                      <span className="text-sm text-gray-700">
+                        {CLIENT_BUDGET_RANGES[client.budgetRange] || 'A definir'}
+                      </span>
                     </td>
 
                     {/* Interações */}
                     <td className="p-3">
-                      <div className="text-sm">
-                        <div className="font-medium">{client.totalInteractions || 0}</div>
-                        {client.lastInteraction && (
-                          <div className="text-xs text-gray-500">
-                            {client.lastInteraction.toLocaleDateString('pt-PT')}
-                          </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-700">
+                          {client.totalInteractions || 0}
+                        </span>
+                        {(client.totalInteractions || 0) > 0 && (
+                          <span className="text-blue-500">💬</span>
                         )}
-                      </div>
-                    </td>
-
-                    {/* Data criação */}
-                    <td className="p-3">
-                      <div className="text-sm text-gray-500">
-                        {client.createdAt?.toLocaleDateString('pt-PT')}
                       </div>
                     </td>
 
                     {/* Ações */}
                     {showActions && (
                       <td className="p-3">
-                        <div className="flex justify-center gap-1">
+                        <div className="flex items-center gap-1">
                           
-                          {/* Ver detalhes */}
-                          <button
-                            onClick={() => onClientSelect?.(client)}
-                            className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
-                            title="Ver Detalhes"
-                          >
-                            👁️
-                          </button>
-
-                          {/* Adicionar interação */}
+                          {/* Interação rápida */}
                           <button
                             onClick={() => {
                               setSelectedClientForAction(client);
                               setShowQuickInteraction(true);
                             }}
-                            className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
-                            title="Nova Interação"
+                            className="p-1 text-blue-600 hover:text-blue-800"
+                            title="Adicionar interação"
                           >
-                            📞
+                            💬
                           </button>
 
                           {/* Editar */}
                           <button
                             onClick={() => onClientEdit?.(client)}
-                            className="text-orange-600 hover:text-orange-800 text-xs px-2 py-1 rounded"
-                            title="Editar Cliente"
+                            className="p-1 text-green-600 hover:text-green-800"
+                            title="Editar cliente"
                           >
                             ✏️
                           </button>
-                          
-                          {/* Alterar Status */}
-                          <select
-                            value={client.status}
-                            onChange={(e) => updateClientStatus(client.id, e.target.value)}
-                            className="text-xs border border-gray-300 rounded px-1 py-1"
-                            title="Alterar Status"
+
+                          {/* Ver detalhes */}
+                          <button
+                            onClick={() => onClientSelect?.(client)}
+                            className="p-1 text-gray-600 hover:text-gray-800"
+                            title="Ver detalhes"
                           >
-                            {Object.values(CLIENT_STATUS).map(status => (
-                              <option key={status} value={status}>
-                                {getStatusLabel(status)}
-                              </option>
-                            ))}
-                          </select>
+                            👁️
+                          </button>
+
+                          {/* Eliminar */}
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Eliminar ${client.name}?`)) {
+                                await deleteClient(client.id);
+                              }
+                            }}
+                            className="p-1 text-red-600 hover:text-red-800"
+                            title="Eliminar cliente"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     )}
@@ -858,37 +889,28 @@ const ClientsList = ({
 
       {/* PAGINAÇÃO */}
       {totalPages > 1 && (
-        <div className="mt-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
             Página {currentPage} de {totalPages}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
             >
               ← Anterior
             </button>
             
+            {/* Números das páginas */}
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              
-              return (
+              const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+              return pageNum <= totalPages ? (
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`px-3 py-1 border rounded text-sm ${
+                  className={`px-3 py-1 text-sm border rounded ${
                     currentPage === pageNum
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'border-gray-300 hover:bg-gray-50'
@@ -896,15 +918,15 @@ const ClientsList = ({
                 >
                   {pageNum}
                 </button>
-              );
+              ) : null;
             })}
             
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
             >
-              Próxima →
+              Próximo →
             </button>
           </div>
         </div>
@@ -914,36 +936,31 @@ const ClientsList = ({
       {showExportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Exportar Clientes</h3>
+            <h3 className="text-lg font-bold mb-4">Exportar Clientes</h3>
             
-            <div className="space-y-4">
-              <div>
-                <p className="text-gray-600 mb-2">
-                  {selectedClients.length > 0 
-                    ? `Exportar ${selectedClients.length} clientes selecionados`
-                    : `Exportar ${filteredClients.length} clientes filtrados`
-                  }
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <ThemedButton
-                  onClick={() => handleExport('csv')}
-                  className="flex-1"
-                >
-                  📊 CSV (Excel)
-                </ThemedButton>
-                
-                <ThemedButton
-                  onClick={() => handleExport('json')}
-                  className="flex-1"
-                >
-                  📄 JSON (Dados)
-                </ThemedButton>
-              </div>
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => handleExport('csv')}
+                className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <div className="font-medium">📊 CSV para Excel</div>
+                <div className="text-sm text-gray-500">
+                  Formato estruturado para análise em Excel
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleExport('json')}
+                className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <div className="font-medium">📄 JSON Completo</div>
+                <div className="text-sm text-gray-500">
+                  Backup completo com todos os dados
+                </div>
+              </button>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowExportModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
@@ -958,17 +975,13 @@ const ClientsList = ({
       {/* MODAL DE INTERAÇÃO RÁPIDA */}
       {showQuickInteraction && selectedClientForAction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Nova Interação</h3>
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">
+              Nova Interação - {selectedClientForAction.name}
+            </h3>
             
-            <div className="mb-4">
-              <p className="text-gray-600">
-                Cliente: <strong>{selectedClientForAction.name}</strong>
-              </p>
-            </div>
-
             <form onSubmit={handleQuickInteractionSubmit} className="space-y-4">
-              
+              {/* Tipo de Interação */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Interação
@@ -977,15 +990,17 @@ const ClientsList = ({
                   value={quickInteractionForm.type}
                   onChange={(e) => setQuickInteractionForm(prev => ({ ...prev, type: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
                 >
-                  <option value="call">Chamada Telefónica</option>
-                  <option value="email">Email</option>
-                  <option value="meeting">Reunião</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="note">Nota</option>
+                  <option value="call">📞 Chamada</option>
+                  <option value="email">📧 Email</option>
+                  <option value="meeting">🤝 Reunião</option>
+                  <option value="whatsapp">💬 WhatsApp</option>
+                  <option value="note">📝 Nota</option>
                 </select>
               </div>
 
+              {/* Assunto */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Assunto
@@ -995,10 +1010,12 @@ const ClientsList = ({
                   value={quickInteractionForm.subject}
                   onChange={(e) => setQuickInteractionForm(prev => ({ ...prev, subject: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Resumo da interação"
+                  placeholder="Breve descrição da interação"
+                  required
                 />
               </div>
 
+              {/* Descrição */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Descrição
@@ -1012,6 +1029,7 @@ const ClientsList = ({
                 />
               </div>
 
+              {/* Resultado */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Resultado
@@ -1021,19 +1039,16 @@ const ClientsList = ({
                   onChange={(e) => setQuickInteractionForm(prev => ({ ...prev, outcome: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="positive">Positivo</option>
-                  <option value="neutral">Neutro</option>
-                  <option value="negative">Negativo</option>
-                  <option value="follow_up_needed">Requer Follow-up</option>
+                  <option value="positive">✅ Positivo</option>
+                  <option value="neutral">➖ Neutro</option>
+                  <option value="negative">❌ Negativo</option>
+                  <option value="follow_up">🔄 Requer Follow-up</option>
                 </select>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <ThemedButton
-                  type="submit"
-                  className="flex-1"
-                >
-                  ✅ Registar
+                <ThemedButton type="submit" className="flex-1">
+                  💬 Adicionar Interação
                 </ThemedButton>
                 
                 <button
@@ -1041,12 +1056,6 @@ const ClientsList = ({
                   onClick={() => {
                     setShowQuickInteraction(false);
                     setSelectedClientForAction(null);
-                    setQuickInteractionForm({
-                      type: 'call',
-                      subject: '',
-                      description: '',
-                      outcome: 'neutral'
-                    });
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
