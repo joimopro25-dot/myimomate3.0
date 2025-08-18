@@ -14,11 +14,55 @@ import {
 } from '../../components/common/ThemedComponents';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 
+import useLeads from '../../hooks/useLeads';
+import useClients from '../../hooks/useClients';
+import useVisits from '../../hooks/useVisits';
+import useOpportunities from '../../hooks/useOpportunities';
+import useDeals from '../../hooks/useDeals';
+import useTasks from '../../hooks/useTasks';
+
 const DashboardPage = () => {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // HOOKS PARA DADOS REAIS
+  const { leads, getLeadStats } = useLeads();
+  const { clients, getClientStats } = useClients();
+  const { visitStats } = useVisits();
+  const { opportunities, getOpportunityStats } = useOpportunities();
+  const { deals, getDealStats } = useDeals();
+  const { tasks, getTaskStats } = useTasks();
+
+  // CALCULAR MÉTRICAS REAIS
+  const realMetrics = {
+    leads: {
+      total: leads?.length || 0,
+      thisMonth: getLeadStats ? getLeadStats().thisMonth : 0,
+      trend: '+15%', // Calcular depois
+      isPositive: true
+    },
+    clients: {
+      total: clients?.length || 0,
+      thisMonth: getClientStats ? getClientStats().thisMonth : 0,
+      trend: '+12%', // Calcular depois
+      isPositive: true
+    },
+    visits: {
+      total: visitStats?.total || 0,
+      today: visitStats?.today || 0,
+      trend: '+8%', // Calcular depois
+      isPositive: true
+    },
+    deals: {
+      total: deals?.length || 0,
+      thisMonth: getDealStats ? getDealStats().thisMonth : 0,
+      value: getDealStats ? `€${getDealStats().totalValue?.toLocaleString()}` : '€0',
+      trend: '+22%', // Calcular depois
+      isPositive: true
+    }
+  };
 
   // Atualizar hora a cada minuto
   useEffect(() => {
@@ -29,92 +73,7 @@ const DashboardPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Dados simulados para demonstração (futuramente virão do Firebase)
-  const metrics = {
-    leads: {
-      total: 47,
-      thisMonth: 12,
-      trend: '+15%',
-      isPositive: true
-    },
-    clients: {
-      total: 156,
-      thisMonth: 8,
-      trend: '+12%',
-      isPositive: true
-    },
-    visits: {
-      total: 23,
-      thisWeek: 5,
-      trend: '+8%',
-      isPositive: true
-    },
-    deals: {
-      total: 8,
-      thisMonth: 3,
-      value: '€245.000',
-      trend: '+22%',
-      isPositive: true
-    }
-  };
 
-  const recentTasks = [
-    {
-      id: 1,
-      title: 'Ligar para João Silva sobre T2 no Porto',
-      priority: 'alta',
-      dueDate: '2025-08-18',
-      type: 'call'
-    },
-    {
-      id: 2,
-      title: 'Preparar documentos para visita de amanhã',
-      priority: 'média',
-      dueDate: '2025-08-18',
-      type: 'document'
-    },
-    {
-      id: 3,
-      title: 'Follow-up com Maria Costa - Proposta T3',
-      priority: 'alta',
-      dueDate: '2025-08-19',
-      type: 'follow-up'
-    },
-    {
-      id: 4,
-      title: 'Agendar visita para apartamento em Cascais',
-      priority: 'baixa',
-      dueDate: '2025-08-20',
-      type: 'visit'
-    }
-  ];
-
-  const upcomingVisits = [
-    {
-      id: 1,
-      client: 'Ana Pereira',
-      property: 'T3 em Cascais - 320.000€',
-      time: '10:00',
-      date: '2025-08-18',
-      status: 'confirmada'
-    },
-    {
-      id: 2,
-      client: 'Carlos Mendes',
-      property: 'T2 no Centro do Porto - 280.000€',
-      time: '15:30',
-      date: '2025-08-18',
-      status: 'pendente'
-    },
-    {
-      id: 3,
-      client: 'Sofia Santos',
-      property: 'Moradia em Oeiras - 650.000€',
-      time: '11:00',
-      date: '2025-08-19',
-      status: 'confirmada'
-    }
-  ];
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -191,14 +150,14 @@ const DashboardPage = () => {
                   Leads
                 </ThemedText>
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                {metrics.leads.total}
+                {realMetrics.leads.total}
               </ThemedHeading>
               <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                 👆 Clique para gerir
               </ThemedText>
                 <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${metrics.leads.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {metrics.leads.trend}
+                  <span className={`text-sm font-medium ${realMetrics.leads.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {realMetrics.leads.trend}
                   </span>
                   <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
                     este mês
@@ -222,14 +181,14 @@ const DashboardPage = () => {
                   Clientes
                 </ThemedText>
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {metrics.clients.total}
+                  {realMetrics.clients.total}
                 </ThemedHeading>
                 <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                   👆 Clique para gerir
                 </ThemedText>
                 <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${metrics.clients.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {metrics.clients.trend}
+                  <span className={`text-sm font-medium ${realMetrics.clients.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {realMetrics.clients.trend}
                   </span>
                   <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
                     este mês
@@ -253,14 +212,14 @@ const DashboardPage = () => {
                   Visitas
                 </ThemedText>
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {metrics.visits.total}
+                  {realMetrics.visits.total}
                 </ThemedHeading>
                 <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                   👆 Clique para gerir
                 </ThemedText>
                 <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${metrics.visits.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {metrics.visits.trend}
+                  <span className={`text-sm font-medium ${realMetrics.visits.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {realMetrics.visits.trend}
                   </span>
                   <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
                     esta semana
@@ -284,17 +243,17 @@ const DashboardPage = () => {
                   Negócios
                 </ThemedText>
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {metrics.deals.total}
+                  {realMetrics.deals.total}
                 </ThemedHeading>
                 <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                   👆 Clique para gerir
                 </ThemedText>
                 <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${metrics.deals.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {metrics.deals.trend}
+                  <span className={`text-sm font-medium ${realMetrics.deals.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {realMetrics.deals.trend}
                   </span>
                   <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {metrics.deals.value}
+                    {realMetrics.deals.value}
                   </ThemedText>
                 </div>
               </div>
@@ -327,7 +286,7 @@ const DashboardPage = () => {
               </div>
               
               <div className="space-y-4">
-                {recentTasks.map((task) => (
+                {tasks && tasks.length > 0 ? tasks.slice(0, 4).map((task) => (
                   <div key={task.id} className={`
                     flex items-start space-x-3 p-3 rounded-lg transition-colors
                     ${isDark() ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
@@ -346,7 +305,7 @@ const DashboardPage = () => {
                           {task.priority}
                         </ThemedBadge>
                         <ThemedText size="xs" className={isDark() ? 'text-gray-400' : 'text-gray-500'}>
-                          {new Date(task.dueDate).toLocaleDateString('pt-PT')}
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-PT') : 'Sem data'}
                         </ThemedText>
                       </div>
                     </div>
@@ -359,7 +318,14 @@ const DashboardPage = () => {
                       </svg>
                     </button>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8">
+                    <span className="text-4xl mb-4 block">✅</span>
+                    <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Nenhuma tarefa pendente
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -388,32 +354,24 @@ const DashboardPage = () => {
               </div>
               
               <div className="space-y-4">
-                {upcomingVisits.map((visit) => (
-                  <div key={visit.id} className={`
-                    p-3 rounded-lg border transition-colors
-                    ${isDark() ? 'border-gray-600 hover:border-gray-500' : 'border-gray-200 hover:border-gray-300'}
-                  `}>
-                    <div className="flex items-center justify-between mb-2">
-                      <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                        {visit.client}
-                      </ThemedText>
-                      <span className={`text-xs font-medium ${getStatusColor(visit.status)}`}>
-                        {visit.status}
-                      </span>
-                    </div>
-                    <ThemedText size="xs" className={`mb-2 ${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
-                      {visit.property}
-                    </ThemedText>
-                    <div className="flex items-center justify-between">
-                      <ThemedText size="xs" className={isDark() ? 'text-gray-400' : 'text-gray-500'}>
-                        {new Date(visit.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
-                      </ThemedText>
-                      <ThemedText size="xs" className={`font-medium ${isDark() ? 'text-blue-400' : 'text-blue-600'}`}>
-                        {visit.time}
-                      </ThemedText>
-                    </div>
+                {visitStats && visitStats.upcoming > 0 ? (
+                  <div className="text-center py-4">
+                    <span className="text-2xl">📅</span>
+                    <p className={`mt-2 text-sm ${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {visitStats.upcoming} visitas agendadas
+                    </p>
+                    <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {visitStats.today} para hoje
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-8">
+                    <span className="text-4xl mb-4 block">📅</span>
+                    <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Nenhuma visita agendada
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
