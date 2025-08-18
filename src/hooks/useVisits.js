@@ -695,7 +695,7 @@ const useVisits = () => {
   }, [user]);
 
   // 📊 OBTER ESTATÍSTICAS DAS VISITAS
-  const getVisitStats = useMemo(() => {
+    const visitStats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
@@ -748,6 +748,9 @@ const useVisits = () => {
 
     return stats;
   }, [visits]);
+
+  // Função para obter stats (para compatibilidade)
+  const getVisitStats = useCallback(() => visitStats, [visitStats]);
 
   // 🔍 BUSCAR VISITAS (por nome do cliente ou morada)
   const searchVisits = useCallback((searchTerm) => {
@@ -806,6 +809,7 @@ const useVisits = () => {
     setFilters,
     
     // Estatísticas
+    visitStats,
     getVisitStats,
     
     // Constantes úteis

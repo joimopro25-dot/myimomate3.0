@@ -1,9 +1,9 @@
 // src/pages/dashboard/DashboardPage.jsx
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   ThemedButton, 
   ThemedCard, 
@@ -17,6 +17,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 const DashboardPage = () => {
   const { userProfile } = useAuth();
   const { theme, isDark } = useTheme();
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Atualizar hora a cada minuto
@@ -180,15 +181,21 @@ const DashboardPage = () => {
         {/* Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Leads */}
-          <ThemedCard className="p-6">
+          <ThemedCard 
+            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
+            onClick={() => navigate('/leads')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
                   Leads
                 </ThemedText>
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {metrics.leads.total}
-                </ThemedHeading>
+                {metrics.leads.total}
+              </ThemedHeading>
+              <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                👆 Clique para gerir
+              </ThemedText>
                 <div className="flex items-center mt-2">
                   <span className={`text-sm font-medium ${metrics.leads.isPositive ? 'text-green-500' : 'text-red-500'}`}>
                     {metrics.leads.trend}
@@ -205,7 +212,10 @@ const DashboardPage = () => {
           </ThemedCard>
 
           {/* Clientes */}
-          <ThemedCard className="p-6">
+          <ThemedCard 
+            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
+            onClick={() => navigate('/clients')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -214,6 +224,9 @@ const DashboardPage = () => {
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
                   {metrics.clients.total}
                 </ThemedHeading>
+                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                  👆 Clique para gerir
+                </ThemedText>
                 <div className="flex items-center mt-2">
                   <span className={`text-sm font-medium ${metrics.clients.isPositive ? 'text-green-500' : 'text-red-500'}`}>
                     {metrics.clients.trend}
@@ -230,7 +243,10 @@ const DashboardPage = () => {
           </ThemedCard>
 
           {/* Visitas */}
-          <ThemedCard className="p-6">
+          <ThemedCard 
+            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
+            onClick={() => navigate('/visits')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -239,6 +255,9 @@ const DashboardPage = () => {
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
                   {metrics.visits.total}
                 </ThemedHeading>
+                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                  👆 Clique para gerir
+                </ThemedText>
                 <div className="flex items-center mt-2">
                   <span className={`text-sm font-medium ${metrics.visits.isPositive ? 'text-green-500' : 'text-red-500'}`}>
                     {metrics.visits.trend}
@@ -255,7 +274,10 @@ const DashboardPage = () => {
           </ThemedCard>
 
           {/* Negócios */}
-          <ThemedCard className="p-6">
+          <ThemedCard 
+            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
+            onClick={() => navigate('/deals')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -264,6 +286,9 @@ const DashboardPage = () => {
                 <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
                   {metrics.deals.total}
                 </ThemedHeading>
+                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                  👆 Clique para gerir
+                </ThemedText>
                 <div className="flex items-center mt-2">
                   <span className={`text-sm font-medium ${metrics.deals.isPositive ? 'text-green-500' : 'text-red-500'}`}>
                     {metrics.deals.trend}

@@ -16,50 +16,15 @@ import LandingPage from './pages/landing/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+// Páginas dos Módulos Implementados
+import LeadsPage from './pages/leads/LeadsPage';
+import ClientsPage from './pages/clients/ClientsPage';
+import VisitsPage from './pages/visits/VisitsPage';
+import OpportunitiesPage from './pages/opportunities/OpportunitiesPage';
+import DealsPage from './pages/deals/DealsPage';
+import TasksPage from './pages/tasks/TasksPage';
 
-// Placeholder components para páginas futuras
-const LeadsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Gestão de Leads</h1>
-    <p className="text-gray-600">Módulo de leads em desenvolvimento...</p>
-  </div>
-);
-
-const ClientsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Gestão de Clientes</h1>
-    <p className="text-gray-600">Módulo de clientes em desenvolvimento...</p>
-  </div>
-);
-
-const VisitsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Sistema de Visitas</h1>
-    <p className="text-gray-600">Sistema de visitas em desenvolvimento...</p>
-  </div>
-);
-
-const OpportunitiesPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Oportunidades</h1>
-    <p className="text-gray-600">Módulo de oportunidades em desenvolvimento...</p>
-  </div>
-);
-
-const DealsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Pipeline de Negócios</h1>
-    <p className="text-gray-600">Pipeline de negócios em desenvolvimento...</p>
-  </div>
-);
-
-const TasksPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Gestão de Tarefas</h1>
-    <p className="text-gray-600">Sistema de tarefas em desenvolvimento...</p>
-  </div>
-);
-
+// Páginas ainda não implementadas (manter placeholders)
 const CalendarPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold mb-4">Calendário</h1>
@@ -94,6 +59,7 @@ const BillingPage = () => (
     <p className="text-gray-600">Gestão de faturação em desenvolvimento...</p>
   </div>
 );
+
 
 // Componente para páginas não encontradas
 const NotFoundPage = () => (
@@ -339,6 +305,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <BillingPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/reports" 
+                element={
+                  <ProtectedRoute>
+                    <div className="p-6">
+                      <h1 className="text-2xl font-bold mb-4">Relatórios e Analytics</h1>
+                      <p className="text-gray-600">Sistema de relatórios em desenvolvimento...</p>
+                    </div>
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/integrations" 
+                element={
+                  <ProtectedRoute>
+                    <div className="p-6">
+                      <h1 className="text-2xl font-bold mb-4">Integrações</h1>
+                      <p className="text-gray-600">Gestão de integrações em desenvolvimento...</p>
+                    </div>
                   </ProtectedRoute>
                 } 
               />
