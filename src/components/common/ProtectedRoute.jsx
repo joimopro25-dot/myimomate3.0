@@ -1,5 +1,4 @@
 // src/components/common/ProtectedRoute.jsx
-
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -14,11 +13,9 @@ const ProtectedRoute = ({
   const { 
     currentUser, 
     userProfile, 
-    loading, 
-    isAuthenticated, 
-    isEmailVerified 
+    loading
   } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { isDark } = useTheme();
   const location = useLocation();
 
   // Loading state - mostrar spinner enquanto carrega
@@ -44,7 +41,7 @@ const ProtectedRoute = ({
   }
 
   // Utilizador não autenticado - redirecionar para login
-  if (!isAuthenticated()) {
+  if (!currentUser) {
     return (
       <Navigate 
         to={fallbackPath} 
@@ -55,7 +52,7 @@ const ProtectedRoute = ({
   }
 
   // Verificar se email precisa estar verificado
-  if (requireEmailVerification && !isEmailVerified()) {
+  if (requireEmailVerification && !currentUser.emailVerified) {
     return <EmailVerificationRequired />;
   }
 
@@ -70,19 +67,15 @@ const ProtectedRoute = ({
 
 // Componente para quando email não está verificado
 const EmailVerificationRequired = () => {
-  const { 
-    currentUser, 
-    resendVerificationEmail, 
-    logout 
-  } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { isDark } = useTheme();
 
   const handleResendEmail = async () => {
-    const result = await resendVerificationEmail();
-    if (result.success) {
-      alert('Email de verificação reenviado!');
-    } else {
-      alert('Erro ao reenviar email: ' + result.message);
+    try {
+      // Implementar reenvio de email se necessário
+      alert('Funcionalidade de reenvio será implementada');
+    } catch (error) {
+      alert('Erro ao reenviar email: ' + error.message);
     }
   };
 

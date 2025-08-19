@@ -91,8 +91,12 @@ const ProfileGuard = ({ children }) => {
     );
   }
 
+  // Verificar se perfil está completo de forma mais flexível
+  const hasBasicProfile = userProfile?.name && userProfile?.email;
+  const isProfileCompleted = userProfile?.stats?.profileCompleted === true || hasBasicProfile;
+
   // Se não tem perfil completo, redirecionar para criação
-  if (!userProfile?.stats?.profileCompleted) {
+  if (!isProfileCompleted) {
     return <Navigate to="/create-profile" replace />;
   }
 

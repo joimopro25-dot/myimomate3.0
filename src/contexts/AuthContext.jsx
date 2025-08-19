@@ -608,6 +608,7 @@ const markProfileAsCompleted = async () => {
     checkEmailExists
   };
 
+  
   return (
     <AuthContext.Provider value={value}>
       {children}
