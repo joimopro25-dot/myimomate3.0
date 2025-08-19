@@ -99,6 +99,93 @@ export const ThemedInput = ({
   );
 };
 
+// Select Temático (NOVO)
+export const ThemedSelect = ({ 
+  label,
+  error,
+  children,
+  className = '',
+  ...props 
+}) => {
+  const { getThemeClass, theme } = useTheme();
+  
+  const baseClasses = `
+    block w-full rounded-lg px-3 py-2 text-base
+    transition-colors duration-200
+    focus:outline-none focus:ring-2 focus:ring-offset-2
+    cursor-pointer
+  `;
+  
+  const themeClasses = getThemeClass('input');
+
+  return (
+    <div className="space-y-1">
+      {label && (
+        <label 
+          className={`block text-sm ${theme.typography.headingWeight} text-gray-700`}
+          style={{ fontFamily: theme.typography.fontFamily }}
+        >
+          {label}
+        </label>
+      )}
+      <select
+        className={`${baseClasses} ${themeClasses} ${className} ${
+          error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
+        }`}
+        {...props}
+      >
+        {children}
+      </select>
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+};
+
+// Textarea Temático (NOVO)
+export const ThemedTextarea = ({ 
+  label,
+  error,
+  className = '',
+  rows = 3,
+  ...props 
+}) => {
+  const { getThemeClass, theme } = useTheme();
+  
+  const baseClasses = `
+    block w-full rounded-lg px-3 py-2 text-base
+    placeholder-gray-400 transition-colors duration-200
+    focus:outline-none focus:ring-2 focus:ring-offset-2
+    resize-y min-h-[80px]
+  `;
+  
+  const themeClasses = getThemeClass('input');
+
+  return (
+    <div className="space-y-1">
+      {label && (
+        <label 
+          className={`block text-sm ${theme.typography.headingWeight} text-gray-700`}
+          style={{ fontFamily: theme.typography.fontFamily }}
+        >
+          {label}
+        </label>
+      )}
+      <textarea
+        rows={rows}
+        className={`${baseClasses} ${themeClasses} ${className} ${
+          error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
+        }`}
+        {...props}
+      />
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+};
+
 // Título Temático
 export const ThemedHeading = ({ 
   level = 1, 

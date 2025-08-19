@@ -32,14 +32,10 @@ import OpportunitiesPage from './pages/opportunities/OpportunitiesPage';
 import DealsPage from './pages/deals/DealsPage';
 import TasksPage from './pages/tasks/TasksPage';
 
-// Placeholder Components for Future Modules
-const CalendarPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Calendário</h1>
-    <p className="text-gray-600">Calendário integrado em desenvolvimento...</p>
-  </div>
-);
+// ✅ CALENDÁRIO IMPLEMENTADO - Sistema Completo
+import CalendarPage from './pages/calendar/CalendarPage';
 
+// Placeholder Components for Future Modules
 const SettingsPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold mb-4">Configurações</h1>

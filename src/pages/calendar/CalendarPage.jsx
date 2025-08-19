@@ -24,10 +24,8 @@ import {
   isSameDay, 
   isToday,
   addMonths,
-  subMonths,
-  parseISO
+  subMonths
 } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 // Constantes
 const CALENDAR_VIEWS = {
@@ -99,50 +97,55 @@ const CalendarPage = () => {
     const events = [];
 
     // Adicionar tarefas como eventos
-    tasks.forEach(task => {
-      if (task.dueDate) {
-        events.push({
-          id: `task-${task.id}`,
-          title: task.title,
-          description: task.description,
-          type: EVENT_TYPES.TASK,
-          date: task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate),
-          startTime: '09:00',
-          endTime: '10:00',
-          source: 'task',
-          sourceData: task,
-          priority: task.priority,
-          status: task.status
-        });
-      }
-    });
+    if (tasks && Array.isArray(tasks)) {
+      tasks.forEach(task => {
+        if (task.dueDate) {
+          events.push({
+            id: `task-${task.id}`,
+            title: task.title,
+            description: task.description,
+            type: EVENT_TYPES.TASK,
+            date: task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate),
+            startTime: '09:00',
+            endTime: '10:00',
+            source: 'task',
+            sourceData: task,
+            priority: task.priority,
+            status: task.status
+          });
+        }
+      });
+    }
 
     // Adicionar visitas como eventos
-    visits.forEach(visit => {
-      if (visit.scheduledDate) {
-        events.push({
-          id: `visit-${visit.id}`,
-          title: `Visita - ${visit.propertyAddress || 'Propriedade'}`,
-          description: `Cliente: ${visit.clientName || 'N/A'}`,
-          type: EVENT_TYPES.VISIT,
-          date: visit.scheduledDate instanceof Date ? visit.scheduledDate : new Date(visit.scheduledDate),
-          startTime: visit.scheduledTime || '14:00',
-          endTime: visit.estimatedDuration ? 
-            addMinutesToTime(visit.scheduledTime || '14:00', visit.estimatedDuration) : 
-            '15:00',
-          source: 'visit',
-          sourceData: visit,
-          location: visit.propertyAddress,
-          attendees: visit.clientName
-        });
-      }
-    });
+    if (visits && Array.isArray(visits)) {
+      visits.forEach(visit => {
+        if (visit.scheduledDate) {
+          events.push({
+            id: `visit-${visit.id}`,
+            title: `Visita - ${visit.propertyAddress || 'Propriedade'}`,
+            description: `Cliente: ${visit.clientName || 'N/A'}`,
+            type: EVENT_TYPES.VISIT,
+            date: visit.scheduledDate instanceof Date ? visit.scheduledDate : new Date(visit.scheduledDate),
+            startTime: visit.scheduledTime || '14:00',
+            endTime: visit.estimatedDuration ? 
+              addMinutesToTime(visit.scheduledTime || '14:00', visit.estimatedDuration) : 
+              '15:00',
+            source: 'visit',
+            sourceData: visit,
+            location: visit.propertyAddress,
+            attendees: visit.clientName
+          });
+        }
+      });
+    }
 
     return events.sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [tasks, visits]);
 
   // Função auxiliar para adicionar minutos ao horário
   const addMinutesToTime = (time, minutes) => {
+    if (!time) return '00:00';
     const [hours, mins] = time.split(':').map(Number);
     const totalMinutes = hours * 60 + mins + minutes;
     const newHours = Math.floor(totalMinutes / 60) % 24;
@@ -261,7 +264,7 @@ const CalendarPage = () => {
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center space-x-4">
         <ThemedHeading className="text-2xl font-bold">
-          {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+          {format(currentDate, 'MMMM yyyy')}
         </ThemedHeading>
         
         <div className="flex space-x-2">
@@ -432,7 +435,7 @@ const CalendarPage = () => {
     return (
       <ThemedCard className="p-4 mb-6">
         <h3 className="text-sm font-medium text-gray-900 mb-3">
-          Estatísticas de {format(currentDate, 'MMMM', { locale: ptBR })}
+          Estatísticas de {format(currentDate, 'MMMM')}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
@@ -723,7 +726,7 @@ const CalendarPage = () => {
         {renderMonthStats()}
 
         {/* Legenda */}
-        {renderEventLegenda()}
+        {renderEventLegend()}
 
         {/* Vista do calendário */}
         {currentView === CALENDAR_VIEWS.MONTH && renderMonthView()}
