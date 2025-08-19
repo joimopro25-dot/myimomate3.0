@@ -26,6 +26,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { auth, db, getFirebaseErrorMessage } from '../config/firebase';
+import { ensureUserHasProfile } from '../utils/createUserProfile';
 
 // 🔐 CONTEXTO DE AUTENTICAÇÃO FIREBASE
 // ====================================
@@ -503,43 +504,63 @@ export const AuthProvider = ({ children }) => {
   // 📡 LISTENER DE MUDANÇAS NO AUTH
   // ===============================
   useEffect(() => {
-    console.log('🔄 Configurando listener de autenticação...');
+  console.log('🔄 Configurando listener de autenticação...');
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('👤 Estado de auth mudou:', user ? `Utilizador: ${user.email}` : 'Sem utilizador');
-      
-      setCurrentUser(user);
-      
-      if (user) {
-        // Carregar perfil do utilizador autenticado
-        await loadUserProfile(user.uid);
-      } else {
-        // Limpar perfil se utilizador saiu
-        setUserProfile(null);
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    console.log('👤 Estado de auth mudou:', user ? `Utilizador: ${user.email}` : 'Sem utilizador');
+    
+    setCurrentUser(user);
+    
+    if (user) {
+      try {
+        // Verificar se utilizador tem perfil, criar se necessário
+        const profile = await ensureUserHasProfile(user, loadUserProfile);
+        
+        if (profile && !profile.stats?.profileCompleted) {
+          console.log('⚠️ Utilizador precisa completar perfil');
+          // O ProfileGuard irá redirecionar para /create-profile
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao verificar perfil:', error);
+        // Continuar mesmo com erro para não bloquear login
       }
-      
-      setLoading(false);
-      setInitializationComplete(true);
-    });
-
-    return () => {
-      console.log('🔄 Removendo listener de autenticação...');
-      unsubscribe();
-    };
-  }, []);
-
-  // 🧹 LIMPAR ERROS AUTOMATICAMENTE
-  // ===============================
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        setError('');
-      }, 5000);
-      
-      return () => clearTimeout(timer);
+    } else {
+      // Limpar perfil se utilizador saiu
+      setUserProfile(null);
     }
-  }, [error]);
+    
+    setLoading(false);
+    setInitializationComplete(true);
+  });
 
+  return () => {
+    console.log('🔄 Removendo listener de autenticação...');
+    unsubscribe();
+  };
+}, []);
+
+// Adicionar função para marcar perfil como completo após criação
+const markProfileAsCompleted = async () => {
+  if (!currentUser?.uid) return;
+  
+  try {
+    await updateDoc(doc(db, 'users', currentUser.uid), {
+      'stats.profileCompleted': true,
+      'needsProfileCompletion': false,
+      'stats.profileCompletedAt': serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    // Recarregar perfil
+    await loadUserProfile(currentUser.uid);
+    
+    console.log('✅ Perfil marcado como completo');
+    
+  } catch (error) {
+    console.error('❌ Erro ao marcar perfil como completo:', error);
+  }
+};
   // 📊 VALOR DO CONTEXTO
   // ===================
   const value = {
@@ -572,6 +593,9 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: () => !!currentUser,
     isEmailVerified: () => currentUser?.emailVerified || false,
     
+    // Novas funções
+    markProfileAsCompleted,
+
     // Getters úteis
     getUserId: () => currentUser?.uid || null,
     getUserEmail: () => currentUser?.email || '',

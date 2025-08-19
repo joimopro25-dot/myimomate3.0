@@ -193,10 +193,16 @@ const useClients = () => {
       setLoading(false);
     }
   }, [user, filters]);
+  
+// 🔍 VERIFICAR DUPLICADOS (mais rigoroso que leads)
+const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = null) => {
+  // ✅ VERIFICAÇÃO ADICIONADA
+  if (!user?.uid) {
+    console.error('❌ Utilizador não autenticado para verificar duplicados');
+    return { hasDuplicates: false, duplicates: [], error: 'Utilizador não autenticado' };
+  }
 
-  // 🔍 VERIFICAR DUPLICADOS (mais rigoroso que leads)
-  const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = null) => {
-    setDuplicateCheck(true);
+  setDuplicateCheck(true);
     
     try {
       const duplicates = [];

@@ -5,6 +5,10 @@ import { useEffect, useState } from 'react';
 import { db } from './config/firebase';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 
+//Gestão de Perfil
+import CreateProfilePage from './pages/profile/CreateProfilePage';
+import ProfilePage from './pages/profile/ProfilePage';
+
 // Context Providers
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -85,6 +89,29 @@ const NotFoundPage = () => (
     </div>
   </ThemedContainer>
 );
+// No componente ProtectedRoute, adicionar verificação de perfil completo:
+const ProfileGuard = ({ children }) => {
+  const { userProfile, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <ThemedContainer className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <ThemedHeading level={3} className="mb-2">Carregando perfil...</ThemedHeading>
+          <ThemedText className="text-gray-600">Verificando dados do utilizador</ThemedText>
+        </div>
+      </ThemedContainer>
+    );
+  }
+
+  // Se não tem perfil completo, redirecionar para criação
+  if (!userProfile?.stats?.profileCompleted) {
+    return <Navigate to="/create-profile" replace />;
+  }
+
+  return children;
+};
 
 // Firebase connection test component (mantido para debug)
 const FirebaseTest = () => {
@@ -200,6 +227,52 @@ function App() {
               {/* Teste Firebase - Página de debug */}
               <Route path="/firebase-test" element={<FirebaseTest />} />
               
+                {/* Rota para criação de perfil (para utilizadores sem perfil completo) */}
+              <Route 
+                path="/create-profile" 
+                element={
+                  <ProtectedRoute>
+                    <CreateProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Rota para gestão de perfil (para utilizadores com perfil completo) */}
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfileGuard>
+                      <ProfilePage />
+                    </ProfileGuard>
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Proteger dashboard e outras rotas principais com ProfileGuard */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <ProfileGuard>
+                      <DashboardPage />
+                    </ProfileGuard>
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Aplicar ProfileGuard a todas as rotas de módulos */}
+              <Route 
+                path="/leads" 
+                element={
+                  <ProtectedRoute>
+                    <ProfileGuard>
+                      <LeadsPage />
+                    </ProfileGuard>
+                  </ProtectedRoute>
+                } 
+              />
+
               {/* Páginas Protegidas - Requerem Autenticação */}
               <Route 
                 path="/dashboard" 
