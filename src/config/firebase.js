@@ -12,24 +12,15 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth';
 // SOLUÇÃO: Nova API key obtida do Firebase Console
 
 const firebaseConfig = {
-  // 🔑 NOVA API KEY - Obtida do Firebase Console (Project Settings > General > Your apps)
-  apiKey: "AIzaSyDczFqGCwPPnLcvY5kWn0trshH9BMqVo1A", // ⚠️ SUBSTITUA PELA NOVA CHAVE!
+  apiKey: "AIzaSyDczFqGCwPPnLcvY5kWn0trshH9BMqVo1A",
   authDomain: "myimomate3-0.firebaseapp.com",
   projectId: "myimomate3-0",
   storageBucket: "myimomate3-0.firebasestorage.app",
   messagingSenderId: "971739318329",
-  appId: "1:971739318329:web:7d59f6602c259a940325e8"
+  appId: "1:971739318329:web:704690b62e852a840325e8"
 };
 
-// 🔧 CONFIGURAÇÃO TEMPORÁRIA PARA TESTES (caso a API key ainda não funcione)
-const tempConfig = {
-  apiKey: "AIzaSyBvOxhGAI-qP-MO0EJl8mXXXXXXXXXXXXX", // Placeholder para nova chave
-  authDomain: "myimomate3-0.firebaseapp.com", 
-  projectId: "myimomate3-0",
-  storageBucket: "myimomate3-0.firebasestorage.app",
-  messagingSenderId: "971739318329",
-  appId: "1:971739318329:web:7d59f6602c259a940325e8"
-};
+
 
 // Validação da configuração
 const validateConfig = (config) => {
