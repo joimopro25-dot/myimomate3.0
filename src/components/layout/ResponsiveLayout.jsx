@@ -33,7 +33,7 @@ const ResponsiveLayout = ({ children, title, actions }) => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < 1024);
       if (window.innerWidth >= 1024) {
-        setSidebarOpen(false); // Fechar sidebar mobile em desktop
+        setSidebarOpen(false);
       }
     };
 
@@ -42,18 +42,68 @@ const ResponsiveLayout = ({ children, title, actions }) => {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  // Menu de navegação
+  // Menu de navegação com Heroicons
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: location.pathname === '/dashboard' },
-    { name: 'Leads', href: '/leads', icon: UserGroupIcon, current: location.pathname.startsWith('/leads') },
-    { name: 'Clientes', href: '/clients', icon: UsersIcon, current: location.pathname.startsWith('/clients') },
-    { name: 'Visitas', href: '/visits', icon: EyeIcon, current: location.pathname.startsWith('/visits') },
-    { name: 'Oportunidades', href: '/opportunities', icon: BriefcaseIcon, current: location.pathname.startsWith('/opportunities') },
-    { name: 'Negócios', href: '/deals', icon: CurrencyEuroIcon, current: location.pathname.startsWith('/deals') },
-    { name: 'Tarefas', href: '/tasks', icon: CheckSquareIcon, current: location.pathname.startsWith('/tasks') },
-    { name: 'Calendário', href: '/calendar', icon: CalendarIcon, current: location.pathname.startsWith('/calendar') },
-    { name: 'Relatórios', href: '/reports', icon: ChartBarIcon, current: location.pathname.startsWith('/reports') },
-    { name: 'Configurações', href: '/settings', icon: CogIcon, current: location.pathname.startsWith('/settings') },
+    { 
+      name: 'Dashboard', 
+      href: '/dashboard', 
+      icon: HomeIcon, 
+      current: location.pathname === '/dashboard' 
+    },
+    { 
+      name: 'Leads', 
+      href: '/leads', 
+      icon: UserGroupIcon, 
+      current: location.pathname.startsWith('/leads') 
+    },
+    { 
+      name: 'Clientes', 
+      href: '/clients', 
+      icon: UsersIcon, 
+      current: location.pathname.startsWith('/clients') 
+    },
+    { 
+      name: 'Visitas', 
+      href: '/visits', 
+      icon: EyeIcon, 
+      current: location.pathname.startsWith('/visits') 
+    },
+    { 
+      name: 'Oportunidades', 
+      href: '/opportunities', 
+      icon: BriefcaseIcon, 
+      current: location.pathname.startsWith('/opportunities') 
+    },
+    { 
+      name: 'Negócios', 
+      href: '/deals', 
+      icon: CurrencyEuroIcon, 
+      current: location.pathname.startsWith('/deals') 
+    },
+    { 
+      name: 'Tarefas', 
+      href: '/tasks', 
+      icon: CheckSquareIcon, 
+      current: location.pathname.startsWith('/tasks') 
+    },
+    { 
+      name: 'Calendário', 
+      href: '/calendar', 
+      icon: CalendarIcon, 
+      current: location.pathname.startsWith('/calendar') 
+    },
+    { 
+      name: 'Relatórios', 
+      href: '/reports', 
+      icon: ChartBarIcon, 
+      current: location.pathname.startsWith('/reports') 
+    },
+    { 
+      name: 'Configurações', 
+      href: '/settings', 
+      icon: CogIcon, 
+      current: location.pathname.startsWith('/settings') 
+    }
   ];
 
   const handleNavigation = (href) => {
@@ -78,18 +128,24 @@ const ResponsiveLayout = ({ children, title, actions }) => {
       ${mobile ? 'lg:hidden' : 'hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0'}
       ${mobile ? 'relative' : ''}
     `}>
-      <div style={{ backgroundColor: currentTheme.sidebar.background }} 
-           className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto border-r border-gray-200">
+      <div 
+        style={{ backgroundColor: currentTheme?.sidebar?.background || '#ffffff' }} 
+        className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto border-r border-gray-200"
+      >
         
         {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-4">
           <div className="flex items-center">
-            <div style={{ backgroundColor: currentTheme.primary.main }} 
-                 className="w-8 h-8 rounded-lg flex items-center justify-center">
+            <div 
+              style={{ backgroundColor: currentTheme?.primary?.main || '#3b82f6' }} 
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+            >
               <HomeIcon className="w-5 h-5 text-white" />
             </div>
-            <span style={{ color: currentTheme.text.primary }} 
-                  className="ml-2 text-xl font-bold">
+            <span 
+              style={{ color: currentTheme?.text?.primary || '#1f2937' }} 
+              className="ml-2 text-xl font-bold"
+            >
               MyImoMate
             </span>
           </div>
@@ -99,36 +155,36 @@ const ResponsiveLayout = ({ children, title, actions }) => {
         <nav className="mt-8 flex-1 px-2 space-y-1">
           {navigation.map((item) => {
             const isActive = item.current;
+            const IconComponent = item.icon;
+            
             return (
               <button
                 key={item.name}
                 onClick={() => handleNavigation(item.href)}
                 className={`
-                  group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full text-left transition-colors duration-200
+                  group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full text-left transition-all duration-200
                   ${isActive 
-                    ? `text-white` 
-                    : `hover:bg-opacity-75`
+                    ? 'text-white shadow-sm' 
+                    : 'hover:bg-gray-100'
                   }
                 `}
                 style={{
-                  backgroundColor: isActive ? currentTheme.primary.main : 'transparent',
-                  color: isActive ? 'white' : currentTheme.text.secondary
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.target.style.backgroundColor = currentTheme.sidebar.hover;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.target.style.backgroundColor = 'transparent';
-                  }
+                  backgroundColor: isActive 
+                    ? currentTheme?.primary?.main || '#3b82f6' 
+                    : 'transparent',
+                  color: isActive 
+                    ? '#ffffff' 
+                    : currentTheme?.text?.secondary || '#6b7280'
                 }}
               >
-                <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                <IconComponent className="mr-3 w-5 h-5 flex-shrink-0" />
                 {item.name}
                 {!isMobile && (
-                  <ChevronRightIcon className={`ml-auto h-4 w-4 transition-transform duration-200 ${isActive ? 'rotate-90' : ''}`} />
+                  <ChevronRightIcon 
+                    className={`ml-auto w-4 h-4 transition-transform duration-200 ${
+                      isActive ? 'rotate-90' : ''
+                    }`} 
+                  />
                 )}
               </button>
             );
@@ -138,15 +194,23 @@ const ResponsiveLayout = ({ children, title, actions }) => {
         {/* User Info */}
         <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
           <div className="flex items-center w-full">
-            <UserCircleIcon style={{ color: currentTheme.text.secondary }} className="w-8 h-8" />
+            <UserCircleIcon 
+              style={{ color: currentTheme?.text?.secondary || '#6b7280' }} 
+              className="w-8 h-8" 
+            />
             <div className="ml-3 flex-1">
-              <p style={{ color: currentTheme.text.primary }} className="text-sm font-medium">
-                {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Utilizador'}
+              <p 
+                style={{ color: currentTheme?.text?.primary || '#1f2937' }} 
+                className="text-sm font-medium truncate"
+              >
+                {currentUser?.displayName || 
+                 currentUser?.email?.split('@')[0] || 
+                 'Utilizador'}
               </p>
               <button
                 onClick={handleLogout}
-                style={{ color: currentTheme.text.secondary }}
-                className="text-xs hover:underline"
+                style={{ color: currentTheme?.text?.secondary || '#6b7280' }}
+                className="text-xs hover:underline transition-colors"
               >
                 Terminar sessão
               </button>
@@ -158,7 +222,10 @@ const ResponsiveLayout = ({ children, title, actions }) => {
   );
 
   return (
-    <div className="h-screen flex overflow-hidden" style={{ backgroundColor: currentTheme.background.secondary }}>
+    <div 
+      className="h-screen flex overflow-hidden" 
+      style={{ backgroundColor: currentTheme?.background?.secondary || '#f9fafb' }}
+    >
       
       {/* Sidebar Desktop */}
       <Sidebar />
@@ -166,7 +233,10 @@ const ResponsiveLayout = ({ children, title, actions }) => {
       {/* Mobile sidebar overlay */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 flex z-40 lg:hidden">
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+          <div 
+            className="fixed inset-0 bg-gray-600 bg-opacity-75" 
+            onClick={() => setSidebarOpen(false)} 
+          />
           <div className="relative flex-1 flex flex-col max-w-xs w-full">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
@@ -185,8 +255,10 @@ const ResponsiveLayout = ({ children, title, actions }) => {
       <div className={`flex flex-col w-0 flex-1 overflow-hidden ${!isMobile ? 'lg:pl-64' : ''}`}>
         
         {/* Header */}
-        <div style={{ backgroundColor: currentTheme.background.primary }} 
-             className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow border-b border-gray-200">
+        <div 
+          style={{ backgroundColor: currentTheme?.background?.primary || '#ffffff' }} 
+          className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow border-b border-gray-200"
+        >
           
           {/* Mobile menu button */}
           {isMobile && (
@@ -203,8 +275,10 @@ const ResponsiveLayout = ({ children, title, actions }) => {
             
             {/* Título da página */}
             <div className="flex-1">
-              <h1 style={{ color: currentTheme.text.primary }} 
-                  className="text-2xl font-semibold">
+              <h1 
+                style={{ color: currentTheme?.text?.primary || '#1f2937' }} 
+                className="text-2xl font-semibold"
+              >
                 {title || 'Dashboard'}
               </h1>
             </div>
@@ -213,8 +287,10 @@ const ResponsiveLayout = ({ children, title, actions }) => {
             <div className="ml-4 flex items-center md:ml-6 space-x-4">
               
               {/* Notificações */}
-              <button style={{ color: currentTheme.text.secondary }}
-                      className="p-1 rounded-full hover:bg-gray-100 transition-colors">
+              <button 
+                style={{ color: currentTheme?.text?.secondary || '#6b7280' }}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
                 <BellIcon className="h-6 w-6" />
               </button>
 
@@ -228,9 +304,13 @@ const ResponsiveLayout = ({ children, title, actions }) => {
               {/* Avatar do usuário */}
               <div className="relative">
                 <button className="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                  <UserCircleIcon style={{ color: currentTheme.text.secondary }} className="h-8 w-8" />
+                  <UserCircleIcon 
+                    style={{ color: currentTheme?.text?.secondary || '#6b7280' }} 
+                    className="h-8 w-8" 
+                  />
                 </button>
               </div>
+                          
             </div>
           </div>
         </div>

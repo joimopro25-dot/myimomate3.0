@@ -513,7 +513,7 @@ export const ThemedTextarea = ({
   );
 };
 
-// 📄 CONTAINER MODERNO
+// 📄 CONTAINER MODERNO CORRIGIDO
 export const ThemedContainer = ({ 
   children, 
   className = '',
@@ -523,6 +523,9 @@ export const ThemedContainer = ({
 }) => {
   const glassClasses = glass ? MODERN_COLORS.glass.light : '';
   
+  // Filtrar props que não devem ser passados para o DOM
+  const { background, ...domProps } = props;
+  
   return (
     <div
       className={`
@@ -531,7 +534,7 @@ export const ThemedContainer = ({
         ${glassClasses}
         ${className}
       `}
-      {...props}
+      {...domProps}
     >
       {children}
     </div>
@@ -544,6 +547,7 @@ export const ThemedText = ({
   variant = 'body',
   className = '',
   muted = false,
+  size,
   ...props 
 }) => {
   const { currentTheme } = useTheme();
@@ -560,13 +564,24 @@ export const ThemedText = ({
     caption: 'text-xs'
   };
 
+  // Suporte para size prop (para compatibilidade)
+  const sizeClasses = {
+    xs: 'text-xs',
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-lg',
+    xl: 'text-xl'
+  };
+
   const textClasses = muted ? 'text-gray-500' : 'text-gray-900';
   const Tag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(variant) ? variant : 'p';
+  
+  const finalClasses = size ? sizeClasses[size] : variantClasses[variant];
   
   return (
     <Tag
       className={`
-        ${variantClasses[variant]}
+        ${finalClasses}
         ${textClasses}
         ${className}
       `}
@@ -709,12 +724,15 @@ export const ThemedBackground = ({
   variant = 'primary',
   children,
   className = '',
+  type,
   ...props
 }) => {
   const { currentTheme } = useTheme();
   const themeColors = MODERN_COLORS.solids[currentTheme] || MODERN_COLORS.solids.modern;
   
-  const backgroundClass = themeColors[variant] || themeColors.primary;
+  // Suporte para prop "type" (compatibilidade com ThemedGradient)
+  const variantToUse = type || variant;
+  const backgroundClass = themeColors[variantToUse] || themeColors.primary;
 
   return (
     <div 

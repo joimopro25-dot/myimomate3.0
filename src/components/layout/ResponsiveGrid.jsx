@@ -100,8 +100,8 @@ export const ResponsiveCard = ({
       `}
       style={{
         backgroundColor: currentTheme.background.primary,
-        borderColor: currentTheme.border.light,
-        boxShadow: currentTheme.shadow.sm
+        borderColor: currentTheme.border?.light || '#e5e7eb',
+        boxShadow: currentTheme.shadow?.sm || '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
       }}
     >
       {/* Header do Card */}
@@ -158,12 +158,12 @@ export const MetricsGrid = ({ metrics = [] }) => {
   );
 };
 
-// Card de Métrica Individual
+// Card de Métrica Individual (versão simplificada)
 export const MetricCard = ({ 
   title, 
   value, 
   change, 
-  icon: Icon, 
+  icon, 
   color = 'blue',
   onClick,
   clickable = false 
@@ -171,12 +171,21 @@ export const MetricCard = ({
   const { currentTheme } = useTheme();
   const { isMobile } = useResponsive();
 
+  // Emojis por cor
+  const colorEmojis = {
+    blue: '📊',
+    green: '📈',
+    yellow: '⚡',
+    red: '🔥',
+    purple: '💎'
+  };
+
   const colorVariants = {
-    blue: { bg: 'bg-blue-50', icon: 'text-blue-600', accent: currentTheme.primary.main },
-    green: { bg: 'bg-green-50', icon: 'text-green-600', accent: '#10b981' },
-    yellow: { bg: 'bg-yellow-50', icon: 'text-yellow-600', accent: '#f59e0b' },
-    red: { bg: 'bg-red-50', icon: 'text-red-600', accent: '#ef4444' },
-    purple: { bg: 'bg-purple-50', icon: 'text-purple-600', accent: '#8b5cf6' }
+    blue: { bg: 'rgba(59, 130, 246, 0.1)', text: '#3b82f6' },
+    green: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981' },
+    yellow: { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b' },
+    red: { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444' },
+    purple: { bg: 'rgba(139, 92, 246, 0.1)', text: '#8b5cf6' }
   };
 
   const variant = colorVariants[color] || colorVariants.blue;
@@ -188,8 +197,13 @@ export const MetricCard = ({
       onClick={onClick}
     >
       <div className="flex items-center">
-        <div className={`${variant.bg} rounded-lg p-3`}>
-          {Icon && <Icon className={`${variant.icon} ${isMobile ? 'w-6 h-6' : 'w-8 h-8'}`} />}
+        <div 
+          className="rounded-lg p-3"
+          style={{ backgroundColor: variant.bg }}
+        >
+          <span className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
+            {colorEmojis[color] || '📊'}
+          </span>
         </div>
         <div className="ml-4 flex-1">
           <p style={{ color: currentTheme.text.secondary }} 
@@ -211,7 +225,7 @@ export const MetricCard = ({
         <div className="mt-2">
           <span style={{ color: currentTheme.text.secondary }} 
                 className="text-sm">
-            👆 Clique para gerir
+            Clique para gerir
           </span>
         </div>
       )}
@@ -219,7 +233,7 @@ export const MetricCard = ({
   );
 };
 
-// Tabela Responsiva
+// Tabela Responsiva (versão simplificada)
 export const ResponsiveTable = ({ 
   columns = [], 
   data = [], 
@@ -287,7 +301,7 @@ export const ResponsiveTable = ({
   return (
     <ResponsiveCard padding="sm">
       <div className="overflow-hidden">
-        <table className="min-w-full divide-y" style={{ borderColor: currentTheme.border.light }}>
+        <table className="min-w-full divide-y" style={{ borderColor: currentTheme.border?.light || '#e5e7eb' }}>
           <thead>
             <tr>
               {columns.map((col, index) => (
@@ -302,7 +316,7 @@ export const ResponsiveTable = ({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y" style={{ borderColor: currentTheme.border.light }}>
+          <tbody className="divide-y" style={{ borderColor: currentTheme.border?.light || '#e5e7eb' }}>
             {data.map((row, index) => (
               <tr 
                 key={index}
