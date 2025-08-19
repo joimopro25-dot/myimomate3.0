@@ -114,68 +114,39 @@ export const AuthProvider = ({ children }) => {
         phone: userData.phone?.trim() || '',
         role: userData.role || 'consultor',
         plan: userData.plan || 'starter',
-        avatar: userData.avatar || '',
+        profileCompleted: false,
+        emailVerified: false,
         
-        // Configurações padrão
-        settings: {
-          theme: 'corporate',
-          language: 'pt',
-          timezone: 'Europe/Lisbon',
-          notifications: {
-            email: true,
-            whatsapp: false,
-            browser: true,
-            sms: false
-          },
-          privacy: {
-            profileVisible: true,
-            contactSharing: false,
-            analyticsOptIn: true
-          },
-          dashboard: {
-            showWelcome: true,
-            defaultView: 'overview'
-          }
-        },
-
+        // Timestamps
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        
         // Estatísticas iniciais
         stats: {
-          leadsCreated: 0,
-          clientsConverted: 0,
-          visitsScheduled: 0,
-          dealsWon: 0,
-          totalCommission: 0,
           loginCount: 1,
           lastActivity: serverTimestamp()
         },
-
-        // Metadados
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        emailVerified: false,
-        isActive: true,
-        lastLogin: serverTimestamp(),
-        registrationIP: await getUserIP(),
-        userAgent: navigator.userAgent
+        
+        // Preferências padrão
+        preferences: {
+          theme: 'light',
+          language: 'pt',
+          notifications: {
+            email: true,
+            push: true,
+            sms: false
+          }
+        }
       };
 
       await setDoc(doc(db, 'users', user.uid), userDocData);
-      console.log('✅ Perfil criado no Firestore');
+      console.log('✅ Documento do utilizador criado no Firestore');
 
       // Enviar email de verificação
-      try {
-        console.log('📧 Enviando email de verificação...');
-        await sendEmailVerification(user);
-        console.log('✅ Email de verificação enviado');
-      } catch (emailError) {
-        console.warn('⚠️ Erro ao enviar email de verificação:', emailError);
-        // Não falhar o registo se o email não conseguir ser enviado
-      }
+      await sendEmailVerification(user);
+      console.log('📧 Email de verificação enviado');
 
-      // Carregar perfil criado
-      await loadUserProfile(user.uid);
-
-      console.log('🎉 Registo concluído com sucesso!');
       return { 
         success: true, 
         message: 'Conta criada com sucesso! Verifique o seu email para ativar a conta.',
@@ -261,16 +232,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('❌ Erro no login:', error);
       
-      const errorMessage = getFirebaseErrorMessage(error.code) || 'Erro no login';
+      const errorMessage = getFirebaseErrorMessage(error.code) || 'Erro ao fazer login';
       setError(errorMessage);
-
-      // Log detalhado para debug
-      console.error('Detalhes do erro:', {
-        code: error.code,
-        message: error.message,
-        email: email
-      });
-
       return { success: false, message: errorMessage };
 
     } finally {
@@ -286,27 +249,14 @@ export const AuthProvider = ({ children }) => {
 
     try {
       console.log('🔄 Fazendo logout...');
-
-      // Atualizar última atividade antes de sair
-      if (currentUser) {
-        try {
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            'stats.lastActivity': serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-        } catch (updateError) {
-          console.warn('⚠️ Erro ao atualizar última atividade:', updateError);
-        }
-      }
-
-      // Fazer logout no Firebase
+      
       await signOut(auth);
       
       // Limpar estados locais
       setCurrentUser(null);
       setUserProfile(null);
       setError('');
-
+      
       console.log('✅ Logout realizado com sucesso!');
       return { success: true, message: 'Logout realizado com sucesso!' };
 
@@ -322,8 +272,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔄 FUNÇÃO DE RESET DE PASSWORD
-  // ==============================
+  // 🔄 RESET DE PASSWORD
+  // ===================
   const resetPassword = async (email) => {
     if (!email) {
       const message = 'Email é obrigatório';
@@ -335,11 +285,11 @@ export const AuthProvider = ({ children }) => {
     setError('');
 
     try {
-      console.log('🔄 Enviando email de recuperação para:', email);
-
+      console.log('🔄 Enviando email de reset para:', email);
+      
       await sendPasswordResetEmail(auth, email.toLowerCase());
       
-      console.log('✅ Email de recuperação enviado');
+      console.log('✅ Email de reset enviado');
       return { 
         success: true, 
         message: 'Email de recuperação enviado! Verifique a sua caixa de entrada.' 
@@ -360,7 +310,10 @@ export const AuthProvider = ({ children }) => {
   // 👤 CARREGAR PERFIL DO UTILIZADOR
   // ================================
   const loadUserProfile = async (uid) => {
-    if (!uid) return null;
+    if (!uid) {
+      console.warn('⚠️ UID não fornecido para carregar perfil');
+      return null;
+    }
 
     try {
       console.log('📖 Carregando perfil para UID:', uid);
@@ -370,7 +323,14 @@ export const AuthProvider = ({ children }) => {
       if (userDoc.exists()) {
         const profileData = userDoc.data();
         setUserProfile(profileData);
-        console.log('✅ Perfil carregado:', profileData.name);
+        console.log('✅ Perfil carregado:', profileData.name || 'Sem nome');
+        
+        // Verificar consistência dos dados
+        if (!profileData.uid) {
+          console.warn('⚠️ Perfil sem UID, adicionando...');
+          await updateDoc(doc(db, 'users', uid), { uid });
+        }
+        
         return profileData;
       } else {
         console.warn('⚠️ Perfil não encontrado no Firestore para UID:', uid);
@@ -381,7 +341,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('❌ Erro ao carregar perfil:', error);
       setUserProfile(null);
-      return null;
+      throw error; // Repassar erro para tratamento upstream
     }
   };
 
@@ -504,114 +464,124 @@ export const AuthProvider = ({ children }) => {
   // 📡 LISTENER DE MUDANÇAS NO AUTH
   // ===============================
   useEffect(() => {
-  console.log('🔄 Configurando listener de autenticação...');
+    console.log('🔄 Configurando listener de autenticação...');
 
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    console.log('👤 Estado de auth mudou:', user ? `Utilizador: ${user.email}` : 'Sem utilizador');
-    
-    setCurrentUser(user);
-    
-    if (user) {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('👤 Estado de auth mudou:', user ? `Utilizador: ${user.email}` : 'Sem utilizador');
+      
       try {
-        // Verificar se utilizador tem perfil, criar se necessário
-        const profile = await ensureUserHasProfile(user, loadUserProfile);
-        
-        if (profile && !profile.stats?.profileCompleted) {
-          console.log('⚠️ Utilizador precisa completar perfil');
-          // O ProfileGuard irá redirecionar para /create-profile
+        if (user) {
+          // Utilizador autenticado
+          setCurrentUser(user);
+          
+          // Carregar perfil do Firestore
+          const profileData = await loadUserProfile(user.uid);
+          
+          if (profileData) {
+            // Verificar se o perfil está completo
+            const hasBasicInfo = profileData.name && (profileData.phone || profileData.email);
+            const profileCompleted = profileData.profileCompleted || hasBasicInfo;
+            
+            console.log('📋 Perfil verificado:', {
+              hasBasicInfo,
+              profileCompleted,
+              needsCompletion: !profileCompleted
+            });
+            
+            if (!profileCompleted) {
+              console.log('⚠️ Utilizador precisa completar perfil');
+            }
+          }
+        } else {
+          // Utilizador não autenticado
+          setCurrentUser(null);
+          setUserProfile(null);
         }
-        
       } catch (error) {
-        console.error('❌ Erro ao verificar perfil:', error);
-        // Continuar mesmo com erro para não bloquear login
+        console.error('❌ Erro no listener de auth:', error);
+        setError('Erro ao carregar dados do utilizador');
+      } finally {
+        setLoading(false);
+        setInitializationComplete(true);
       }
-    } else {
-      // Limpar perfil se utilizador saiu
-      setUserProfile(null);
-    }
-    
-    setLoading(false);
-    setInitializationComplete(true);
-  });
-
-  return () => {
-    console.log('🔄 Removendo listener de autenticação...');
-    unsubscribe();
-  };
-}, []);
-
-// Adicionar função para marcar perfil como completo após criação
-const markProfileAsCompleted = async () => {
-  if (!currentUser?.uid) return;
-  
-  try {
-    await updateDoc(doc(db, 'users', currentUser.uid), {
-      'stats.profileCompleted': true,
-      'needsProfileCompletion': false,
-      'stats.profileCompletedAt': serverTimestamp(),
-      updatedAt: serverTimestamp()
     });
-    
-    // Recarregar perfil
-    await loadUserProfile(currentUser.uid);
-    
-    console.log('✅ Perfil marcado como completo');
-    
-  } catch (error) {
-    console.error('❌ Erro ao marcar perfil como completo:', error);
-  }
-};
+
+    return () => {
+      console.log('🔄 Removendo listener de autenticação...');
+      unsubscribe();
+    };
+  }, []);
+
+  // 🛠️ DEBUG: Logs periódicos do estado
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const interval = setInterval(() => {
+        console.log('🔍 AuthContext Debug:', {
+          hasCurrentUser: !!currentUser,
+          hasUserProfile: !!userProfile,
+          userEmail: currentUser?.email,
+          loading,
+          initializationComplete
+        });
+      }, 30000); // Log a cada 30 segundos
+
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, userProfile, loading, initializationComplete]);
+
   // 📊 VALOR DO CONTEXTO
   // ===================
   const value = {
-    // Estados principais
+    // Estados principais - SINCRONIZADOS
     currentUser,
+    user: currentUser, // ✅ GARANTIR CONSISTÊNCIA
     userProfile,
     loading,
     error,
     initializationComplete,
 
-    // Estados de operações específicas
+    // Estados específicos de operações
     isRegistering,
     isLoggingIn,
     isLoggingOut,
     isResettingPassword,
 
-    // Funções de autenticação
-    register,
+    // Funções principais
     login,
+    register,
     logout,
     resetPassword,
-
-    // Funções de perfil
+    
+    // Gestão de perfil
     loadUserProfile,
     updateUserProfile,
-    resendVerificationEmail,
-    deleteAccount,
-
-    // Funções de verificação
-    isAuthenticated: () => !!currentUser,
-    isEmailVerified: () => currentUser?.emailVerified || false,
-    
-    // Novas funções
-    markProfileAsCompleted,
-
-    // Getters úteis
-    getUserId: () => currentUser?.uid || null,
-    getUserEmail: () => currentUser?.email || '',
-    getUserName: () => userProfile?.name || currentUser?.displayName || '',
-    getUserPlan: () => userProfile?.plan || 'starter',
-    getUserRole: () => userProfile?.role || 'consultor',
     
     // Funções utilitárias
-    clearError: () => setError(''),
-    checkEmailExists
+    checkEmailExists,
+    resendVerificationEmail,
+    deleteAccount,
+    
+    // Estados computados para verificação rápida
+    isAuthenticated: !!currentUser,
+    isEmailVerified: currentUser?.emailVerified || false,
+    isProfileComplete: !!userProfile?.profileCompleted || 
+                      !!(userProfile?.name && (userProfile?.phone || userProfile?.email)),
+    
+    // Helpers para debugging
+    debugInfo: {
+      hasCurrentUser: !!currentUser,
+      hasUserProfile: !!userProfile,
+      userEmail: currentUser?.email,
+      profileName: userProfile?.name,
+      lastUpdate: new Date().toISOString()
+    }
   };
 
-  
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;
