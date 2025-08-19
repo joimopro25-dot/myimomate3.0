@@ -11,8 +11,8 @@ import {
   ThemedTextarea
 } from '../../components/common/ThemedComponents';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTasks } from '../../hooks/useTasks';
-import { useVisits } from '../../hooks/useVisits';
+import useTasks from '../../hooks/useTasks';  
+import useVisits from '../../hooks/useVisits';
 import { 
   addDays, 
   startOfMonth, 
