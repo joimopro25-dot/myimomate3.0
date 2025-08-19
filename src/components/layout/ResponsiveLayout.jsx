@@ -9,7 +9,7 @@ import {
   EyeIcon,
   BriefcaseIcon,
   CurrencyEuroIcon,
-  CheckSquareIcon,
+  CheckIcon,
   CalendarIcon,
   ChartBarIcon,
   CogIcon,
@@ -42,7 +42,7 @@ const ResponsiveLayout = ({ children, title, actions }) => {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  // Menu de navegação com Heroicons
+  // Menu de navegação com Heroicons - CORRIGIDO: CheckIcon em vez de CheckSquareIcon
   const navigation = [
     { 
       name: 'Dashboard', 
@@ -83,7 +83,7 @@ const ResponsiveLayout = ({ children, title, actions }) => {
     { 
       name: 'Tarefas', 
       href: '/tasks', 
-      icon: CheckSquareIcon, 
+      icon: CheckIcon, 
       current: location.pathname.startsWith('/tasks') 
     },
     { 

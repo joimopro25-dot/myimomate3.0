@@ -1,6 +1,49 @@
 import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
+// Hook personalizado ultra seguro para tema
+const useSafeTheme = () => {
+  const themeData = useTheme();
+  
+  // VERIFICAÇÃO ULTRA DEFENSIVA - Máxima segurança
+  const getThemeValue = (path, fallback) => {
+    try {
+      if (!themeData) return fallback;
+      if (!themeData.currentTheme) return fallback;
+      
+      const pathArray = path.split('.');
+      let current = themeData.currentTheme;
+      
+      for (const key of pathArray) {
+        if (!current || !current[key]) return fallback;
+        current = current[key];
+      }
+      
+      return current || fallback;
+    } catch (error) {
+      console.warn(`Erro ao acessar tema em ${path}:`, error);
+      return fallback;
+    }
+  };
+
+  return {
+    background: {
+      primary: getThemeValue('background.primary', '#ffffff'),
+      secondary: getThemeValue('background.secondary', '#f9fafb')
+    },
+    text: {
+      primary: getThemeValue('text.primary', '#1f2937'),
+      secondary: getThemeValue('text.secondary', '#6b7280')
+    },
+    border: {
+      light: getThemeValue('border.light', '#e5e7eb')
+    },
+    primary: {
+      main: getThemeValue('primary.main', '#3b82f6')
+    }
+  };
+};
+
 // Hook para breakpoints responsivos
 export const useResponsive = () => {
   const [breakpoint, setBreakpoint] = React.useState('desktop');
@@ -61,7 +104,7 @@ export const ResponsiveGrid = ({
   );
 };
 
-// Card Responsivo com tema
+// Card Responsivo com tema - VERSÃO ULTRA SEGURA
 export const ResponsiveCard = ({ 
   children, 
   title, 
@@ -69,9 +112,10 @@ export const ResponsiveCard = ({
   actions,
   hover = true,
   padding = 'normal', // 'sm', 'normal', 'lg'
-  className = '' 
+  className = '',
+  onClick
 }) => {
-  const { currentTheme } = useTheme();
+  const safeTheme = useSafeTheme();
   const { isMobile } = useResponsive();
 
   const getPadding = () => {
@@ -95,14 +139,16 @@ export const ResponsiveCard = ({
       className={`
         rounded-lg border transition-all duration-200
         ${hover ? 'hover:shadow-lg' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
         ${getPadding()}
         ${className}
       `}
       style={{
-        backgroundColor: currentTheme.background.primary,
-        borderColor: currentTheme.border?.light || '#e5e7eb',
-        boxShadow: currentTheme.shadow?.sm || '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+        backgroundColor: safeTheme.background.primary,
+        borderColor: safeTheme.border.light,
+        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
       }}
+      onClick={onClick}
     >
       {/* Header do Card */}
       {(title || actions) && (
@@ -110,7 +156,7 @@ export const ResponsiveCard = ({
           <div className="flex-1">
             {title && (
               <h3 
-                style={{ color: currentTheme.text.primary }}
+                style={{ color: safeTheme.text.primary }}
                 className={`font-semibold ${isMobile ? 'text-lg' : 'text-xl'}`}
               >
                 {title}
@@ -118,7 +164,7 @@ export const ResponsiveCard = ({
             )}
             {subtitle && (
               <p 
-                style={{ color: currentTheme.text.secondary }}
+                style={{ color: safeTheme.text.secondary }}
                 className={`${isMobile ? 'text-sm' : 'text-base'} mt-1`}
               >
                 {subtitle}
@@ -158,7 +204,7 @@ export const MetricsGrid = ({ metrics = [] }) => {
   );
 };
 
-// Card de Métrica Individual (versão simplificada)
+// Card de Métrica Individual - VERSÃO ULTRA SEGURA
 export const MetricCard = ({ 
   title, 
   value, 
@@ -168,7 +214,7 @@ export const MetricCard = ({
   onClick,
   clickable = false 
 }) => {
-  const { currentTheme } = useTheme();
+  const safeTheme = useSafeTheme();
   const { isMobile } = useResponsive();
 
   // Emojis por cor
@@ -206,11 +252,11 @@ export const MetricCard = ({
           </span>
         </div>
         <div className="ml-4 flex-1">
-          <p style={{ color: currentTheme.text.secondary }} 
+          <p style={{ color: safeTheme.text.secondary }} 
              className={`${isMobile ? 'text-sm' : 'text-base'} font-medium`}>
             {title}
           </p>
-          <p style={{ color: currentTheme.text.primary }} 
+          <p style={{ color: safeTheme.text.primary }} 
              className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>
             {value}
           </p>
@@ -223,9 +269,9 @@ export const MetricCard = ({
       </div>
       {clickable && (
         <div className="mt-2">
-          <span style={{ color: currentTheme.text.secondary }} 
+          <span style={{ color: safeTheme.text.secondary }} 
                 className="text-sm">
-            Clique para gerir
+            👆 Clique para gerir
           </span>
         </div>
       )}
@@ -233,7 +279,7 @@ export const MetricCard = ({
   );
 };
 
-// Tabela Responsiva (versão simplificada)
+// Tabela Responsiva - VERSÃO ULTRA SEGURA
 export const ResponsiveTable = ({ 
   columns = [], 
   data = [], 
@@ -241,7 +287,7 @@ export const ResponsiveTable = ({
   loading = false,
   emptyMessage = "Nenhum dado encontrado"
 }) => {
-  const { currentTheme } = useTheme();
+  const safeTheme = useSafeTheme();
   const { isMobile } = useResponsive();
 
   if (loading) {
@@ -260,7 +306,7 @@ export const ResponsiveTable = ({
     return (
       <ResponsiveCard>
         <div className="text-center py-12">
-          <p style={{ color: currentTheme.text.secondary }} className="text-lg">
+          <p style={{ color: safeTheme.text.secondary }} className="text-lg">
             {emptyMessage}
           </p>
         </div>
@@ -282,10 +328,10 @@ export const ResponsiveTable = ({
             <div className="space-y-2">
               {columns.map((col, colIndex) => (
                 <div key={colIndex} className="flex justify-between">
-                  <span style={{ color: currentTheme.text.secondary }} className="text-sm font-medium">
+                  <span style={{ color: safeTheme.text.secondary }} className="text-sm font-medium">
                     {col.header}
                   </span>
-                  <span style={{ color: currentTheme.text.primary }} className="text-sm">
+                  <span style={{ color: safeTheme.text.primary }} className="text-sm">
                     {typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor]}
                   </span>
                 </div>
@@ -301,7 +347,7 @@ export const ResponsiveTable = ({
   return (
     <ResponsiveCard padding="sm">
       <div className="overflow-hidden">
-        <table className="min-w-full divide-y" style={{ borderColor: currentTheme.border?.light || '#e5e7eb' }}>
+        <table className="min-w-full divide-y" style={{ borderColor: safeTheme.border.light }}>
           <thead>
             <tr>
               {columns.map((col, index) => (
@@ -309,14 +355,14 @@ export const ResponsiveTable = ({
                   key={index}
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  style={{ color: currentTheme.text.secondary }}
+                  style={{ color: safeTheme.text.secondary }}
                 >
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y" style={{ borderColor: currentTheme.border?.light || '#e5e7eb' }}>
+          <tbody className="divide-y" style={{ borderColor: safeTheme.border.light }}>
             {data.map((row, index) => (
               <tr 
                 key={index}
@@ -324,7 +370,7 @@ export const ResponsiveTable = ({
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((col, colIndex) => (
-                  <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: currentTheme.text.primary }}>
+                  <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: safeTheme.text.primary }}>
                     {typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor]}
                   </td>
                 ))}
@@ -334,6 +380,17 @@ export const ResponsiveTable = ({
         </table>
       </div>
     </ResponsiveCard>
+  );
+};
+
+// Page Actions Container
+export const PageActions = ({ children }) => {
+  const { isMobile } = useResponsive();
+  
+  return (
+    <div className={`flex items-center space-x-2 ${isMobile ? 'flex-col space-y-2 space-x-0' : ''}`}>
+      {children}
+    </div>
   );
 };
 
@@ -352,7 +409,7 @@ export const ResponsiveForm = ({ children, title, subtitle, onSubmit, actions })
           {children}
         </div>
         {actions && (
-          <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'flex-row justify-end space-x-3'} pt-6 border-t`}>
+          <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'justify-end space-x-4'}`}>
             {actions}
           </div>
         )}
@@ -360,22 +417,3 @@ export const ResponsiveForm = ({ children, title, subtitle, onSubmit, actions })
     </ResponsiveCard>
   );
 };
-
-// Container para ações de página
-export const PageActions = ({ children, align = 'right' }) => {
-  const { isMobile } = useResponsive();
-
-  const alignClass = {
-    left: 'justify-start',
-    center: 'justify-center',
-    right: 'justify-end'
-  }[align];
-
-  return (
-    <div className={`flex ${isMobile ? 'flex-col space-y-2' : `flex-row space-x-3 ${alignClass}`} mb-6`}>
-      {children}
-    </div>
-  );
-};
-
-export default ResponsiveGrid;
