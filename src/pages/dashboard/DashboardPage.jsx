@@ -12,8 +12,20 @@ import {
   ThemedGradient,
   ThemedBadge
 } from '../../components/common/ThemedComponents';
-import DashboardLayout from '../../components/layout/DashboardLayout';
 
+// Importar o novo layout responsivo
+import ResponsiveLayout from '../../components/layout/ResponsiveLayout';
+import { 
+  ResponsiveGrid, 
+  ResponsiveCard, 
+  MetricsGrid, 
+  MetricCard,
+  ResponsiveTable,
+  PageActions,
+  useResponsive 
+} from '../../components/layout/ResponsiveGrid';
+
+// Hooks para dados reais
 import useLeads from '../../hooks/useLeads';
 import useClients from '../../hooks/useClients';
 import useVisits from '../../hooks/useVisits';
@@ -21,10 +33,25 @@ import useOpportunities from '../../hooks/useOpportunities';
 import useDeals from '../../hooks/useDeals';
 import useTasks from '../../hooks/useTasks';
 
+// Ícones
+import {
+  UserGroupIcon,
+  UsersIcon,
+  EyeIcon,
+  BriefcaseIcon,
+  CurrencyEuroIcon,
+  CheckSquareIcon,
+  CalendarIcon,
+  PlusIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon
+} from '@heroicons/react/24/outline';
+
 const DashboardPage = () => {
   const { userProfile } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, currentTheme } = useTheme();
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // HOOKS PARA DADOS REAIS
@@ -36,33 +63,34 @@ const DashboardPage = () => {
   const { tasks, getTaskStats } = useTasks();
 
   // CALCULAR MÉTRICAS REAIS - VERSÃO SEGURA
-const realMetrics = {
-  leads: {
-    total: leads?.length || 0,
-    thisMonth: (typeof getLeadStats === 'function') ? (getLeadStats()?.thisMonth || 0) : 0,
-    trend: '+15%',
-    isPositive: true
-  },
-  clients: {
-    total: clients?.length || 0,
-    thisMonth: (typeof getClientStats === 'function') ? (getClientStats()?.thisMonth || 0) : 0,
-    trend: '+12%',
-    isPositive: true
-  },
-  visits: {
-    total: visitStats?.total || 0,
-    today: visitStats?.today || 0,
-    trend: '+8%',
-    isPositive: true
-  },
-  deals: {
-    total: deals?.length || 0,
-    thisMonth: (typeof getDealStats === 'function') ? (getDealStats()?.thisMonth || 0) : 0,
-    value: (typeof getDealStats === 'function') ? `€${(getDealStats()?.totalValue || 0).toLocaleString()}` : '€0',
-    trend: '+22%',
-    isPositive: true
-  }
-};
+  const realMetrics = {
+    leads: {
+      total: leads?.length || 0,
+      thisMonth: (typeof getLeadStats === 'function') ? (getLeadStats()?.thisMonth || 0) : 0,
+      trend: '+15%',
+      isPositive: true
+    },
+    clients: {
+      total: clients?.length || 0,
+      thisMonth: (typeof getClientStats === 'function') ? (getClientStats()?.thisMonth || 0) : 0,
+      trend: '+12%',
+      isPositive: true
+    },
+    visits: {
+      total: visitStats?.total || 0,
+      today: visitStats?.today || 0,
+      trend: '+8%',
+      isPositive: true
+    },
+    deals: {
+      total: deals?.length || 0,
+      thisMonth: (typeof getDealStats === 'function') ? (getDealStats()?.thisMonth || 0) : 0,
+      value: (typeof getDealStats === 'function') ? `€${(getDealStats()?.totalValue || 0).toLocaleString()}` : '€0',
+      trend: '+22%',
+      isPositive: true
+    }
+  };
+
   // Atualizar hora a cada minuto
   useEffect(() => {
     const timer = setInterval(() => {
@@ -71,8 +99,6 @@ const realMetrics = {
 
     return () => clearInterval(timer);
   }, []);
-
-
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -109,190 +135,147 @@ const realMetrics = {
     }
   };
 
+  // Dados das métricas para o novo sistema
+  const metricsData = [
+    {
+      title: 'Leads',
+      value: realMetrics.leads.total.toString(),
+      change: realMetrics.leads.trend,
+      icon: UserGroupIcon,
+      color: 'blue',
+      clickable: true,
+      onClick: () => navigate('/leads')
+    },
+    {
+      title: 'Clientes',
+      value: realMetrics.clients.total.toString(),
+      change: realMetrics.clients.trend,
+      icon: UsersIcon,
+      color: 'green',
+      clickable: true,
+      onClick: () => navigate('/clients')
+    },
+    {
+      title: 'Visitas',
+      value: realMetrics.visits.total.toString(),
+      change: realMetrics.visits.trend,
+      icon: EyeIcon,
+      color: 'yellow',
+      clickable: true,
+      onClick: () => navigate('/visits')
+    },
+    {
+      title: 'Negócios',
+      value: realMetrics.deals.value,
+      change: realMetrics.deals.trend,
+      icon: CurrencyEuroIcon,
+      color: 'purple',
+      clickable: true,
+      onClick: () => navigate('/deals')
+    }
+  ];
+
+  // Ações do header
+  const headerActions = (
+    <PageActions>
+      <ThemedButton variant="secondary" size="sm">
+        <Link to="/leads/new">
+          <PlusIcon className="w-4 h-4 mr-2 inline" />
+          {isMobile ? 'Lead' : 'Novo Lead'}
+        </Link>
+      </ThemedButton>
+      <ThemedButton variant="primary" size="sm">
+        <Link to="/visits/schedule">
+          <CalendarIcon className="w-4 h-4 mr-2 inline" />
+          {isMobile ? 'Visita' : 'Agendar Visita'}
+        </Link>
+      </ThemedButton>
+    </PageActions>
+  );
+
+  // Preparar dados das tarefas para tabela responsiva
+  const taskColumns = [
+    { header: 'Tarefa', accessor: row => (
+      <div className="flex items-center space-x-2">
+        <span className="text-lg">{getTaskIcon(row.type)}</span>
+        <span>{row.title}</span>
+      </div>
+    )},
+    { header: 'Prioridade', accessor: row => (
+      <ThemedBadge 
+        variant="secondary" 
+        size="xs"
+        className={getPriorityColor(row.priority)}
+      >
+        {row.priority}
+      </ThemedBadge>
+    )},
+    { header: 'Data', accessor: row => 
+      row.dueDate ? new Date(row.dueDate).toLocaleDateString('pt-PT') : 'Sem data'
+    },
+    { header: 'Ações', accessor: row => (
+      <button className={`
+        p-1 rounded transition-colors
+        ${isDark() ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}
+      `}>
+        <CheckSquareIcon className="w-4 h-4" />
+      </button>
+    )}
+  ];
+
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header da Dashboard */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <ThemedHeading level={1} className={`mb-2 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-              {getGreeting()}, {userProfile?.name?.split(' ')[0] || 'Consultor'}! 👋
-            </ThemedHeading>
-            <ThemedText className={`${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
-              Aqui está o resumo da sua atividade hoje, {currentTime.toLocaleDateString('pt-PT', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
-              })}.
-            </ThemedText>
-          </div>
-          <div className="mt-4 sm:mt-0 flex space-x-3">
-            <ThemedButton variant="secondary" size="sm">
-              <Link to="/leads/new">+ Novo Lead</Link>
-            </ThemedButton>
-            <ThemedButton variant="primary" size="sm">
-              <Link to="/visits/schedule">+ Agendar Visita</Link>
-            </ThemedButton>
-          </div>
-        </div>
+    <ResponsiveLayout 
+      title={`${getGreeting()}, ${userProfile?.name?.split(' ')[0] || 'Consultor'}! 👋`}
+      actions={headerActions}
+    >
+      
+      {/* Subtitle com data */}
+      <div className="mb-6">
+        <ThemedText className={`${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
+          Aqui está o resumo da sua atividade hoje, {currentTime.toLocaleDateString('pt-PT', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long' 
+          })}.
+        </ThemedText>
+      </div>
 
-        {/* Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Leads */}
-          <ThemedCard 
-            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
-            onClick={() => navigate('/leads')}
+      {/* Métricas Principais com novo sistema */}
+      <MetricsGrid metrics={metricsData} />
+
+      {/* Grid de Conteúdo Principal */}
+      <ResponsiveGrid 
+        cols={{ mobile: 1, tablet: 1, desktop: 3 }}
+        gap={6}
+        className="mb-8"
+      >
+        
+        {/* Tarefas Pendentes - 2 colunas no desktop */}
+        <div className="lg:col-span-2">
+          <ResponsiveCard 
+            title="Tarefas Pendentes"
+            subtitle={`${tasks?.length || 0} tarefas em aberto`}
+            actions={
+              <Link 
+                to="/tasks"
+                style={{ color: currentTheme.primary.main }}
+                className="text-sm font-medium hover:underline"
+              >
+                Ver todas
+              </Link>
+            }
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Leads
-                </ThemedText>
-                <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                {realMetrics.leads.total}
-              </ThemedHeading>
-              <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                👆 Clique para gerir
-              </ThemedText>
-                <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${realMetrics.leads.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {realMetrics.leads.trend}
-                  </span>
-                  <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                    este mês
-                  </ThemedText>
-                </div>
-              </div>
-              <ThemedGradient type="primary" className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white text-2xl">📋</span>
-              </ThemedGradient>
-            </div>
-          </ThemedCard>
-
-          {/* Clientes */}
-          <ThemedCard 
-            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
-            onClick={() => navigate('/clients')}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Clientes
-                </ThemedText>
-                <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {realMetrics.clients.total}
-                </ThemedHeading>
-                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                  👆 Clique para gerir
-                </ThemedText>
-                <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${realMetrics.clients.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {realMetrics.clients.trend}
-                  </span>
-                  <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                    este mês
-                  </ThemedText>
-                </div>
-              </div>
-              <ThemedGradient type="secondary" className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white text-2xl">🤝</span>
-              </ThemedGradient>
-            </div>
-          </ThemedCard>
-
-          {/* Visitas */}
-          <ThemedCard 
-            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
-            onClick={() => navigate('/visits')}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Visitas
-                </ThemedText>
-                <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {realMetrics.visits.total}
-                </ThemedHeading>
-                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                  👆 Clique para gerir
-                </ThemedText>
-                <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${realMetrics.visits.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {realMetrics.visits.trend}
-                  </span>
-                  <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                    esta semana
-                  </ThemedText>
-                </div>
-              </div>
-              <ThemedGradient type="accent" className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white text-2xl">🏠</span>
-              </ThemedGradient>
-            </div>
-          </ThemedCard>
-
-          {/* Negócios */}
-          <ThemedCard 
-            className="p-6 cursor-pointer hover:shadow-lg transition-all transform hover:scale-105"
-            onClick={() => navigate('/deals')}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <ThemedText size="sm" className={`font-medium ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Negócios
-                </ThemedText>
-                <ThemedHeading level={2} className={`mt-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-                  {realMetrics.deals.total}
-                </ThemedHeading>
-                <ThemedText size="xs" className={`${isDark() ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                  👆 Clique para gerir
-                </ThemedText>
-                <div className="flex items-center mt-2">
-                  <span className={`text-sm font-medium ${realMetrics.deals.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {realMetrics.deals.trend}
-                  </span>
-                  <ThemedText size="sm" className={`ml-2 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {realMetrics.deals.value}
-                  </ThemedText>
-                </div>
-              </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                isDark() ? 'bg-yellow-600' : 'bg-yellow-500'
-              }`}>
-                <span className="text-white text-2xl">💼</span>
-              </div>
-            </div>
-          </ThemedCard>
-        </div>
-
-        {/* Grid de Conteúdo Principal */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Tarefas Recentes */}
-          <div className="lg:col-span-2">
-            <ThemedCard className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <ThemedHeading level={3} className={isDark() ? 'text-white' : 'text-gray-900'}>
-                  Tarefas Pendentes
-                </ThemedHeading>
-                <Link 
-                  to="/tasks"
-                  className={`text-sm font-medium transition-colors ${
-                    isDark() ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
-                  }`}
-                >
-                  Ver todas
-                </Link>
-              </div>
-              
+            {tasks && tasks.length > 0 ? (
               <div className="space-y-4">
-                {tasks && tasks.length > 0 ? tasks.slice(0, 4).map((task) => (
+                {tasks.slice(0, 4).map((task) => (
                   <div key={task.id} className={`
-                    flex items-start space-x-3 p-3 rounded-lg transition-colors
+                    flex items-start space-x-3 p-3 rounded-lg transition-colors cursor-pointer
                     ${isDark() ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
                   `}>
                     <span className="text-lg">{getTaskIcon(task.type)}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+                      <p style={{ color: currentTheme.text.primary }} 
+                         className="text-sm font-medium">
                         {task.title}
                       </p>
                       <div className="flex items-center space-x-2 mt-1">
@@ -303,7 +286,7 @@ const realMetrics = {
                         >
                           {task.priority}
                         </ThemedBadge>
-                        <ThemedText size="xs" className={isDark() ? 'text-gray-400' : 'text-gray-500'}>
+                        <ThemedText size="xs" style={{ color: currentTheme.text.secondary }}>
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-PT') : 'Sem data'}
                         </ThemedText>
                       </div>
@@ -312,141 +295,229 @@ const realMetrics = {
                       p-1 rounded transition-colors
                       ${isDark() ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}
                     `}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <CheckSquareIcon className="w-4 h-4" />
                     </button>
                   </div>
-                )) : (
-                  <div className="text-center py-8">
-                    <span className="text-4xl mb-4 block">✅</span>
-                    <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Nenhuma tarefa pendente
-                    </p>
-                  </div>
-                )}
+                ))}
+                
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: currentTheme.border.light }}>
+                  <ThemedButton variant="secondary" size="sm" className="w-full">
+                    <Link to="/tasks/new">+ Nova Tarefa</Link>
+                  </ThemedButton>
+                </div>
               </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <ThemedButton variant="secondary" size="sm" className="w-full">
-                  <Link to="/tasks/new">+ Nova Tarefa</Link>
-                </ThemedButton>
+            ) : (
+              <div className="text-center py-8">
+                <span className="text-4xl mb-4 block">✅</span>
+                <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+                  Nenhuma tarefa pendente
+                </p>
               </div>
-            </ThemedCard>
-          </div>
-
-          {/* Próximas Visitas */}
-          <div className="lg:col-span-1">
-            <ThemedCard className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <ThemedHeading level={3} className={isDark() ? 'text-white' : 'text-gray-900'}>
-                  Próximas Visitas
-                </ThemedHeading>
-                <Link 
-                  to="/visits"
-                  className={`text-sm font-medium transition-colors ${
-                    isDark() ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
-                  }`}
-                >
-                  Ver todas
-                </Link>
-              </div>
-              
-              <div className="space-y-4">
-                {visitStats && visitStats.upcoming > 0 ? (
-                  <div className="text-center py-4">
-                    <span className="text-2xl">📅</span>
-                    <p className={`mt-2 text-sm ${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
-                      {visitStats.upcoming} visitas agendadas
-                    </p>
-                    <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {visitStats.today} para hoje
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <span className="text-4xl mb-4 block">📅</span>
-                    <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Nenhuma visita agendada
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <ThemedButton variant="primary" size="sm" className="w-full">
-                  <Link to="/visits/schedule">+ Agendar Visita</Link>
-                </ThemedButton>
-              </div>
-            </ThemedCard>
-          </div>
+            )}
+          </ResponsiveCard>
         </div>
 
-        {/* Quick Actions */}
-        <ThemedCard className="p-6">
-          <ThemedHeading level={3} className={`mb-4 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-            Ações Rápidas
-          </ThemedHeading>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link 
-              to="/leads/new"
-              className={`
-                flex flex-col items-center p-4 rounded-lg transition-all
-                ${isDark() 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white' 
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <span className="text-2xl mb-2">📋</span>
-              <span className="text-sm font-medium">Novo Lead</span>
-            </Link>
+        {/* Próximas Visitas - 1 coluna */}
+        <div className="lg:col-span-1">
+          <ResponsiveCard 
+            title="Próximas Visitas"
+            subtitle={`${visitStats?.upcoming || 0} agendadas`}
+            actions={
+              <Link 
+                to="/visits"
+                style={{ color: currentTheme.primary.main }}
+                className="text-sm font-medium hover:underline"
+              >
+                Ver todas
+              </Link>
+            }
+          >
+            <div className="space-y-4">
+              {visitStats && visitStats.upcoming > 0 ? (
+                <div className="text-center py-4">
+                  <span className="text-2xl">📅</span>
+                  <p style={{ color: currentTheme.text.primary }} className="mt-2 text-sm font-medium">
+                    {visitStats.upcoming} visitas agendadas
+                  </p>
+                  <p style={{ color: currentTheme.text.secondary }} className="text-xs">
+                    {visitStats.today} para hoje
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <span className="text-4xl mb-4 block">📅</span>
+                  <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+                    Nenhuma visita agendada
+                  </p>
+                </div>
+              )}
+            </div>
             
-            <Link 
-              to="/clients/new"
-              className={`
-                flex flex-col items-center p-4 rounded-lg transition-all
-                ${isDark() 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white' 
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <span className="text-2xl mb-2">🤝</span>
-              <span className="text-sm font-medium">Novo Cliente</span>
-            </Link>
-            
-            <Link 
-              to="/visits/schedule"
-              className={`
-                flex flex-col items-center p-4 rounded-lg transition-all
-                ${isDark() 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white' 
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <span className="text-2xl mb-2">🏠</span>
-              <span className="text-sm font-medium">Agendar Visita</span>
-            </Link>
-            
-            <Link 
-              to="/deals/new"
-              className={`
-                flex flex-col items-center p-4 rounded-lg transition-all
-                ${isDark() 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white' 
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <span className="text-2xl mb-2">💼</span>
-              <span className="text-sm font-medium">Novo Negócio</span>
-            </Link>
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: currentTheme.border.light }}>
+              <ThemedButton variant="primary" size="sm" className="w-full">
+                <Link to="/visits/schedule">+ Agendar Visita</Link>
+              </ThemedButton>
+            </div>
+          </ResponsiveCard>
+        </div>
+      </ResponsiveGrid>
+
+      {/* Performance do Mês */}
+      <ResponsiveCard 
+        title="Performance do Mês"
+        subtitle="Vendas e conversões"
+        className="mb-8"
+      >
+        <ResponsiveGrid cols={{ mobile: 2, tablet: 4, desktop: 4 }} gap={4}>
+          
+          <div className="text-center p-4 rounded-lg" style={{ backgroundColor: currentTheme.background.secondary }}>
+            <div className="flex items-center justify-center mb-2">
+              <ArrowTrendingUpIcon className="w-5 h-5 text-green-500 mr-1" />
+              <span style={{ color: currentTheme.text.primary }} className="text-2xl font-bold">
+                {realMetrics.deals.value}
+              </span>
+            </div>
+            <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+              Vendas este mês
+            </p>
           </div>
-        </ThemedCard>
-      </div>
-    </DashboardLayout>
+          
+          <div className="text-center p-4 rounded-lg" style={{ backgroundColor: currentTheme.background.secondary }}>
+            <div className="flex items-center justify-center mb-2">
+              <ArrowTrendingUpIcon className="w-5 h-5 text-blue-500 mr-1" />
+              <span style={{ color: currentTheme.text.primary }} className="text-2xl font-bold">
+                23%
+              </span>
+            </div>
+            <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+              Taxa conversão
+            </p>
+          </div>
+
+          <div className="text-center p-4 rounded-lg" style={{ backgroundColor: currentTheme.background.secondary }}>
+            <div className="flex items-center justify-center mb-2">
+              <UserGroupIcon className="w-5 h-5 text-purple-500 mr-1" />
+              <span style={{ color: currentTheme.text.primary }} className="text-2xl font-bold">
+                {realMetrics.leads.thisMonth}
+              </span>
+            </div>
+            <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+              Leads este mês
+            </p>
+          </div>
+
+          <div className="text-center p-4 rounded-lg" style={{ backgroundColor: currentTheme.background.secondary }}>
+            <div className="flex items-center justify-center mb-2">
+              <CurrencyEuroIcon className="w-5 h-5 text-green-500 mr-1" />
+              <span style={{ color: currentTheme.text.primary }} className="text-2xl font-bold">
+                {realMetrics.deals.total}
+              </span>
+            </div>
+            <p style={{ color: currentTheme.text.secondary }} className="text-sm">
+              Negócios ativos
+            </p>
+          </div>
+        </ResponsiveGrid>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => navigate('/reports')}
+            style={{ color: currentTheme.primary.main }}
+            className="text-sm font-medium hover:underline"
+          >
+            Ver relatório completo →
+          </button>
+        </div>
+      </ResponsiveCard>
+
+      {/* Ações Rápidas */}
+      <ResponsiveCard 
+        title="Ações Rápidas"
+        subtitle="Acesso direto às funcionalidades principais"
+      >
+        <ResponsiveGrid cols={{ mobile: 2, tablet: 4, desktop: 4 }} gap={4}>
+          
+          <Link 
+            to="/leads/new"
+            className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed transition-all duration-200 hover:border-solid hover:shadow-md text-center"
+            style={{ 
+              borderColor: currentTheme.border.light,
+              backgroundColor: currentTheme.background.primary 
+            }}
+          >
+            <ThemedGradient type="primary" className="w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+              <UserGroupIcon className="w-6 h-6 text-white" />
+            </ThemedGradient>
+            <span style={{ color: currentTheme.text.primary }} className="font-medium text-sm mb-1">
+              Novo Lead
+            </span>
+            <span style={{ color: currentTheme.text.secondary }} className="text-xs">
+              Adicionar prospect
+            </span>
+          </Link>
+          
+          <Link 
+            to="/clients/new"
+            className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed transition-all duration-200 hover:border-solid hover:shadow-md text-center"
+            style={{ 
+              borderColor: currentTheme.border.light,
+              backgroundColor: currentTheme.background.primary 
+            }}
+          >
+            <ThemedGradient type="secondary" className="w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+              <UsersIcon className="w-6 h-6 text-white" />
+            </ThemedGradient>
+            <span style={{ color: currentTheme.text.primary }} className="font-medium text-sm mb-1">
+              Novo Cliente
+            </span>
+            <span style={{ color: currentTheme.text.secondary }} className="text-xs">
+              Registar cliente
+            </span>
+          </Link>
+          
+          <Link 
+            to="/visits/schedule"
+            className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed transition-all duration-200 hover:border-solid hover:shadow-md text-center"
+            style={{ 
+              borderColor: currentTheme.border.light,
+              backgroundColor: currentTheme.background.primary 
+            }}
+          >
+            <ThemedGradient type="accent" className="w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+              <CalendarIcon className="w-6 h-6 text-white" />
+            </ThemedGradient>
+            <span style={{ color: currentTheme.text.primary }} className="font-medium text-sm mb-1">
+              Agendar Visita
+            </span>
+            <span style={{ color: currentTheme.text.secondary }} className="text-xs">
+              Marcar reunião
+            </span>
+          </Link>
+          
+          <Link 
+            to="/deals/new"
+            className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed transition-all duration-200 hover:border-solid hover:shadow-md text-center"
+            style={{ 
+              borderColor: currentTheme.border.light,
+              backgroundColor: currentTheme.background.primary 
+            }}
+          >
+            <div 
+              className="w-12 h-12 rounded-xl flex items-center justify-center mb-3"
+              style={{ backgroundColor: '#8b5cf6' }}
+            >
+              <BriefcaseIcon className="w-6 h-6 text-white" />
+            </div>
+            <span style={{ color: currentTheme.text.primary }} className="font-medium text-sm mb-1">
+              Novo Negócio
+            </span>
+            <span style={{ color: currentTheme.text.secondary }} className="text-xs">
+              Pipeline vendas
+            </span>
+          </Link>
+        </ResponsiveGrid>
+      </ResponsiveCard>
+    </ResponsiveLayout>
   );
 };
 
