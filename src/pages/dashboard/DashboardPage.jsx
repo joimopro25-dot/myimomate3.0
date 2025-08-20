@@ -197,10 +197,10 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
       {/* Ações Rápidas */}
       <div className={`
         rounded-lg border p-4 flex-shrink-0
-        ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+        ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
       `}>
         <h3 className={`text-sm font-semibold mb-3 flex items-center ${
-          isDark() ? 'text-white' : 'text-gray-900'
+          isDark ? 'text-white' : 'text-gray-900'
         }`}>
           <span className="mr-2">⚡</span>
           Ações Rápidas
@@ -210,7 +210,7 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
             onClick={() => navigate('/leads/new')}
             className={`
               p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
-              ${isDark() 
+              ${isDark 
                 ? 'bg-blue-900/50 hover:bg-blue-800/50 text-blue-200' 
                 : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
               }
@@ -224,7 +224,7 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
             onClick={() => navigate('/visits/schedule')}
             className={`
               p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
-              ${isDark() 
+              ${isDark 
                 ? 'bg-green-900/50 hover:bg-green-800/50 text-green-200' 
                 : 'bg-green-50 hover:bg-green-100 text-green-700'
               }
@@ -238,7 +238,7 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
             onClick={() => navigate('/tasks/new')}
             className={`
               p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
-              ${isDark() 
+              ${isDark 
                 ? 'bg-yellow-900/50 hover:bg-yellow-800/50 text-yellow-200' 
                 : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700'
               }
@@ -252,7 +252,7 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
             onClick={() => navigate('/reports')}
             className={`
               p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
-              ${isDark() 
+              ${isDark 
                 ? 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-200' 
                 : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
               }
@@ -267,10 +267,10 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
       {/* Performance que expande */}
       <div className={`
         flex-1 rounded-lg border p-4 overflow-hidden
-        ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+        ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
       `}>
         <h3 className={`text-sm font-semibold mb-4 flex items-center ${
-          isDark() ? 'text-white' : 'text-gray-900'
+          isDark ? 'text-white' : 'text-gray-900'
         }`}>
           <span className="mr-2">📊</span>
           Performance
@@ -278,28 +278,28 @@ const ViewportActionsPanel = ({ navigate, isDark }) => {
         
         <div className="space-y-3 h-full">
           <div className="text-center p-3 rounded-md bg-gradient-to-r from-blue-500/10 to-blue-600/10">
-            <div className={`text-xl font-bold ${isDark() ? 'text-blue-400' : 'text-blue-600'}`}>
+            <div className={`text-xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
               15.3%
             </div>
-            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Taxa Conversão
             </div>
           </div>
 
           <div className="text-center p-3 rounded-md bg-gradient-to-r from-green-500/10 to-green-600/10">
-            <div className={`text-xl font-bold ${isDark() ? 'text-green-400' : 'text-green-600'}`}>
+            <div className={`text-xl font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
               €42k
             </div>
-            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Ticket Médio
             </div>
           </div>
 
           <div className="text-center p-3 rounded-md bg-gradient-to-r from-purple-500/10 to-purple-600/10">
-            <div className={`text-xl font-bold ${isDark() ? 'text-purple-400' : 'text-purple-600'}`}>
+            <div className={`text-xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
               87%
             </div>
-            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Meta Mensal
             </div>
           </div>
