@@ -95,6 +95,11 @@ const LeadsPage = () => {
     LEAD_STATUS_COLORS
   } = useLeads();
 
+  // Estados para modais
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+
   // Estados locais
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -653,7 +658,8 @@ const LeadsPage = () => {
                                     <button
                                       onClick={() => {
                                         setOpenDropdown(null);
-                                        alert(`Ver detalhes de ${lead.name}`);
+                                        setSelectedLead(lead);
+                                        setShowDetailsModal(true);
                                       }}
                                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                     >
@@ -664,14 +670,15 @@ const LeadsPage = () => {
                                     <button
                                       onClick={() => {
                                         setOpenDropdown(null);
-                                        alert(`Editar ${lead.name}`);
+                                        setEditingLead(lead);
+                                        setShowEditForm(true);
                                       }}
                                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                     >
                                       ✏️ Editar
                                     </button>
                                     
-                                    {/* Converter */}
+                                    {/* Converter (apenas se não estiver convertido) */}
                                     {lead.status !== LEAD_STATUS.CONVERTIDO && (
                                       <button
                                         onClick={() => {
@@ -679,31 +686,11 @@ const LeadsPage = () => {
                                           setSelectedLead(lead);
                                           setShowConvertModal(true);
                                         }}
-                                        disabled={converting}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        className="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
                                       >
-                                        🔄 Converter
+                                        🔄 Converter para Cliente
                                       </button>
                                     )}
-                                    
-                                    {/* Alterar Status */}
-                                    <div className="px-4 py-2 border-t">
-                                      <select
-                                        value={lead.status}
-                                        onChange={(e) => {
-                                          handleStatusChange(lead.id, e.target.value);
-                                          setOpenDropdown(null);
-                                        }}
-                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                                        title="Alterar Status"
-                                      >
-                                        {Object.values(LEAD_STATUS).map(status => (
-                                          <option key={status} value={status}>
-                                            {getStatusLabel(status)}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
                                     
                                     {/* Eliminar */}
                                     <button
@@ -796,7 +783,212 @@ const LeadsPage = () => {
 
           </ThemedContainer>
         </div>
+            {/* MODAL DE DETALHES DO LEAD */}
+            {showDetailsModal && selectedLead && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold">Detalhes do Lead</h3>
+                    <button
+                      onClick={() => setShowDetailsModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Informações Básicas */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">📋 Informações Básicas</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Nome:</span>
+                          <div className="font-medium">{selectedLead.name}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Status:</span>
+                          <div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[selectedLead.status]}`}>
+                              {getStatusLabel(selectedLead.status)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
+                    {/* Contacto */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">📞 Contacto</h4>
+                      <div className="space-y-2 text-sm">
+                        {selectedLead.phone && (
+                          <div>
+                            <span className="text-gray-500">Telefone:</span>
+                            <div className="font-medium">{selectedLead.phone}</div>
+                          </div>
+                        )}
+                        {selectedLead.email && (
+                          <div>
+                            <span className="text-gray-500">Email:</span>
+                            <div className="font-medium">{selectedLead.email}</div>
+                          </div>
+                        )}
+                        {selectedLead.location && (
+                          <div>
+                            <span className="text-gray-500">Localização:</span>
+                            <div className="font-medium">{selectedLead.location}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interesse */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">🎯 Interesse</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Tipo:</span>
+                          <div className="font-medium">{getInterestTypeLabel(selectedLead.interestType)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Orçamento:</span>
+                          <div className="font-medium">{BUDGET_RANGES[selectedLead.budgetRange] || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notas */}
+                    {selectedLead.notes && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">📝 Notas</h4>
+                        <div className="text-sm bg-gray-50 p-3 rounded">
+                          {selectedLead.notes}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dados Técnicos */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">⚙️ Dados Técnicos</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Criado em:</span>
+                          <div className="font-medium">
+                            {selectedLead.createdAt?.toLocaleString('pt-PT')}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Origem:</span>
+                          <div className="font-medium">{selectedLead.source || 'Manual'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Se convertido, mostrar info do cliente */}
+                    {selectedLead.isConverted && selectedLead.convertedToClientId && (
+                      <div>
+                        <h4 className="font-semibold text-green-900 mb-2">✅ Conversão</h4>
+                        <div className="text-sm bg-green-50 p-3 rounded">
+                          <div>Lead convertido para cliente com sucesso!</div>
+                          <div className="text-green-600 mt-1">
+                            ID do Cliente: {selectedLead.convertedToClientId}
+                          </div>
+                          <div className="text-green-600">
+                            Data: {selectedLead.convertedAt?.toLocaleString('pt-PT')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ações */}
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowDetailsModal(false)}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      Fechar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        setEditingLead(selectedLead);
+                        setShowEditForm(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      ✏️ Editar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL DE EDIÇÃO DO LEAD */}
+            {showEditForm && editingLead && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold">Editar Lead</h3>
+                    <button
+                      onClick={() => {
+                        setShowEditForm(false);
+                        setEditingLead(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-4">🚧</div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">
+                      Funcionalidade em Desenvolvimento
+                    </h4>
+                    <p className="text-gray-600 mb-6">
+                      O formulário de edição de leads será implementado em breve.
+                      Por enquanto, pode usar a função "Eliminar" e recriar o lead com os dados corretos.
+                    </p>
+                    
+                    {/* Dados atuais do lead */}
+                    <div className="bg-gray-50 p-4 rounded text-left mb-6">
+                      <h5 className="font-semibold mb-2">📋 Dados Atuais:</h5>
+                      <div className="text-sm space-y-1">
+                        <div><strong>Nome:</strong> {editingLead.name}</div>
+                        <div><strong>Telefone:</strong> {editingLead.phone || 'N/A'}</div>
+                        <div><strong>Email:</strong> {editingLead.email || 'N/A'}</div>
+                        <div><strong>Interesse:</strong> {getInterestTypeLabel(editingLead.interestType)}</div>
+                        <div><strong>Status:</strong> {getStatusLabel(editingLead.status)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-center gap-3">
+                      <button
+                        onClick={() => {
+                          setShowEditForm(false);
+                          setEditingLead(null);
+                        }}
+                        className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        Fechar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowEditForm(false);
+                          setEditingLead(null);
+                          // TODO: Implementar navegação para página de edição completa
+                          alert('Funcionalidade de edição será implementada em breve!');
+                        }}
+                        className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
+                      >
+                        🔜 Em Breve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
       </div>
     </DashboardLayout>
   );
