@@ -1,5 +1,5 @@
 // src/components/layout/DashboardLayout.jsx
-// Layout que PREENCHE 100% DA VIEWPORT - Como o exemplo do CRM
+// Layout COMPLETO: Viewport 100% + User Menu + Hero Icons
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -28,7 +28,10 @@ import {
   QuestionMarkCircleIcon,
   Bars3Icon,
   XMarkIcon,
-  BellIcon
+  BellIcon,
+  UserCircleIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 // Widget Sidebar que ocupa toda altura
@@ -421,6 +424,13 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
     }
   ];
 
+  const handleLogout = async () => {
+    const result = await logout();
+    if (result.success) {
+      navigate('/login');
+    }
+  };
+
   return (
     // Container que OCUPA 100% DA VIEWPORT - SEM MARGEM/PADDING
     <div className="w-screen h-screen overflow-hidden flex">
@@ -534,14 +544,145 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
                   </span>
                 </button>
 
-                <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${isDark() 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-blue-500 text-white'
-                  }
-                `}>
-                  {userProfile?.name?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || 'U'}
+                {/* User Menu */}
+                <div className="relative" id="user-menu">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className={`
+                      flex items-center space-x-2 p-2 rounded-lg transition-colors
+                      ${isDark() 
+                        ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                      }
+                    `}
+                  >
+                    <UserCircleIcon className={`w-8 h-8 ${
+                      isDark() ? 'text-gray-300' : 'text-gray-600'
+                    }`} />
+                    <ChevronDownIcon className={`w-4 h-4 transition-transform ${
+                      userMenuOpen ? 'rotate-180' : ''
+                    } ${isDark() ? 'text-gray-400' : 'text-gray-500'}`} />
+                  </button>
+
+                  {/* User Dropdown */}
+                  {userMenuOpen && (
+                    <div className={`
+                      absolute right-0 mt-2 w-72 rounded-lg shadow-lg border z-50
+                      ${isDark() 
+                        ? 'bg-gray-800 border-gray-700' 
+                        : 'bg-white border-gray-200'
+                      }
+                    `}>
+                      
+                      {/* Informações da conta */}
+                      <div className={`px-4 py-3 border-b ${isDark() ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <div className="flex items-center space-x-3">
+                          <div className={`
+                            w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium
+                            ${isDark() 
+                              ? 'bg-blue-600 text-white' 
+                              : 'bg-blue-500 text-white'
+                            }
+                          `}>
+                            {userProfile?.name?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || 'U'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+                              {userProfile?.name || currentUser?.displayName || 'Utilizador'}
+                            </p>
+                            <p className={`text-xs truncate ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {currentUser?.email || 'user@example.com'}
+                            </p>
+                            <ThemedBadge variant="primary" size="xs">
+                              {userProfile?.plan || 'starter'}
+                            </ThemedBadge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Menu Items */}
+                      <div className="py-2">
+                        <Link
+                          to="/profile"
+                          className={`
+                            flex items-center px-4 py-2 text-sm transition-colors
+                            ${isDark() 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                            }
+                          `}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <UserCircleIcon className="w-4 h-4 mr-3" />
+                          Perfil
+                        </Link>
+                        
+                        <Link
+                          to="/settings"
+                          className={`
+                            flex items-center px-4 py-2 text-sm transition-colors
+                            ${isDark() 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                            }
+                          `}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <CogIcon className="w-4 h-4 mr-3" />
+                          Configurações
+                        </Link>
+
+                        <Link
+                          to="/billing"
+                          className={`
+                            flex items-center px-4 py-2 text-sm transition-colors
+                            ${isDark() 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                            }
+                          `}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <CurrencyEuroIcon className="w-4 h-4 mr-3" />
+                          Faturação
+                        </Link>
+
+                        <Link
+                          to="/support"
+                          className={`
+                            flex items-center px-4 py-2 text-sm transition-colors
+                            ${isDark() 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                            }
+                          `}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <QuestionMarkCircleIcon className="w-4 h-4 mr-3" />
+                          Suporte
+                        </Link>
+
+                        <div className={`border-t my-2 ${isDark() ? 'border-gray-700' : 'border-gray-100'}`}></div>
+
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            handleLogout();
+                          }}
+                          className={`
+                            w-full flex items-center px-4 py-2 text-sm transition-colors
+                            ${isDark() 
+                              ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' 
+                              : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                            }
+                          `}
+                        >
+                          <ArrowRightOnRectangleIcon className="w-4 h-4 mr-3" />
+                          Sair
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
