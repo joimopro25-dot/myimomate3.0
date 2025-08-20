@@ -1,5 +1,5 @@
 // src/pages/dashboard/DashboardPage.jsx
-// Dashboard Responsivo - Ocupação Total da Tela
+// Dashboard Page que PREENCHE 100% DA VIEWPORT
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,7 +14,7 @@ import {
   ThemedBadge
 } from '../../components/common/ThemedComponents';
 
-// Layout otimizado com widgets
+// Layout otimizado
 import DashboardLayout from '../../components/layout/DashboardLayout';
 
 // Hooks para dados reais
@@ -34,180 +34,278 @@ import {
   CurrencyEuroIcon,
   CheckIcon,
   CalendarIcon,
-  ClockIcon,
-  ArrowTrendingUpIcon,
   PlusIcon,
   PhoneIcon,
-  ChatBubbleLeftRightIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 
-// Componente de Métrica Responsiva
-const ResponsiveMetricCard = ({ 
+// Componente de Métrica Compacta
+const ViewportMetricCard = ({ 
   title, 
   value, 
   trend, 
   icon: Icon, 
   color = 'blue',
-  onClick,
-  className = ''
+  onClick
 }) => {
   const { isDark } = useTheme();
   
   const colorClasses = {
-    blue: {
-      bg: isDark() ? 'bg-blue-900/20' : 'bg-blue-50',
-      iconBg: isDark() ? 'bg-blue-600' : 'bg-blue-100',
-      iconColor: isDark() ? 'text-white' : 'text-blue-600',
-      text: isDark() ? 'text-blue-200' : 'text-blue-700'
-    },
-    green: {
-      bg: isDark() ? 'bg-green-900/20' : 'bg-green-50',
-      iconBg: isDark() ? 'bg-green-600' : 'bg-green-100',
-      iconColor: isDark() ? 'text-white' : 'text-green-600',
-      text: isDark() ? 'text-green-200' : 'text-green-700'
-    },
-    yellow: {
-      bg: isDark() ? 'bg-yellow-900/20' : 'bg-yellow-50',
-      iconBg: isDark() ? 'bg-yellow-600' : 'bg-yellow-100',
-      iconColor: isDark() ? 'text-white' : 'text-yellow-600',
-      text: isDark() ? 'text-yellow-200' : 'text-yellow-700'
-    },
-    purple: {
-      bg: isDark() ? 'bg-purple-900/20' : 'bg-purple-50',
-      iconBg: isDark() ? 'bg-purple-600' : 'bg-purple-100',
-      iconColor: isDark() ? 'text-white' : 'text-purple-600',
-      text: isDark() ? 'text-purple-200' : 'text-purple-700'
-    }
+    blue: isDark() ? 'from-blue-900/30 to-blue-800/20 border-blue-700/50' : 'from-blue-50 to-blue-100/50 border-blue-200',
+    green: isDark() ? 'from-green-900/30 to-green-800/20 border-green-700/50' : 'from-green-50 to-green-100/50 border-green-200',
+    yellow: isDark() ? 'from-yellow-900/30 to-yellow-800/20 border-yellow-700/50' : 'from-yellow-50 to-yellow-100/50 border-yellow-200',
+    purple: isDark() ? 'from-purple-900/30 to-purple-800/20 border-purple-700/50' : 'from-purple-50 to-purple-100/50 border-purple-200'
   };
 
-  const colors = colorClasses[color] || colorClasses.blue;
+  const iconColors = {
+    blue: isDark() ? 'text-blue-400' : 'text-blue-600',
+    green: isDark() ? 'text-green-400' : 'text-green-600',
+    yellow: isDark() ? 'text-yellow-400' : 'text-yellow-600',
+    purple: isDark() ? 'text-purple-400' : 'text-purple-600'
+  };
 
   return (
     <div 
       className={`
-        ${colors.bg} p-6 rounded-lg shadow-sm transition-all duration-200 cursor-pointer h-full
-        hover:shadow-md hover:scale-[1.02] border flex flex-col justify-center
-        ${isDark() ? 'border-gray-700 hover:border-gray-600' : 'border-gray-100 hover:border-gray-200'}
-        ${className}
+        bg-gradient-to-br ${colorClasses[color]} p-4 rounded-lg border cursor-pointer h-full
+        transition-all duration-200 hover:scale-[1.02] hover:shadow-md flex flex-col justify-center
       `}
       onClick={onClick}
     >
-      <div className="flex items-center">
-        <div className={`
-          w-12 h-12 rounded-lg flex items-center justify-center mr-4
-          ${colors.iconBg}
-        `}>
-          <Icon className={`w-6 h-6 ${colors.iconColor}`} />
-        </div>
-        <div className="flex-1">
-          <p className={`text-sm font-medium mb-1 ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+      <div className="flex items-center space-x-3">
+        <Icon className={`w-6 h-6 ${iconColors[color]}`} />
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-medium ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
             {title}
           </p>
-          <p className={`text-2xl font-bold mb-1 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+          <p className={`text-lg font-bold ${isDark() ? 'text-white' : 'text-gray-900'}`}>
             {value}
           </p>
-          {trend && (
-            <p className={`text-sm font-medium ${trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-              {trend}
-            </p>
-          )}
+          <p className="text-xs font-medium text-green-600">{trend}</p>
         </div>
       </div>
     </div>
   );
 };
 
-// Componente de Tabela Expansível
-const ExpandableTable = ({ 
+// Componente de Lista que ocupa toda altura disponível
+const ViewportList = ({ 
   title, 
   data = [], 
   emptyMessage = "Nenhum item encontrado",
   onRowClick,
-  className = ''
+  icon = "📋"
 }) => {
   const { isDark } = useTheme();
 
   return (
     <div className={`
-      bg-white rounded-lg shadow-sm p-6 border h-full flex flex-col
-      ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}
-      ${className}
+      rounded-lg border h-full flex flex-col overflow-hidden
+      ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
     `}>
-      <h3 className={`text-lg font-medium mb-4 flex items-center ${
-        isDark() ? 'text-white' : 'text-gray-900'
-      }`}>
-        {title}
-      </h3>
+      {/* Header */}
+      <div className={`px-4 py-3 border-b flex-shrink-0 ${isDark() ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
+        <h3 className={`text-sm font-semibold flex items-center ${
+          isDark() ? 'text-white' : 'text-gray-900'
+        }`}>
+          <span className="mr-2">{icon}</span>
+          {title}
+        </h3>
+      </div>
       
-      {data.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center py-8">
+      {/* Content que expande */}
+      <div className="flex-1 overflow-hidden">
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
             <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
               {emptyMessage}
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="flex-1 space-y-3 overflow-y-auto">
-          {data.map((item, index) => (
-            <div 
-              key={index}
-              className={`
-                p-4 rounded transition-colors cursor-pointer
-                ${isDark() 
-                  ? 'bg-gray-700 hover:bg-gray-600' 
-                  : 'bg-gray-50 hover:bg-gray-100'
-                }
-              `}
-              onClick={() => onRowClick && onRowClick(item)}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${
-                    isDark() ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {item.name || item.title}
-                  </p>
-                  <p className={`text-xs truncate mt-1 ${
-                    isDark() ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
-                    {item.description || item.property || item.email}
-                  </p>
+        ) : (
+          <div className="h-full overflow-y-auto px-3 py-2">
+            <div className="space-y-2">
+              {data.map((item, index) => (
+                <div 
+                  key={index}
+                  className={`
+                    p-3 rounded-md transition-colors cursor-pointer border
+                    ${isDark() 
+                      ? 'bg-gray-700/50 hover:bg-gray-600/50 border-gray-600/50' 
+                      : 'bg-gray-50 hover:bg-gray-100 border-gray-200/50'
+                    }
+                  `}
+                  onClick={() => onRowClick && onRowClick(item)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${
+                        isDark() ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {item.name || item.title}
+                      </p>
+                      <p className={`text-xs truncate mt-1 ${
+                        isDark() ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {item.description || item.property || item.email}
+                      </p>
+                    </div>
+                    <div className="ml-2 flex-shrink-0">
+                      {item.priority && (
+                        <span className={`
+                          inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                          ${item.priority === 'alta' 
+                            ? 'bg-red-100 text-red-800' 
+                            : item.priority === 'media'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                          }
+                        `}>
+                          {item.priority === 'alta' ? '🔥' : item.priority === 'media' ? '⏰' : '📌'}
+                        </span>
+                      )}
+                      {item.status && (
+                        <span className={`
+                          inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                          ${item.status === 'confirmada' 
+                            ? 'bg-green-100 text-green-800' 
+                            : item.status === 'pendente'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                          }
+                        `}>
+                          {item.time || item.value || item.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="ml-4 flex-shrink-0">
-                  {item.priority && (
-                    <span className={`
-                      inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                      ${item.priority === 'alta' 
-                        ? 'bg-red-100 text-red-800' 
-                        : item.priority === 'media'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-blue-100 text-blue-800'
-                      }
-                    `}>
-                      {item.priority === 'alta' ? '🔥' : item.priority === 'media' ? '⏰' : '📌'}
-                    </span>
-                  )}
-                  {item.status && (
-                    <span className={`
-                      inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                      ${item.status === 'confirmada' 
-                        ? 'bg-green-100 text-green-800' 
-                        : item.status === 'pendente'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-blue-100 text-blue-800'
-                      }
-                    `}>
-                      {item.time || item.value || item.status}
-                    </span>
-                  )}
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Componente de Ações Rápidas + Performance
+const ViewportActionsPanel = ({ navigate, isDark }) => {
+  return (
+    <div className="h-full flex flex-col space-y-3">
+      
+      {/* Ações Rápidas */}
+      <div className={`
+        rounded-lg border p-4 flex-shrink-0
+        ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+      `}>
+        <h3 className={`text-sm font-semibold mb-3 flex items-center ${
+          isDark() ? 'text-white' : 'text-gray-900'
+        }`}>
+          <span className="mr-2">⚡</span>
+          Ações Rápidas
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          <button 
+            onClick={() => navigate('/leads/new')}
+            className={`
+              p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
+              ${isDark() 
+                ? 'bg-blue-900/50 hover:bg-blue-800/50 text-blue-200' 
+                : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+              }
+            `}
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>Lead</span>
+          </button>
+          
+          <button 
+            onClick={() => navigate('/visits/schedule')}
+            className={`
+              p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
+              ${isDark() 
+                ? 'bg-green-900/50 hover:bg-green-800/50 text-green-200' 
+                : 'bg-green-50 hover:bg-green-100 text-green-700'
+              }
+            `}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span>Visita</span>
+          </button>
+          
+          <button 
+            onClick={() => navigate('/tasks/new')}
+            className={`
+              p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
+              ${isDark() 
+                ? 'bg-yellow-900/50 hover:bg-yellow-800/50 text-yellow-200' 
+                : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700'
+              }
+            `}
+          >
+            <PhoneIcon className="w-4 h-4" />
+            <span>Ligar</span>
+          </button>
+          
+          <button 
+            onClick={() => navigate('/reports')}
+            className={`
+              p-2 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1
+              ${isDark() 
+                ? 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-200' 
+                : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
+              }
+            `}
+          >
+            <ChartBarIcon className="w-4 h-4" />
+            <span>Report</span>
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Performance que expande */}
+      <div className={`
+        flex-1 rounded-lg border p-4 overflow-hidden
+        ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+      `}>
+        <h3 className={`text-sm font-semibold mb-4 flex items-center ${
+          isDark() ? 'text-white' : 'text-gray-900'
+        }`}>
+          <span className="mr-2">📊</span>
+          Performance
+        </h3>
+        
+        <div className="space-y-3 h-full">
+          <div className="text-center p-3 rounded-md bg-gradient-to-r from-blue-500/10 to-blue-600/10">
+            <div className={`text-xl font-bold ${isDark() ? 'text-blue-400' : 'text-blue-600'}`}>
+              15.3%
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Taxa Conversão
+            </div>
+          </div>
+
+          <div className="text-center p-3 rounded-md bg-gradient-to-r from-green-500/10 to-green-600/10">
+            <div className={`text-xl font-bold ${isDark() ? 'text-green-400' : 'text-green-600'}`}>
+              €42k
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Ticket Médio
+            </div>
+          </div>
+
+          <div className="text-center p-3 rounded-md bg-gradient-to-r from-purple-500/10 to-purple-600/10">
+            <div className={`text-xl font-bold ${isDark() ? 'text-purple-400' : 'text-purple-600'}`}>
+              87%
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Meta Mensal
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };
@@ -239,100 +337,61 @@ const DashboardPage = () => {
   const realMetrics = {
     leads: {
       total: leads?.length || 0,
-      thisMonth: (typeof getLeadStats === 'function') ? (getLeadStats()?.thisMonth || 0) : 0,
-      trend: '+15%',
-      isPositive: true
+      trend: '+15%'
     },
     clients: {
       total: clients?.length || 0,
-      thisMonth: (typeof getClientStats === 'function') ? (getClientStats()?.thisMonth || 0) : 0,
-      trend: '+12%',
-      isPositive: true
+      trend: '+12%'
     },
     visits: {
       total: visitStats?.total || 0,
-      today: visitStats?.today || 0,
-      trend: '+8%',
-      isPositive: true
+      trend: '+8%'
     },
     deals: {
-      total: deals?.length || 0,
       value: (typeof getDealStats === 'function') ? 
         (getDealStats()?.totalValue ? 
           `€${Math.round(getDealStats().totalValue / 1000)}k` : '€0') : '€0',
-      trend: '+23%',
-      isPositive: true
+      trend: '+23%'
     }
   };
 
-  // DADOS SIMULADOS PARA DEMONSTRAÇÃO
+  // DADOS PARA LISTAS
   const recentTasks = [
-    {
-      name: 'Ligar para João Silva',
-      description: 'Follow-up interesse T3 Cascais',
-      priority: 'alta'
-    },
-    {
-      name: 'Agendar visita Ana Costa',
-      description: 'T2 Lisboa - Cliente VIP',
-      priority: 'media'
-    },
-    {
-      name: 'Enviar proposta comercial',
-      description: 'Carlos Mendes - T4 Porto',
-      priority: 'baixa'
-    },
-    {
-      name: 'Follow-up email marketing',
-      description: 'Campanha Setembro',
-      priority: 'media'
-    },
-    {
-      name: 'Reunião equipa comercial',
-      description: 'Review mensal de objetivos',
-      priority: 'alta'
-    }
+    { name: 'Ligar para João Silva', description: 'Follow-up interesse T3 Cascais', priority: 'alta' },
+    { name: 'Agendar visita Ana Costa', description: 'T2 Lisboa - Cliente VIP', priority: 'media' },
+    { name: 'Enviar proposta comercial', description: 'Carlos Mendes - T4 Porto', priority: 'baixa' },
+    { name: 'Follow-up email marketing', description: 'Campanha Setembro', priority: 'media' },
+    { name: 'Reunião equipa comercial', description: 'Review mensal de objetivos', priority: 'alta' },
+    { name: 'Preparar apresentação', description: 'Cliente empresarial grande', priority: 'alta' },
+    { name: 'Atualizar CRM', description: 'Dados de contactos novos', priority: 'baixa' },
+    { name: 'Ligar seguradoras', description: 'Confirmar cobertura imóvel', priority: 'media' }
   ];
 
   const recentVisits = [
-    {
-      name: 'Ana Costa',
-      description: 'T3 Cascais - Alameda dos Oceanos',
-      status: 'confirmada',
-      time: '15:00'
-    },
-    {
-      name: 'Carlos Mendes',
-      description: 'T2 Lisboa - Avenidas Novas',
-      status: 'confirmada',
-      time: '17:30'
-    },
-    {
-      name: 'Maria Santos',
-      description: 'T4 Porto - Cedofeita',
-      status: 'pendente',
-      time: 'Amanhã'
-    },
-    {
-      name: 'Pedro Oliveira',
-      description: 'T1 Cascais - Centro',
-      status: 'confirmada',
-      time: 'Amanhã 10:00'
-    }
+    { name: 'Ana Costa', description: 'T3 Cascais - Alameda dos Oceanos', status: 'confirmada', time: '15:00' },
+    { name: 'Carlos Mendes', description: 'T2 Lisboa - Avenidas Novas', status: 'confirmada', time: '17:30' },
+    { name: 'Maria Santos', description: 'T4 Porto - Cedofeita', status: 'pendente', time: 'Amanhã' },
+    { name: 'Pedro Oliveira', description: 'T1 Cascais - Centro', status: 'confirmada', time: 'Amanhã 10:00' },
+    { name: 'Sofia Rodrigues', description: 'T2 Sintra - Queluz', status: 'pendente', time: 'Sexta' },
+    { name: 'Miguel Ferreira', description: 'T3 Porto - Boavista', status: 'confirmada', time: 'Sábado 14:00' },
+    { name: 'Isabel Martins', description: 'T4 Lisboa - Príncipe Real', status: 'confirmada', time: 'Sábado 16:30' }
   ];
 
   return (
     <DashboardLayout showWidgets={true}>
-      {/* Container principal que ocupa toda a altura */}
-      <div className="h-full flex flex-col space-y-6">
+      {/* Container que ocupa TODA a altura do main */}
+      <div className="h-full flex flex-col p-4 overflow-hidden">
         
         {/* Saudação compacta */}
-        <ThemedCard className="p-4 flex-shrink-0">
-          <ThemedGradient className="text-center">
-            <ThemedHeading level={2} className="mb-2">
+        <div className={`
+          p-3 rounded-lg mb-4 flex-shrink-0
+          ${isDark() ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}
+        `}>
+          <div className="text-center">
+            <h2 className={`text-lg font-bold ${isDark() ? 'text-white' : 'text-gray-900'}`}>
               Olá, {userProfile?.name || 'Utilizador'}! 👋
-            </ThemedHeading>
-            <p className={`text-sm ${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
+            </h2>
+            <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
               {currentTime.toLocaleDateString('pt-PT', { 
                 weekday: 'long', 
                 day: 'numeric', 
@@ -341,15 +400,15 @@ const DashboardPage = () => {
                 minute: '2-digit'
               })} | Dashboard Otimizado 🚀
             </p>
-          </ThemedGradient>
-        </ThemedCard>
+          </div>
+        </div>
 
-        {/* Área principal expansível */}
-        <div className="flex-1 flex flex-col space-y-6 min-h-0">
+        {/* Área principal que expande para ocupar todo espaço restante */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           
-          {/* Métricas responsivas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4 h-32">
-            <ResponsiveMetricCard
+          {/* Métricas compactas */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 flex-shrink-0" style={{height: '80px'}}>
+            <ViewportMetricCard
               title="Leads"
               value={realMetrics.leads.total.toString()}
               trend={realMetrics.leads.trend}
@@ -357,7 +416,7 @@ const DashboardPage = () => {
               color="blue"
               onClick={() => navigate('/leads')}
             />
-            <ResponsiveMetricCard
+            <ViewportMetricCard
               title="Clientes"
               value={realMetrics.clients.total.toString()}
               trend={realMetrics.clients.trend}
@@ -365,7 +424,7 @@ const DashboardPage = () => {
               color="green"
               onClick={() => navigate('/clients')}
             />
-            <ResponsiveMetricCard
+            <ViewportMetricCard
               title="Visitas"
               value={realMetrics.visits.total.toString()}
               trend={realMetrics.visits.trend}
@@ -373,7 +432,7 @@ const DashboardPage = () => {
               color="yellow"
               onClick={() => navigate('/visits')}
             />
-            <ResponsiveMetricCard
+            <ViewportMetricCard
               title="Negócios"
               value={realMetrics.deals.value}
               trend={realMetrics.deals.trend}
@@ -383,97 +442,31 @@ const DashboardPage = () => {
             />
           </div>
 
-          {/* Tabelas expansíveis lado a lado */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-            <ExpandableTable
-              title="🔥 Tarefas Urgentes"
+          {/* Layout de 3 colunas que ocupa TODO o espaço restante */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
+            
+            {/* Coluna 1: Tarefas */}
+            <ViewportList
+              title="Tarefas Urgentes"
+              icon="🔥"
               data={recentTasks}
               emptyMessage="Nenhuma tarefa urgente"
-              onRowClick={(task) => navigate(`/tasks`)}
+              onRowClick={(task) => navigate('/tasks')}
             />
             
-            <ExpandableTable
-              title="📅 Visitas Agendadas"
+            {/* Coluna 2: Visitas */}
+            <ViewportList
+              title="Visitas Agendadas"
+              icon="📅"
               data={recentVisits}
               emptyMessage="Nenhuma visita agendada"
-              onRowClick={(visit) => navigate(`/visits`)}
+              onRowClick={(visit) => navigate('/visits')}
             />
+
+            {/* Coluna 3: Ações + Performance */}
+            <ViewportActionsPanel navigate={navigate} isDark={isDark()} />
+
           </div>
-
-          {/* Ações rápidas */}
-          <ThemedCard className="p-6 flex-shrink-0">
-            <ThemedHeading level={3} className="mb-4 text-lg">⚡ Ações Rápidas</ThemedHeading>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              
-              <ThemedButton 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center space-y-2 transition-all hover:scale-105"
-                onClick={() => navigate('/leads/new')}
-              >
-                <PlusIcon className="w-6 h-6" />
-                <span className="text-sm font-medium">Novo Lead</span>
-              </ThemedButton>
-
-              <ThemedButton 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center space-y-2 transition-all hover:scale-105"
-                onClick={() => navigate('/visits/schedule')}
-              >
-                <CalendarIcon className="w-6 h-6" />
-                <span className="text-sm font-medium">Agendar</span>
-              </ThemedButton>
-
-              <ThemedButton 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center space-y-2 transition-all hover:scale-105"
-                onClick={() => navigate('/tasks/new')}
-              >
-                <PhoneIcon className="w-6 h-6" />
-                <span className="text-sm font-medium">Ligar</span>
-              </ThemedButton>
-
-              <ThemedButton 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center space-y-2 transition-all hover:scale-105"
-                onClick={() => navigate('/reports')}
-              >
-                <ChartBarIcon className="w-6 h-6" />
-                <span className="text-sm font-medium">Relatórios</span>
-              </ThemedButton>
-
-            </div>
-          </ThemedCard>
-
-          {/* Resumo de performance compacto */}
-          <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-            <ThemedCard className="p-4 text-center">
-              <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-blue-400' : 'text-blue-600'}`}>
-                15.3%
-              </div>
-              <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-                Taxa Conversão
-              </div>
-            </ThemedCard>
-
-            <ThemedCard className="p-4 text-center">
-              <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-green-400' : 'text-green-600'}`}>
-                €42k
-              </div>
-              <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-                Ticket Médio
-              </div>
-            </ThemedCard>
-
-            <ThemedCard className="p-4 text-center">
-              <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-purple-400' : 'text-purple-600'}`}>
-                87%
-              </div>
-              <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-                Meta Mensal
-              </div>
-            </ThemedCard>
-          </div>
-
         </div>
       </div>
     </DashboardLayout>

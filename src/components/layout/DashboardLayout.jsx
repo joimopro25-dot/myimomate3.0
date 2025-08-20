@@ -1,5 +1,5 @@
 // src/components/layout/DashboardLayout.jsx
-// Layout Responsivo - Ocupação Total da Tela
+// Layout que PREENCHE 100% DA VIEWPORT - Como o exemplo do CRM
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -31,17 +31,17 @@ import {
   BellIcon
 } from '@heroicons/react/24/outline';
 
-// Widget Sidebar Responsivo
+// Widget Sidebar que ocupa toda altura
 const WidgetSidebar = ({ className = '' }) => {
   const { isDark } = useTheme();
   
   return (
     <div className={`
-      w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden
+      w-80 h-full flex flex-col border-l overflow-hidden
       ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
       ${className}
     `}>
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className={`p-4 border-b flex-shrink-0 ${isDark() ? 'border-gray-700' : 'border-gray-200'}`}>
         <h3 className={`text-lg font-semibold ${
           isDark() ? 'text-white' : 'text-gray-900'
         }`}>
@@ -192,7 +192,7 @@ const WidgetSidebar = ({ className = '' }) => {
   );
 };
 
-// Sidebar Content Component (mais compacta)
+// Sidebar Content que ocupa toda altura
 const SidebarContent = ({ 
   navigation, 
   secondaryNavigation, 
@@ -214,8 +214,8 @@ const SidebarContent = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header compacto */}
-      <div className={`px-3 py-3 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      {/* Header */}
+      <div className={`px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className={`
@@ -270,7 +270,7 @@ const SidebarContent = ({
       </nav>
 
       {/* Secondary Navigation */}
-      <div className={`px-2 py-3 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`px-2 py-3 border-t flex-shrink-0 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="space-y-1">
           {secondaryNavigation.map((item) => {
             const IconComponent = item.icon;
@@ -298,7 +298,7 @@ const SidebarContent = ({
           })}
         </div>
         
-        {/* Botão logout compacto */}
+        {/* Botão logout */}
         <button
           onClick={handleLogout}
           className={`
@@ -422,148 +422,146 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
   ];
 
   return (
-    <ThemedContainer background={true} className="h-screen overflow-hidden">
-      <div className="flex h-full">
-        {/* Sidebar Desktop - Mais compacta */}
-        <div className={`
-          hidden lg:flex lg:flex-col lg:w-56 lg:fixed lg:inset-y-0 lg:z-50
-          ${isDark() 
-            ? 'bg-gray-900 border-r border-gray-700' 
-            : 'bg-white border-r border-gray-200'
-          }
-        `}>
-          <SidebarContent 
-            navigation={navigation}
-            secondaryNavigation={secondaryNavigation}
-            userProfile={userProfile}
-            theme={theme}
-            isDark={isDark}
+    // Container que OCUPA 100% DA VIEWPORT - SEM MARGEM/PADDING
+    <div className="w-screen h-screen overflow-hidden flex">
+      
+      {/* Sidebar Desktop - Altura 100% da viewport */}
+      <div className={`
+        hidden lg:flex lg:flex-col lg:w-56 lg:h-full lg:flex-shrink-0
+        ${isDark() 
+          ? 'bg-gray-900 border-r border-gray-700' 
+          : 'bg-white border-r border-gray-200'
+        }
+      `}>
+        <SidebarContent 
+          navigation={navigation}
+          secondaryNavigation={secondaryNavigation}
+          userProfile={userProfile}
+          theme={theme}
+          isDark={isDark}
+        />
+      </div>
+
+      {/* Sidebar Mobile */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setSidebarOpen(false)}
           />
-        </div>
-
-        {/* Sidebar Mobile */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            {/* Overlay */}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50"
-              onClick={() => setSidebarOpen(false)}
+          
+          {/* Sidebar */}
+          <div 
+            id="mobile-sidebar"
+            className={`
+              fixed inset-y-0 left-0 w-56 transform transition-transform duration-200 ease-in-out
+              ${isDark() 
+                ? 'bg-gray-900 border-r border-gray-700' 
+                : 'bg-white border-r border-gray-200'
+              }
+            `}
+          >
+            <SidebarContent 
+              navigation={navigation}
+              secondaryNavigation={secondaryNavigation}
+              userProfile={userProfile}
+              theme={theme}
+              isDark={isDark}
+              mobile={true}
+              onClose={() => setSidebarOpen(false)}
             />
-            
-            {/* Sidebar */}
-            <div 
-              id="mobile-sidebar"
-              className={`
-                fixed inset-y-0 left-0 w-56 transform transition-transform duration-200 ease-in-out
-                ${isDark() 
-                  ? 'bg-gray-900 border-r border-gray-700' 
-                  : 'bg-white border-r border-gray-200'
-                }
-              `}
-            >
-              <SidebarContent 
-                navigation={navigation}
-                secondaryNavigation={secondaryNavigation}
-                userProfile={userProfile}
-                theme={theme}
-                isDark={isDark}
-                mobile={true}
-                onClose={() => setSidebarOpen(false)}
-              />
-            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Layout Principal - Ocupa toda a tela */}
-        <div className={`flex-1 flex overflow-hidden ${
-          showWidgets ? 'lg:ml-56' : 'lg:ml-56'
+      {/* Área Principal - Ocupa TODO o espaço restante da viewport */}
+      <div className="flex-1 flex h-full overflow-hidden">
+        
+        {/* Conteúdo Central - Expande para ocupar espaço disponível */}
+        <div className={`flex-1 flex flex-col h-full overflow-hidden ${
+          isDark() ? 'bg-gray-900' : 'bg-gray-50'
         }`}>
           
-          {/* Área Central - Expande para ocupar espaço disponível */}
-          <div className={`flex-1 flex flex-col overflow-hidden ${
-            isDark() ? 'bg-gray-900' : 'bg-gray-50'
-          }`}>
-            
-            {/* Header compacto */}
-            <header className={`
-              z-40 border-b backdrop-blur-sm flex-shrink-0
-              ${isDark() 
-                ? 'bg-gray-900/95 border-gray-700' 
-                : 'bg-white/95 border-gray-200'
-              }
-            `}>
-              <div className="flex items-center justify-between h-14 px-4 sm:px-6">
-                {/* Left side */}
-                <div className="flex items-center">
-                  <button
-                    onClick={() => setSidebarOpen(true)}
-                    className={`
-                      lg:hidden p-2 rounded-md transition-colors
-                      ${isDark() 
-                        ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' 
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }
-                    `}
-                  >
-                    <Bars3Icon className="w-5 h-5" />
-                  </button>
-
-                  <ThemedHeading 
-                    level={4} 
-                    className={`ml-4 lg:ml-0 text-lg ${isDark() ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    {navigation.find(item => item.current)?.name || 'Dashboard'}
-                  </ThemedHeading>
-                </div>
-
-                {/* Right side */}
-                <div className="flex items-center space-x-3">
-                  <div className="hidden sm:block">
-                    <ThemeSelector compact={true} showLabel={false} />
-                  </div>
-
-                  <button className={`
-                    relative p-2 rounded-full transition-colors
+          {/* Header fixo no topo */}
+          <header className={`
+            z-40 border-b backdrop-blur-sm flex-shrink-0
+            ${isDark() 
+              ? 'bg-gray-900/95 border-gray-700' 
+              : 'bg-white/95 border-gray-200'
+            }
+          `}>
+            <div className="flex items-center justify-between h-14 px-4 sm:px-6">
+              {/* Left side */}
+              <div className="flex items-center">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className={`
+                    lg:hidden p-2 rounded-md transition-colors
                     ${isDark() 
                       ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' 
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }
-                  `}>
-                    <BellIcon className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      3
-                    </span>
-                  </button>
+                  `}
+                >
+                  <Bars3Icon className="w-5 h-5" />
+                </button>
 
-                  <div className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                    ${isDark() 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-blue-500 text-white'
-                    }
-                  `}>
-                    {userProfile?.name?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
+                <ThemedHeading 
+                  level={4} 
+                  className={`ml-4 lg:ml-0 text-lg ${isDark() ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {navigation.find(item => item.current)?.name || 'Dashboard'}
+                </ThemedHeading>
+              </div>
+
+              {/* Right side */}
+              <div className="flex items-center space-x-3">
+                <div className="hidden sm:block">
+                  <ThemeSelector compact={true} showLabel={false} />
+                </div>
+
+                <button className={`
+                  relative p-2 rounded-full transition-colors
+                  ${isDark() 
+                    ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }
+                `}>
+                  <BellIcon className="w-5 h-5" />
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    3
+                  </span>
+                </button>
+
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  ${isDark() 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-blue-500 text-white'
+                  }
+                `}>
+                  {userProfile?.name?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
               </div>
-            </header>
+            </div>
+          </header>
 
-            {/* Conteúdo da página - Expande para ocupar toda altura disponível */}
-            <main className="flex-1 overflow-auto p-4">
-              <div className="h-full">
-                {children}
-              </div>
-            </main>
-          </div>
-
-          {/* Widgets Sidebar - Condicional */}
-          {showWidgets && (
-            <WidgetSidebar className="hidden lg:flex" />
-          )}
-          
+          {/* Conteúdo da página - Ocupa TODA altura restante */}
+          <main className="flex-1 overflow-auto">
+            <div className="h-full">
+              {children}
+            </div>
+          </main>
         </div>
+
+        {/* Widgets Sidebar - Condicional, ocupa altura total */}
+        {showWidgets && (
+          <WidgetSidebar className="hidden lg:flex" />
+        )}
+        
       </div>
-    </ThemedContainer>
+    </div>
   );
 };
 
