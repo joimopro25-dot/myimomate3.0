@@ -4,6 +4,7 @@
 // ✅ Métricas compactas no topo específicas de Leads
 // ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES
 // ✅ Apenas muda o layout, zero funcionalidades perdidas
+// 🔥 ADICIONADO: Componente LeadsList.jsx com edição inline
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +12,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useLeads from '../../hooks/useLeads';
+import LeadsList from '../../components/leads/LeadsList'; // 🔥 NOVO IMPORT
 import { 
   UserGroupIcon, 
   PlusIcon, 
@@ -87,6 +89,7 @@ const LeadsPage = () => {
     setFilters,
     checkForDuplicates,
     getLeadStats,
+    fetchLeads, // 🔥 ADICIONADO para refresh
     LEAD_STATUS,
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
@@ -218,6 +221,19 @@ const LeadsPage = () => {
     }
   };
 
+  // 🔥 NOVOS HANDLERS PARA LeadsList.jsx
+  const handleLeadUpdate = async () => {
+    await fetchLeads(); // Refresh da lista
+    setFeedbackMessage('Lead atualizado com sucesso!');
+    setFeedbackType('success');
+  };
+
+  const handleLeadDelete = async () => {
+    await fetchLeads(); // Refresh da lista
+    setFeedbackMessage('Lead eliminado com sucesso!');
+    setFeedbackType('success');
+  };
+
   // 🔍 OBTER RÓTULO LEGÍVEL PARA TIPO DE INTERESSE
   const getInterestTypeLabel = (type) => {
     const labels = {
@@ -277,7 +293,7 @@ const LeadsPage = () => {
               📋 Gestão de Leads
             </h2>
             <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-              Gerir prospects e conversões | Layout Otimizado 🚀
+              Gerir prospects e conversões | Layout Otimizado 🚀 | ✨ <strong>Duplo clique para editar</strong>
             </p>
           </div>
         </div>
@@ -531,155 +547,31 @@ const LeadsPage = () => {
               </ThemedCard>
             )}
 
-            {/* LISTA DE LEADS */}
+            {/* 🔥 LISTA DE LEADS - COMPONENTE COM EDIÇÃO INLINE */}
             <ThemedCard className="p-6">
               <div className="mb-4">
                 <h3 className="text-xl font-bold">
                   Lista de Leads ({leads.length})
                 </h3>
-                {loading && (
-                  <p className="text-gray-500 mt-2">⏳ Carregando leads...</p>
-                )}
-                {error && (
-                  <p className="text-red-600 mt-2">❌ {error}</p>
-                )}
+                <p className="text-gray-600 mt-1">
+                  ✨ <strong>Duplo clique</strong> em qualquer campo para editar inline | 
+                  ✏️ <strong>Editar Completo</strong> | 👁️ <strong>Ver Detalhes</strong> | 🗑️ <strong>Eliminar</strong>
+                </p>
               </div>
 
-              {/* Tabela de leads */}
-              {leads.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200">
-                        <th className="text-left p-3 font-medium text-gray-700">Nome</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Contacto</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Interesse</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Orçamento</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Status</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Criado</th>
-                        <th className="text-center p-3 font-medium text-gray-700">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leads.map((lead) => (
-                        <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          
-                          {/* Nome */}
-                          <td className="p-3">
-                            <div className="font-medium text-gray-900">{lead.name}</div>
-                            {lead.location && (
-                              <div className="text-sm text-gray-500">📍 {lead.location}</div>
-                            )}
-                          </td>
-
-                          {/* Contacto */}
-                          <td className="p-3">
-                            {lead.phone && (
-                              <div className="text-sm">📞 {lead.phone}</div>
-                            )}
-                            {lead.email && (
-                              <div className="text-sm">✉️ {lead.email}</div>
-                            )}
-                          </td>
-
-                          {/* Interesse */}
-                          <td className="p-3">
-                            <div className="text-sm font-medium">
-                              {getInterestTypeLabel(lead.interestType)}
-                            </div>
-                          </td>
-
-                          {/* Orçamento */}
-                          <td className="p-3">
-                            <div className="text-sm">
-                              {BUDGET_RANGES[lead.budgetRange] || 'N/A'}
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status]}`}>
-                              {getStatusLabel(lead.status)}
-                            </span>
-                          </td>
-
-                          {/* Data de criação */}
-                          <td className="p-3">
-                            <div className="text-sm text-gray-500">
-                              {lead.createdAt?.toLocaleDateString('pt-PT')}
-                            </div>
-                          </td>
-
-                          {/* Ações */}
-                          <td className="p-3">
-                            <div className="flex justify-center gap-2">
-                              
-                              {/* Converter para Cliente */}
-                              {lead.status !== LEAD_STATUS.CONVERTIDO && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedLead(lead);
-                                    setShowConvertModal(true);
-                                  }}
-                                  disabled={converting}
-                                  className="text-green-600 hover:text-green-800 text-sm font-medium"
-                                  title="Converter para Cliente"
-                                >
-                                  🔄 Converter
-                                </button>
-                              )}
-
-                              {/* Atualizar Status */}
-                              <select
-                                value={lead.status}
-                                onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                                className="text-xs border border-gray-300 rounded px-2 py-1"
-                                title="Alterar Status"
-                              >
-                                {Object.values(LEAD_STATUS).map(status => (
-                                  <option key={status} value={status}>
-                                    {getStatusLabel(status)}
-                                  </option>
-                                ))}
-                              </select>
-
-                              {/* Eliminar */}
-                              <button
-                                onClick={() => handleDeleteLead(lead.id, lead.name)}
-                                className="text-red-600 hover:text-red-800 text-sm"
-                                title="Eliminar Lead"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                // Estado vazio
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">📋</div>
-                  <h3 className="text-xl font-medium text-gray-900 mb-2">
-                    Nenhum lead encontrado
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    {filters.searchTerm || filters.status || filters.interestType
-                      ? 'Tente ajustar os filtros de pesquisa'
-                      : 'Comece criando o seu primeiro lead'
-                    }
-                  </p>
-                  {!showCreateForm && (
-                    <ThemedButton
-                      onClick={() => setShowCreateForm(true)}
-                    >
-                      ➕ Criar Primeiro Lead
-                    </ThemedButton>
-                  )}
-                </div>
-              )}
+              {/* 🔥 SUBSTITUIR TABELA ANTIGA PELO NOVO COMPONENTE */}
+              <LeadsList
+                leads={leads}
+                loading={loading}
+                error={error}
+                onLeadConvert={handleConvertLead}
+                onLeadUpdate={handleLeadUpdate}
+                onLeadDelete={handleLeadDelete}
+                showSelection={true}
+                showActions={true}
+                showFilters={true}
+                maxHeight="500px"
+              />
             </ThemedCard>
 
             {/* MODAL DE CONFIRMAÇÃO DE CONVERSÃO */}

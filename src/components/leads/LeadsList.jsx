@@ -1,45 +1,66 @@
 // src/components/leads/LeadsList.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedButton } from '../common/ThemedComponents';
 import useLeads from '../../hooks/useLeads';
 
-// 🎯 COMPONENTE DE LISTAGEM AVANÇADA DE LEADS
-// ===========================================
-// MyImoMate 3.0 - Lista inteligente com filtros, ordenação e ações
-// Funcionalidades: Ordenação, Filtros, Seleção múltipla, Exportação, Paginação
+// 🎯 COMPONENTE DE LISTA AVANÇADA EDITÁVEL PARA LEADS
+// ===================================================
+// MyImoMate 3.0 - Lista inteligente com edição inline + modal completo
+// Funcionalidades: Edição inline, Modal completo, Ações, Validações
 
 const LeadsList = ({
-  showFilters = true,
-  showActions = true,
-  showSelection = true,
-  compactMode = false,
+  leads = [],
+  loading = false,
+  error = null,
   onLeadSelect,
   onLeadConvert,
-  maxHeight = '600px'
+  onLeadUpdate,
+  onLeadDelete,
+  showSelection = true,
+  showActions = true,
+  showFilters = true,
+  maxHeight = '600px',
+  compact = false
 }) => {
   const { theme } = useTheme();
   
-  // Hook de leads
+  // Hook de leads para ações
   const {
-    leads,
-    loading,
-    error,
-    converting,
-    updateLeadStatus,
-    convertLeadToClient,
     deleteLead,
+    updateLeadStatus,
     LEAD_STATUS,
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
-    LEAD_STATUS_COLORS
+    LEAD_STATUS_COLORS,
+    isValidPhone,
+    isValidEmail
   } = useLeads();
 
-  // Estados de ordenação
-  const [sortField, setSortField] = useState('createdAt');
-  const [sortDirection, setSortDirection] = useState('desc');
-  
-  // Estados de filtros
+  // 🔄 FUNÇÃO LOCAL DE ATUALIZAÇÃO (será movida para useLeads posteriormente)
+  const updateLead = async (leadId, updateData) => {
+    try {
+      const leadRef = doc(db, 'leads', leadId);
+      await updateDoc(leadRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Atualizar lista local se onLeadUpdate estiver disponível
+      if (onLeadUpdate) {
+        onLeadUpdate();
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao atualizar lead:', error);
+      throw error;
+    }
+  };
+
+  // Estados de filtros locais
   const [localFilters, setLocalFilters] = useState({
     status: '',
     interestType: '',
@@ -48,77 +69,59 @@ const LeadsList = ({
     source: '',
     dateRange: 'all'
   });
-  
+
+  // Estados de ordenação
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+
   // Estados de seleção
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
-  
-  // Estados de UI
+
+  // Estados de paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Estados de ações
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(compactMode ? 20 : 10);
-  
-  // Estados de ações
-  const [actionLoading, setActionLoading] = useState({});
+  const [actionLoading, setActionLoading] = useState({
+    bulkStatus: false,
+    bulkDelete: false,
+    individual: {}
+  });
 
-  // 🔄 ORDENAR DADOS
-  const sortedLeads = useMemo(() => {
-    if (!leads.length) return [];
-    
-    return [...leads].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Tratamento especial para datas
-      if (sortField === 'createdAt' || sortField === 'updatedAt') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      }
-      
-      // Tratamento para strings
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [leads, sortField, sortDirection]);
+  // 🔥 NOVOS ESTADOS PARA EDIÇÃO
+  const [editingCell, setEditingCell] = useState(null); // { leadId, field }
+  const [editValues, setEditValues] = useState({});
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(null);
 
-  // 🔍 FILTRAR DADOS
+  // 📊 FILTRAR E ORDENAR LEADS
   const filteredLeads = useMemo(() => {
-    let filtered = sortedLeads;
+    let filtered = [...leads];
 
-    // Filtro por status
+    // Aplicar filtros
     if (localFilters.status) {
       filtered = filtered.filter(lead => lead.status === localFilters.status);
     }
-
-    // Filtro por tipo de interesse
     if (localFilters.interestType) {
       filtered = filtered.filter(lead => lead.interestType === localFilters.interestType);
     }
-
-    // Filtro por faixa de orçamento
     if (localFilters.budgetRange) {
       filtered = filtered.filter(lead => lead.budgetRange === localFilters.budgetRange);
     }
-
-    // Filtro por prioridade
     if (localFilters.priority) {
       filtered = filtered.filter(lead => lead.priority === localFilters.priority);
     }
-
-    // Filtro por fonte
     if (localFilters.source) {
       filtered = filtered.filter(lead => lead.source === localFilters.source);
     }
 
     // Filtro por data
-    if (localFilters.dateRange && localFilters.dateRange !== 'all') {
+    if (localFilters.dateRange !== 'all') {
       const now = new Date();
       const filterDate = new Date();
       
@@ -132,25 +135,43 @@ const LeadsList = ({
         case 'month':
           filterDate.setMonth(now.getMonth() - 1);
           break;
-        default:
-          break;
       }
       
-      filtered = filtered.filter(lead => new Date(lead.createdAt) >= filterDate);
+      filtered = filtered.filter(lead => {
+        const leadDate = lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt);
+        return leadDate >= filterDate;
+      });
     }
 
+    // Ordenação
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Tratar datas
+      if (sortField.includes('At') || sortField.includes('Date')) {
+        aValue = aValue?.toDate ? aValue.toDate() : new Date(aValue || 0);
+        bValue = bValue?.toDate ? bValue.toDate() : new Date(bValue || 0);
+      }
+
+      // Tratar strings
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return filtered;
-  }, [sortedLeads, localFilters]);
+  }, [leads, localFilters, sortField, sortDirection]);
 
   // 📄 PAGINAÇÃO
-  const paginatedLeads = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredLeads.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredLeads, currentPage, itemsPerPage]);
-
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedLeads = filteredLeads.slice(startIndex, startIndex + itemsPerPage);
 
-  // 🔄 MANIPULAR ORDENAÇÃO
+  // 🔄 FUNÇÕES DE ORDENAÇÃO
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -160,143 +181,112 @@ const LeadsList = ({
     }
   };
 
-  // 🔍 OBTER ÍCONE DE ORDENAÇÃO
   const getSortIcon = (field) => {
     if (sortField !== field) return '↕️';
     return sortDirection === 'asc' ? '⬆️' : '⬇️';
   };
 
-  // ✅ MANIPULAR SELEÇÃO
-  const handleSelectLead = (leadId) => {
-    setSelectedLeads(prev => 
-      prev.includes(leadId)
-        ? prev.filter(id => id !== leadId)
-        : [...prev, leadId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedLeads([]);
-    } else {
-      setSelectedLeads(paginatedLeads.map(lead => lead.id));
-    }
-    setSelectAll(!selectAll);
-  };
-
-  // 🔄 ATUALIZAR STATUS EM LOTE
-  const handleBulkStatusUpdate = async (newStatus) => {
-    setActionLoading(prev => ({ ...prev, bulkStatus: true }));
+  // 🔥 FUNÇÕES DE EDIÇÃO INLINE
+  const handleCellDoubleClick = (lead, field) => {
+    if (!showActions) return;
     
-    try {
-      const promises = selectedLeads.map(leadId => 
-        updateLeadStatus(leadId, newStatus)
-      );
-      
-      await Promise.all(promises);
-      setSelectedLeads([]);
-      setSelectAll(false);
-      setShowBulkActions(false);
-    } catch (error) {
-      console.error('Erro no update em lote:', error);
-    } finally {
-      setActionLoading(prev => ({ ...prev, bulkStatus: false }));
-    }
+    setEditingCell({ leadId: lead.id, field });
+    setEditValues({ [lead.id]: { [field]: lead[field] || '' } });
   };
 
-  // 🗑️ ELIMINAR EM LOTE
-  const handleBulkDelete = async () => {
-    if (!window.confirm(`Eliminar ${selectedLeads.length} leads selecionados?`)) {
+  const handleCellEdit = (leadId, field, value) => {
+    setEditValues(prev => ({
+      ...prev,
+      [leadId]: {
+        ...prev[leadId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleCellSave = async (leadId, field) => {
+    const newValue = editValues[leadId]?.[field];
+    if (newValue === undefined) return;
+
+    // Validações específicas
+    if (field === 'phone' && newValue && !isValidPhone(newValue)) {
+      alert('Formato de telefone inválido');
+      return;
+    }
+    if (field === 'email' && newValue && !isValidEmail(newValue)) {
+      alert('Formato de email inválido');
       return;
     }
 
-    setActionLoading(prev => ({ ...prev, bulkDelete: true }));
-    
     try {
-      const promises = selectedLeads.map(leadId => deleteLead(leadId));
-      await Promise.all(promises);
+      setActionLoading(prev => ({
+        ...prev,
+        individual: { ...prev.individual, [leadId]: true }
+      }));
+
+      await updateLead(leadId, { [field]: newValue });
       
-      setSelectedLeads([]);
-      setSelectAll(false);
-      setShowBulkActions(false);
+      setEditingCell(null);
+      setEditValues({});
+      
+      if (onLeadUpdate) onLeadUpdate();
     } catch (error) {
-      console.error('Erro na eliminação em lote:', error);
+      alert(`Erro ao atualizar: ${error.message}`);
     } finally {
-      setActionLoading(prev => ({ ...prev, bulkDelete: false }));
+      setActionLoading(prev => ({
+        ...prev,
+        individual: { ...prev.individual, [leadId]: false }
+      }));
     }
   };
 
-  // 📊 EXPORTAR LEADS
-  const handleExport = (format = 'csv') => {
-    const dataToExport = selectedLeads.length > 0 
-      ? leads.filter(lead => selectedLeads.includes(lead.id))
-      : filteredLeads;
+  const handleCellCancel = () => {
+    setEditingCell(null);
+    setEditValues({});
+  };
 
-    if (format === 'csv') {
-      exportToCSV(dataToExport);
-    } else if (format === 'json') {
-      exportToJSON(dataToExport);
+  // 🔥 FUNÇÕES DO MODAL DE EDIÇÃO COMPLETA
+  const handleEditComplete = (lead) => {
+    setEditingLead({ ...lead });
+    setShowEditModal(true);
+  };
+
+  const handleSaveComplete = async () => {
+    if (!editingLead) return;
+
+    try {
+      await updateLead(editingLead.id, editingLead);
+      setShowEditModal(false);
+      setEditingLead(null);
+      if (onLeadUpdate) onLeadUpdate();
+    } catch (error) {
+      alert(`Erro ao atualizar: ${error.message}`);
     }
-    
-    setShowExportModal(false);
   };
 
-  const exportToCSV = (data) => {
-    const headers = ['Nome', 'Telefone', 'Email', 'Tipo Interesse', 'Orçamento', 'Status', 'Data Criação'];
-    const csvContent = [
-      headers.join(','),
-      ...data.map(lead => [
-        `"${lead.name}"`,
-        `"${lead.phone || ''}"`,
-        `"${lead.email || ''}"`,
-        `"${getInterestTypeLabel(lead.interestType)}"`,
-        `"${BUDGET_RANGES[lead.budgetRange] || ''}"`,
-        `"${getStatusLabel(lead.status)}"`,
-        `"${lead.createdAt?.toLocaleDateString('pt-PT') || ''}"`
-      ].join(','))
-    ].join('\n');
+  // 🗑️ FUNÇÃO DE ELIMINAÇÃO
+  const handleDelete = async (leadId) => {
+    try {
+      setActionLoading(prev => ({
+        ...prev,
+        individual: { ...prev.individual, [leadId]: true }
+      }));
 
-    downloadFile(csvContent, 'leads.csv', 'text/csv');
+      await deleteLead(leadId);
+      setShowDeleteConfirm(null);
+      
+      if (onLeadDelete) onLeadDelete();
+    } catch (error) {
+      alert(`Erro ao eliminar: ${error.message}`);
+    } finally {
+      setActionLoading(prev => ({
+        ...prev,
+        individual: { ...prev.individual, [leadId]: false }
+      }));
+    }
   };
 
-  const exportToJSON = (data) => {
-    const jsonContent = JSON.stringify(data, null, 2);
-    downloadFile(jsonContent, 'leads.json', 'application/json');
-  };
-
-  const downloadFile = (content, filename, type) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // 🔍 OBTER RÓTULOS LEGÍVEIS
-  const getInterestTypeLabel = (type) => {
-    const labels = {
-      [LEAD_INTEREST_TYPES.COMPRA_CASA]: 'Compra Casa',
-      [LEAD_INTEREST_TYPES.COMPRA_APARTAMENTO]: 'Compra Apartamento',
-      [LEAD_INTEREST_TYPES.COMPRA_TERRENO]: 'Compra Terreno',
-      [LEAD_INTEREST_TYPES.COMPRA_COMERCIAL]: 'Compra Comercial',
-      [LEAD_INTEREST_TYPES.VENDA_CASA]: 'Venda Casa',
-      [LEAD_INTEREST_TYPES.VENDA_APARTAMENTO]: 'Venda Apartamento',
-      [LEAD_INTEREST_TYPES.VENDA_TERRENO]: 'Venda Terreno',
-      [LEAD_INTEREST_TYPES.VENDA_COMERCIAL]: 'Venda Comercial',
-      [LEAD_INTEREST_TYPES.ARRENDAMENTO_CASA]: 'Arrendamento Casa',
-      [LEAD_INTEREST_TYPES.ARRENDAMENTO_APARTAMENTO]: 'Arrendamento Apartamento',
-      [LEAD_INTEREST_TYPES.ARRENDAMENTO_COMERCIAL]: 'Arrendamento Comercial',
-      [LEAD_INTEREST_TYPES.INVESTIMENTO]: 'Investimento',
-      [LEAD_INTEREST_TYPES.AVALIACAO]: 'Avaliação',
-      [LEAD_INTEREST_TYPES.CONSULTORIA]: 'Consultoria'
-    };
-    return labels[type] || type;
-  };
-
+  // 🎨 HELPER FUNCTIONS
   const getStatusLabel = (status) => {
     const labels = {
       [LEAD_STATUS.NOVO]: 'Novo',
@@ -309,88 +299,150 @@ const LeadsList = ({
     return labels[status] || status;
   };
 
-  // ⚡ EFEITOS
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [localFilters]);
+  const getBudgetLabel = (budget) => BUDGET_RANGES[budget] || budget;
+  const getInterestLabel = (interest) => {
+    const labels = {
+      [LEAD_INTEREST_TYPES.COMPRA_CASA]: 'Compra Casa',
+      [LEAD_INTEREST_TYPES.COMPRA_APARTAMENTO]: 'Compra Apartamento',
+      [LEAD_INTEREST_TYPES.VENDA_CASA]: 'Venda Casa',
+      [LEAD_INTEREST_TYPES.ARRENDAMENTO_CASA]: 'Arrendamento',
+      [LEAD_INTEREST_TYPES.INVESTIMENTO]: 'Investimento'
+    };
+    return labels[interest] || interest;
+  };
 
-  useEffect(() => {
-    setSelectAll(false);
-    setSelectedLeads([]);
-  }, [currentPage]);
+  // 🎯 COMPONENTE DE CÉLULA EDITÁVEL
+  const EditableCell = ({ lead, field, value, type = 'text', options = null }) => {
+    const isEditing = editingCell?.leadId === lead.id && editingCell?.field === field;
+    const currentValue = editValues[lead.id]?.[field] ?? value;
+    const isLoading = actionLoading.individual[lead.id];
 
-  useEffect(() => {
-    setShowBulkActions(selectedLeads.length > 0);
-  }, [selectedLeads]);
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-1">
+          {type === 'select' ? (
+            <select
+              value={currentValue}
+              onChange={(e) => handleCellEdit(lead.id, field, e.target.value)}
+              onBlur={() => handleCellSave(lead.id, field)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCellSave(lead.id, field);
+                if (e.key === 'Escape') handleCellCancel();
+              }}
+              className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+              autoFocus
+            >
+              {options?.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={type}
+              value={currentValue}
+              onChange={(e) => handleCellEdit(lead.id, field, e.target.value)}
+              onBlur={() => handleCellSave(lead.id, field)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCellSave(lead.id, field);
+                if (e.key === 'Escape') handleCellCancel();
+              }}
+              className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+              autoFocus
+            />
+          )}
+          <button
+            onClick={() => handleCellSave(lead.id, field)}
+            className="text-green-600 hover:text-green-800 text-xs"
+            disabled={isLoading}
+          >
+            ✓
+          </button>
+          <button
+            onClick={handleCellCancel}
+            className="text-red-600 hover:text-red-800 text-xs"
+            disabled={isLoading}
+          >
+            ✕
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        onDoubleClick={() => handleCellDoubleClick(lead, field)}
+        className="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded"
+        title="Duplo clique para editar"
+      >
+        {field === 'status' && (
+          <span className={`px-2 py-1 rounded-full text-xs ${LEAD_STATUS_COLORS[value] || 'bg-gray-100'}`}>
+            {getStatusLabel(value)}
+          </span>
+        )}
+        {field === 'budgetRange' && getBudgetLabel(value)}
+        {field === 'interestType' && getInterestLabel(value)}
+        {!['status', 'budgetRange', 'interestType'].includes(field) && value}
+      </div>
+    );
+  };
 
   return (
-    <div className="leads-list">
-      
-      {/* BARRA DE FILTROS */}
+    <div className="space-y-4">
+      {/* FILTROS */}
       {showFilters && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="bg-white p-4 rounded-lg border">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            
-            {/* Filtro Status */}
             <select
               value={localFilters.status}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
             >
-              <option value="">Todos Status</option>
+              <option value="">Todos os Status</option>
               {Object.values(LEAD_STATUS).map(status => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
-                </option>
+                <option key={status} value={status}>{getStatusLabel(status)}</option>
               ))}
             </select>
 
-            {/* Filtro Tipo */}
             <select
               value={localFilters.interestType}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, interestType: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
             >
-              <option value="">Todos Tipos</option>
+              <option value="">Todos os Tipos</option>
               {Object.values(LEAD_INTEREST_TYPES).map(type => (
-                <option key={type} value={type}>
-                  {getInterestTypeLabel(type)}
-                </option>
+                <option key={type} value={type}>{getInterestLabel(type)}</option>
               ))}
             </select>
 
-            {/* Filtro Orçamento */}
             <select
               value={localFilters.budgetRange}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, budgetRange: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
             >
-              <option value="">Todos Orçamentos</option>
+              <option value="">Todos os Orçamentos</option>
               {Object.entries(BUDGET_RANGES).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
+                <option key={key} value={key}>{label}</option>
               ))}
             </select>
 
-            {/* Filtro Prioridade */}
             <select
               value={localFilters.priority}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, priority: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
             >
-              <option value="">Todas Prioridades</option>
-              <option value="low">Baixa</option>
+              <option value="">Todas as Prioridades</option>
+              <option value="baixa">Baixa</option>
               <option value="normal">Normal</option>
-              <option value="high">Alta</option>
-              <option value="urgent">Urgente</option>
+              <option value="alta">Alta</option>
+              <option value="urgente">Urgente</option>
             </select>
 
-            {/* Filtro Data */}
             <select
               value={localFilters.dateRange}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
             >
               <option value="all">Todas as Datas</option>
               <option value="today">Hoje</option>
@@ -398,7 +450,6 @@ const LeadsList = ({
               <option value="month">Último Mês</option>
             </select>
 
-            {/* Botão Limpar */}
             <button
               onClick={() => setLocalFilters({
                 status: '',
@@ -408,7 +459,7 @@ const LeadsList = ({
                 source: '',
                 dateRange: 'all'
               })}
-              className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm"
+              className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm border border-gray-300 rounded"
             >
               🔄 Limpar
             </button>
@@ -416,59 +467,12 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* AÇÕES EM LOTE */}
-      {showBulkActions && showActions && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-blue-800 font-medium">
-              {selectedLeads.length} leads selecionados
-            </span>
-            
-            <div className="flex gap-2">
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleBulkStatusUpdate(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className="px-3 py-1 border border-blue-300 rounded text-sm"
-                disabled={actionLoading.bulkStatus}
-              >
-                <option value="">Alterar Status</option>
-                {Object.values(LEAD_STATUS).map(status => (
-                  <option key={status} value={status}>
-                    {getStatusLabel(status)}
-                  </option>
-                ))}
-              </select>
-              
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-              >
-                📊 Exportar
-              </button>
-              
-              <button
-                onClick={handleBulkDelete}
-                disabled={actionLoading.bulkDelete}
-                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-              >
-                {actionLoading.bulkDelete ? '⏳' : '🗑️'} Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* INFO E ESTATÍSTICAS */}
+      {/* ESTATÍSTICAS */}
       <div className="mb-4 flex justify-between items-center text-sm text-gray-600">
         <div>
           Mostrando {paginatedLeads.length} de {filteredLeads.length} leads
           {filteredLeads.length !== leads.length && ` (${leads.length} total)`}
         </div>
-        
         <div className="flex items-center gap-4">
           <select
             value={itemsPerPage}
@@ -480,23 +484,11 @@ const LeadsList = ({
             <option value={20}>20 por página</option>
             <option value={50}>50 por página</option>
           </select>
-          
-          {!selectedLeads.length && showActions && (
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              📊 Exportar Todos
-            </button>
-          )}
         </div>
       </div>
 
       {/* TABELA DE LEADS */}
-      <div 
-        className="bg-white rounded-lg shadow overflow-hidden"
-        style={{ maxHeight: maxHeight }}
-      >
+      <div className="bg-white rounded-lg shadow overflow-hidden" style={{ maxHeight }}>
         {loading ? (
           <div className="p-8 text-center">
             <div className="text-2xl mb-2">⏳</div>
@@ -517,19 +509,12 @@ const LeadsList = ({
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  {/* Checkbox seleção */}
                   {showSelection && (
                     <th className="p-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        className="rounded border-gray-300"
-                      />
+                      <input type="checkbox" className="rounded border-gray-300" />
                     </th>
                   )}
                   
-                  {/* Headers ordenáveis */}
                   <th 
                     className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('name')}
@@ -537,8 +522,11 @@ const LeadsList = ({
                     Nome {getSortIcon('name')}
                   </th>
                   
-                  <th className="p-3 text-left font-medium text-gray-700">
-                    Contacto
+                  <th 
+                    className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('phone')}
+                  >
+                    Contacto {getSortIcon('phone')}
                   </th>
                   
                   <th 
@@ -548,8 +536,11 @@ const LeadsList = ({
                     Interesse {getSortIcon('interestType')}
                   </th>
                   
-                  <th className="p-3 text-left font-medium text-gray-700">
-                    Orçamento
+                  <th 
+                    className="p-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('budgetRange')}
+                  >
+                    Orçamento {getSortIcon('budgetRange')}
                   </th>
                   
                   <th 
@@ -567,101 +558,128 @@ const LeadsList = ({
                   </th>
                   
                   {showActions && (
-                    <th className="p-3 text-center font-medium text-gray-700">
+                    <th className="p-3 text-left font-medium text-gray-700">
                       Ações
                     </th>
                   )}
                 </tr>
               </thead>
               
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {paginatedLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b hover:bg-gray-50">
-                    
-                    {/* Checkbox */}
+                  <tr key={lead.id} className="hover:bg-gray-50">
                     {showSelection && (
                       <td className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedLeads.includes(lead.id)}
-                          onChange={() => handleSelectLead(lead.id)}
-                          className="rounded border-gray-300"
-                        />
+                        <input type="checkbox" className="rounded border-gray-300" />
                       </td>
                     )}
                     
-                    {/* Nome */}
                     <td className="p-3">
-                      <div 
-                        className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
-                        onClick={() => onLeadSelect?.(lead)}
-                      >
-                        {lead.name}
-                      </div>
-                      {lead.location && (
-                        <div className="text-sm text-gray-500">📍 {lead.location}</div>
-                      )}
-                    </td>
-
-                    {/* Contacto */}
-                    <td className="p-3">
-                      {lead.phone && (
-                        <div className="text-sm">📞 {lead.phone}</div>
-                      )}
-                      {lead.email && (
-                        <div className="text-sm">✉️ {lead.email}</div>
-                      )}
-                    </td>
-
-                    {/* Interesse */}
-                    <td className="p-3">
-                      <div className="text-sm">
-                        {getInterestTypeLabel(lead.interestType)}
+                      <div className="space-y-1">
+                        <EditableCell 
+                          lead={lead} 
+                          field="name" 
+                          value={lead.name}
+                        />
+                        <EditableCell 
+                          lead={lead} 
+                          field="email" 
+                          value={lead.email}
+                          type="email"
+                        />
                       </div>
                     </td>
-
-                    {/* Orçamento */}
+                    
                     <td className="p-3">
-                      <div className="text-sm">
-                        {BUDGET_RANGES[lead.budgetRange] || 'N/A'}
-                      </div>
+                      <EditableCell 
+                        lead={lead} 
+                        field="phone" 
+                        value={lead.phone}
+                        type="tel"
+                      />
                     </td>
-
-                    {/* Status */}
+                    
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status]}`}>
-                        {getStatusLabel(lead.status)}
-                      </span>
+                      <EditableCell 
+                        lead={lead} 
+                        field="interestType" 
+                        value={lead.interestType}
+                        type="select"
+                        options={Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => ({
+                          value: key,
+                          label: getInterestLabel(key)
+                        }))}
+                      />
                     </td>
-
-                    {/* Data criação */}
+                    
                     <td className="p-3">
-                      <div className="text-sm text-gray-500">
-                        {lead.createdAt?.toLocaleDateString('pt-PT')}
-                      </div>
+                      <EditableCell 
+                        lead={lead} 
+                        field="budgetRange" 
+                        value={lead.budgetRange}
+                        type="select"
+                        options={Object.entries(BUDGET_RANGES).map(([key, label]) => ({
+                          value: key,
+                          label
+                        }))}
+                      />
                     </td>
-
-                    {/* Ações */}
+                    
+                    <td className="p-3">
+                      <EditableCell 
+                        lead={lead} 
+                        field="status" 
+                        value={lead.status}
+                        type="select"
+                        options={Object.values(LEAD_STATUS).map(status => ({
+                          value: status,
+                          label: getStatusLabel(status)
+                        }))}
+                      />
+                    </td>
+                    
+                    <td className="p-3 text-sm text-gray-600">
+                      {lead.createdAt?.toDate ? 
+                        lead.createdAt.toDate().toLocaleDateString('pt-PT') :
+                        new Date(lead.createdAt).toLocaleDateString('pt-PT')
+                      }
+                    </td>
+                    
                     {showActions && (
                       <td className="p-3">
-                        <div className="flex justify-center gap-1">
-                          {lead.status !== LEAD_STATUS.CONVERTIDO && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditComplete(lead)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            title="Editar Completo"
+                          >
+                            ✏️
+                          </button>
+                          
+                          <button
+                            onClick={() => setShowDetailsModal(lead)}
+                            className="text-green-600 hover:text-green-800 text-sm"
+                            title="Ver Detalhes"
+                          >
+                            👁️
+                          </button>
+                          
+                          {onLeadConvert && !lead.isConverted && (
                             <button
-                              onClick={() => onLeadConvert?.(lead)}
-                              disabled={converting}
-                              className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
-                              title="Converter para Cliente"
+                              onClick={() => onLeadConvert(lead)}
+                              className="text-purple-600 hover:text-purple-800 text-sm"
+                              title="Converter"
                             >
                               🔄
                             </button>
                           )}
                           
                           <button
-                            onClick={() => onLeadSelect?.(lead)}
-                            className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
-                            title="Ver/Editar"
+                            onClick={() => setShowDeleteConfirm(lead.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                            title="Eliminar"
                           >
-                            👁️
+                            🗑️
                           </button>
                         </div>
                       </td>
@@ -676,11 +694,7 @@ const LeadsList = ({
 
       {/* PAGINAÇÃO */}
       {totalPages > 1 && (
-        <div className="mt-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Página {currentPage} de {totalPages}
-          </div>
-          
+        <div className="flex justify-center">
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -690,32 +704,19 @@ const LeadsList = ({
               ← Anterior
             </button>
             
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`px-3 py-1 border rounded text-sm ${
-                    currentPage === pageNum
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`px-3 py-1 border rounded text-sm ${
+                  currentPage === pageNum
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
             
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
@@ -728,42 +729,199 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE EXPORTAÇÃO */}
-      {showExportModal && (
+      {/* MODAL DE EDIÇÃO COMPLETA */}
+      {showEditModal && editingLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Exportar Leads</h3>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4">Editar Lead Completo</h3>
             
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-gray-600 mb-2">
-                  {selectedLeads.length > 0 
-                    ? `Exportar ${selectedLeads.length} leads selecionados`
-                    : `Exportar ${filteredLeads.length} leads filtrados`
-                  }
-                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                <input
+                  type="text"
+                  value={editingLead.name || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                />
               </div>
-
-              <div className="flex gap-3">
-                <ThemedButton
-                  onClick={() => handleExport('csv')}
-                  className="flex-1"
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input
+                  type="tel"
+                  value={editingLead.phone || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editingLead.email || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Interesse</label>
+                <select
+                  value={editingLead.interestType || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, interestType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
                 >
-                  📊 CSV
-                </ThemedButton>
-                
-                <ThemedButton
-                  onClick={() => handleExport('json')}
-                  className="flex-1"
+                  {Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+                    <option key={key} value={key}>{getInterestLabel(key)}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Orçamento</label>
+                <select
+                  value={editingLead.budgetRange || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, budgetRange: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
                 >
-                  📄 JSON
-                </ThemedButton>
+                  {Object.entries(BUDGET_RANGES).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editingLead.status || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                >
+                  {Object.values(LEAD_STATUS).map(status => (
+                    <option key={status} value={status}>{getStatusLabel(status)}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Localização Preferida</label>
+                <input
+                  type="text"
+                  value={editingLead.location || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                  placeholder="Cidade, distrito, zona..."
+                />
+              </div>
+              
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Observações</label>
+                <textarea
+                  value={editingLead.notes || ''}
+                  onChange={(e) => setEditingLead(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
+                  rows="4"
+                  placeholder="Informações adicionais sobre o lead..."
+                />
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
+              <ThemedButton onClick={handleSaveComplete} className="flex-1">
+                Guardar Alterações
+              </ThemedButton>
               <button
-                onClick={() => setShowExportModal(false)}
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingLead(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DETALHES */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4">Detalhes do Lead</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p><strong>Nome:</strong> {showDetailsModal.name}</p>
+                <p><strong>Telefone:</strong> {showDetailsModal.phone || 'N/A'}</p>
+                <p><strong>Email:</strong> {showDetailsModal.email || 'N/A'}</p>
+                <p><strong>Status:</strong> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${LEAD_STATUS_COLORS[showDetailsModal.status] || 'bg-gray-100'}`}>
+                    {getStatusLabel(showDetailsModal.status)}
+                  </span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p><strong>Interesse:</strong> {getInterestLabel(showDetailsModal.interestType)}</p>
+                <p><strong>Orçamento:</strong> {getBudgetLabel(showDetailsModal.budgetRange)}</p>
+                <p><strong>Localização:</strong> {showDetailsModal.location || 'N/A'}</p>
+                <p><strong>Criado:</strong> {
+                  showDetailsModal.createdAt?.toDate ? 
+                    showDetailsModal.createdAt.toDate().toLocaleDateString('pt-PT') :
+                    new Date(showDetailsModal.createdAt).toLocaleDateString('pt-PT')
+                }</p>
+              </div>
+            </div>
+            
+            {showDetailsModal.notes && (
+              <div className="mt-4">
+                <strong>Notas:</strong>
+                <p className="mt-1 p-3 bg-gray-50 rounded">{showDetailsModal.notes}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDetailsModal(null);
+                  handleEditComplete(showDetailsModal);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => setShowDetailsModal(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminação</h3>
+            <p className="text-gray-600 mb-6">
+              Tem certeza que deseja eliminar este lead? Esta ação não pode ser desfeita.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={actionLoading.individual[showDeleteConfirm]}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {actionLoading.individual[showDeleteConfirm] ? '⏳ Eliminando...' : 'Sim, Eliminar'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancelar
