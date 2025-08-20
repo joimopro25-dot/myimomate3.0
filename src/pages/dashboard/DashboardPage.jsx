@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
   ThemedButton, 
   ThemedCard, 
@@ -13,17 +13,8 @@ import {
   ThemedBadge
 } from '../../components/common/ThemedComponents';
 
-// Importar o novo layout responsivo
-import ResponsiveLayout from '../../components/layout/ResponsiveLayout';
-import { 
-  ResponsiveGrid, 
-  ResponsiveCard, 
-  MetricsGrid, 
-  MetricCard,
-  ResponsiveTable,
-  PageActions,
-  useResponsive 
-} from '../../components/layout/ResponsiveGrid';
+// Layout profissional
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 // Hooks para dados reais
 import useLeads from '../../hooks/useLeads';
@@ -33,7 +24,7 @@ import useOpportunities from '../../hooks/useOpportunities';
 import useDeals from '../../hooks/useDeals';
 import useTasks from '../../hooks/useTasks';
 
-// Ícones - CORRIGIDO: CheckIcon em vez de CheckSquareIcon
+// Ícones profissionais
 import {
   UserGroupIcon,
   UsersIcon,
@@ -42,16 +33,14 @@ import {
   CurrencyEuroIcon,
   CheckIcon,
   CalendarIcon,
-  PlusIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ClockIcon,
+  ArrowTrendingUpIcon 
 } from '@heroicons/react/24/outline';
 
 const DashboardPage = () => {
   const { userProfile } = useAuth();
-  const { theme, isDark, currentTheme } = useTheme();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
-  const { isMobile } = useResponsive();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // HOOKS PARA DADOS REAIS
@@ -62,7 +51,7 @@ const DashboardPage = () => {
   const { deals, getDealStats } = useDeals();
   const { tasks, getTaskStats } = useTasks();
 
-  // CALCULAR MÉTRICAS REAIS - VERSÃO SEGURA
+  // CALCULAR MÉTRICAS REAIS
   const realMetrics = {
     leads: {
       total: leads?.length || 0,
@@ -84,7 +73,6 @@ const DashboardPage = () => {
     },
     deals: {
       total: deals?.length || 0,
-      thisMonth: (typeof getDealStats === 'function') ? (getDealStats()?.thisMonth || 0) : 0,
       value: (typeof getDealStats === 'function') ? 
         (getDealStats()?.totalValue ? `€${getDealStats().totalValue.toLocaleString()}` : '€0') : '€0',
       trend: '+20%',
@@ -105,7 +93,7 @@ const DashboardPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Dados simulados para completar a interface
+  // Dados simulados para demonstração
   const recentTasks = [
     {
       id: 1,
@@ -150,23 +138,81 @@ const DashboardPage = () => {
     }
   ];
 
-  // Funções auxiliares
+  // Componente de Métrica
+  const MetricCard = ({ title, value, change, icon: Icon, color, onClick }) => (
+    <ThemedCard 
+      className={`p-6 cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 ${onClick ? 'hover:bg-gray-50' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-sm font-medium ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+            {title}
+          </p>
+          <p className={`text-3xl font-bold mt-2 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+            {value}
+          </p>
+          <div className="flex items-center mt-2">
+            <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 mr-1" />
+            <span className="text-sm text-green-500 font-medium">{change}</span>
+          </div>
+        </div>
+        <div className={`p-3 rounded-full bg-${color}-100`}>
+          <Icon className={`w-6 h-6 text-${color}-600`} />
+        </div>
+      </div>
+    </ThemedCard>
+  );
+
+  // Componente de Tabela Simples
+  const SimpleTable = ({ title, data, columns, onRowClick, emptyMessage }) => (
+    <ThemedCard className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <ThemedHeading level={3}>{title}</ThemedHeading>
+      </div>
+      {data.length === 0 ? (
+        <p className={`text-center py-8 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className={`border-b ${isDark() ? 'border-gray-700' : 'border-gray-200'}`}>
+                {columns.map((col, index) => (
+                  <th key={index} className={`text-left py-3 px-4 font-medium ${isDark() ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, index) => (
+                <tr 
+                  key={index}
+                  className={`border-b cursor-pointer hover:bg-gray-50 ${isDark() ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200'}`}
+                  onClick={() => onRowClick && onRowClick(row)}
+                >
+                  {columns.map((col, colIndex) => (
+                    <td key={colIndex} className={`py-3 px-4 ${isDark() ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ThemedCard>
+  );
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'alta': return isDark() ? 'text-red-400' : 'text-red-600';
       case 'média': return isDark() ? 'text-yellow-400' : 'text-yellow-600';
       case 'baixa': return isDark() ? 'text-green-400' : 'text-green-600';
       default: return isDark() ? 'text-gray-400' : 'text-gray-600';
-    }
-  };
-
-  const getTaskIcon = (type) => {
-    switch (type) {
-      case 'call': return '📞';
-      case 'document': return '📄';
-      case 'follow-up': return '🔄';
-      case 'visit': return '🏠';
-      default: return '📝';
     }
   };
 
@@ -179,114 +225,62 @@ const DashboardPage = () => {
     }
   };
 
-  // Dados das métricas para o novo sistema
-  const metricsData = [
-    {
-      title: 'Leads',
-      value: realMetrics.leads.total.toString(),
-      change: realMetrics.leads.trend,
-      icon: UserGroupIcon,
-      color: 'blue',
-      clickable: true,
-      onClick: () => navigate('/leads')
-    },
-    {
-      title: 'Clientes',
-      value: realMetrics.clients.total.toString(),
-      change: realMetrics.clients.trend,
-      icon: UsersIcon,
-      color: 'green',
-      clickable: true,
-      onClick: () => navigate('/clients')
-    },
-    {
-      title: 'Visitas',
-      value: realMetrics.visits.total.toString(),
-      change: realMetrics.visits.trend,
-      icon: EyeIcon,
-      color: 'yellow',
-      clickable: true,
-      onClick: () => navigate('/visits')
-    },
-    {
-      title: 'Negócios',
-      value: realMetrics.deals.value,
-      change: realMetrics.deals.trend,
-      icon: CurrencyEuroIcon,
-      color: 'purple',
-      clickable: true,
-      onClick: () => navigate('/deals')
-    }
-  ];
-
-  // Ações do header
-  const headerActions = (
-    <PageActions>
-      <ThemedButton variant="secondary" size="sm">
-        <Link to="/leads/new">
-          <PlusIcon className="w-4 h-4 mr-2 inline" />
-          {isMobile ? 'Lead' : 'Novo Lead'}
-        </Link>
-      </ThemedButton>
-      <ThemedButton variant="primary" size="sm">
-        <Link to="/visits/schedule">
-          <CalendarIcon className="w-4 h-4 mr-2 inline" />
-          {isMobile ? 'Visita' : 'Agendar Visita'}
-        </Link>
-      </ThemedButton>
-    </PageActions>
-  );
-
-  // Preparar dados das tarefas para tabela responsiva
   const taskColumns = [
-    { header: 'Tarefa', accessor: row => (
-      <div className="flex items-center space-x-2">
-        <span className="text-lg">{getTaskIcon(row.type)}</span>
-        <span>{row.title}</span>
-      </div>
-    )},
-    { header: 'Prioridade', accessor: row => (
-      <ThemedBadge 
-        variant="secondary" 
-        size="xs"
-        className={getPriorityColor(row.priority)}
-      >
-        {row.priority}
-      </ThemedBadge>
-    )},
-    { header: 'Data', accessor: row => 
-      row.dueDate ? row.dueDate.toLocaleDateString('pt-PT') : 'Sem data'
+    { 
+      header: 'Tarefa', 
+      accessor: row => (
+        <div className="flex items-center space-x-2">
+          <span>{row.title}</span>
+        </div>
+      )
+    },
+    { 
+      header: 'Prioridade', 
+      accessor: row => (
+        <ThemedBadge 
+          variant="secondary" 
+          size="xs"
+          className={getPriorityColor(row.priority)}
+        >
+          {row.priority}
+        </ThemedBadge>
+      )
+    },
+    { 
+      header: 'Data', 
+      accessor: row => 
+        row.dueDate ? row.dueDate.toLocaleDateString('pt-PT') : 'Sem data'
     }
   ];
 
   const visitColumns = [
     { header: 'Propriedade', accessor: 'property' },
     { header: 'Cliente', accessor: 'client' },
-    { header: 'Status', accessor: row => (
-      <ThemedBadge 
-        variant="secondary" 
-        size="xs"
-        className={getStatusColor(row.status)}
-      >
-        {row.status}
-      </ThemedBadge>
-    )}
+    { 
+      header: 'Status', 
+      accessor: row => (
+        <ThemedBadge 
+          variant="secondary" 
+          size="xs"
+          className={getStatusColor(row.status)}
+        >
+          {row.status}
+        </ThemedBadge>
+      )
+    }
   ];
 
   return (
-    <ResponsiveLayout 
-      title="Dashboard" 
-      actions={headerActions}
-    >
+    <DashboardLayout>
       <div className="space-y-6">
         
         {/* Welcome Section */}
-        <ResponsiveCard className="text-center">
+        <ThemedCard className="text-center">
           <ThemedGradient className="p-6 rounded-lg">
-            <ThemedHeading level={2} className="mb-2">
-              Bem-vindo de volta, {userProfile?.personalInfo?.firstName || 'Utilizador'}! 👋
+            <ThemedHeading level={2} className="mb-2 text-white">
+              Bem-vindo de volta, {userProfile?.name || 'Utilizador'}! 👋
             </ThemedHeading>
-            <ThemedText className="mb-4">
+            <ThemedText className="mb-4 text-white/90">
               {currentTime.toLocaleDateString('pt-PT', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -297,111 +291,117 @@ const DashboardPage = () => {
                 minute: '2-digit' 
               })}
             </ThemedText>
-            <p className="text-white/90">
+            <p className="text-white/80">
               Você tem {realMetrics.tasks.pending} tarefas pendentes e {realMetrics.visits.today} visitas hoje.
             </p>
           </ThemedGradient>
-        </ResponsiveCard>
+        </ThemedCard>
 
         {/* Métricas Principais */}
-        <MetricsGrid metrics={metricsData} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            title="Leads"
+            value={realMetrics.leads.total.toString()}
+            change={realMetrics.leads.trend}
+            icon={UserGroupIcon}
+            color="blue"
+            onClick={() => navigate('/leads')}
+          />
+          <MetricCard
+            title="Clientes"
+            value={realMetrics.clients.total.toString()}
+            change={realMetrics.clients.trend}
+            icon={UsersIcon}
+            color="green"
+            onClick={() => navigate('/clients')}
+          />
+          <MetricCard
+            title="Visitas"
+            value={realMetrics.visits.total.toString()}
+            change={realMetrics.visits.trend}
+            icon={EyeIcon}
+            color="yellow"
+            onClick={() => navigate('/visits')}
+          />
+          <MetricCard
+            title="Negócios"
+            value={realMetrics.deals.value}
+            change={realMetrics.deals.trend}
+            icon={CurrencyEuroIcon}
+            color="purple"
+            onClick={() => navigate('/deals')}
+          />
+        </div>
 
         {/* Grid de Conteúdo */}
-        <ResponsiveGrid cols={{ mobile: 1, desktop: 2 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Tarefas Recentes */}
-          <ResponsiveCard title="Tarefas Urgentes" subtitle="Suas próximas atividades">
-            <ResponsiveTable 
-              columns={taskColumns}
-              data={recentTasks}
-              emptyMessage="Nenhuma tarefa urgente"
-              onRowClick={(task) => navigate(`/tasks/${task.id}`)}
-            />
-            <div className="mt-4 text-center">
-              <ThemedButton 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/tasks')}
-              >
-                Ver todas as tarefas
-              </ThemedButton>
-            </div>
-          </ResponsiveCard>
+          {/* Tarefas Urgentes */}
+          <SimpleTable
+            title="Tarefas Urgentes"
+            data={recentTasks}
+            columns={taskColumns}
+            emptyMessage="Nenhuma tarefa urgente"
+            onRowClick={(task) => navigate(`/tasks/${task.id}`)}
+          />
 
-          {/* Visitas de Hoje */}
-          <ResponsiveCard title="Visitas Próximas" subtitle="Agendamentos confirmados">
-            <ResponsiveTable 
-              columns={visitColumns}
-              data={recentVisits}
-              emptyMessage="Nenhuma visita agendada"
-              onRowClick={(visit) => navigate(`/visits/${visit.id}`)}
-            />
-            <div className="mt-4 text-center">
-              <ThemedButton 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/visits')}
-              >
-                Ver todas as visitas
-              </ThemedButton>
-            </div>
-          </ResponsiveCard>
+          {/* Visitas Próximas */}
+          <SimpleTable
+            title="Visitas Próximas"
+            data={recentVisits}
+            columns={visitColumns}
+            emptyMessage="Nenhuma visita agendada"
+            onRowClick={(visit) => navigate(`/visits/${visit.id}`)}
+          />
 
-        </ResponsiveGrid>
+        </div>
 
         {/* Ações Rápidas */}
-        <ResponsiveCard title="Ações Rápidas">
-          <ResponsiveGrid cols={{ mobile: 2, tablet: 4 }}>
+        <ThemedCard className="p-6">
+          <ThemedHeading level={3} className="mb-4">Ações Rápidas</ThemedHeading>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             
             <ThemedButton 
               variant="outline" 
-              className="h-20"
+              className="h-20 flex flex-col items-center justify-center space-y-2"
               onClick={() => navigate('/leads/new')}
             >
-              <div className="text-center">
-                <UserGroupIcon className="w-6 h-6 mx-auto mb-1" />
-                <span className="text-sm">Novo Lead</span>
-              </div>
+              <UserGroupIcon className="w-6 h-6" />
+              <span className="text-sm">Novo Lead</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20"
+              className="h-20 flex flex-col items-center justify-center space-y-2"
               onClick={() => navigate('/visits/schedule')}
             >
-              <div className="text-center">
-                <CalendarIcon className="w-6 h-6 mx-auto mb-1" />
-                <span className="text-sm">Agendar Visita</span>
-              </div>
+              <CalendarIcon className="w-6 h-6" />
+              <span className="text-sm">Agendar Visita</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20"
+              className="h-20 flex flex-col items-center justify-center space-y-2"
               onClick={() => navigate('/tasks/new')}
             >
-              <div className="text-center">
-                <CheckIcon className="w-6 h-6 mx-auto mb-1" />
-                <span className="text-sm">Nova Tarefa</span>
-              </div>
+              <CheckIcon className="w-6 h-6" />
+              <span className="text-sm">Nova Tarefa</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20"
+              className="h-20 flex flex-col items-center justify-center space-y-2"
               onClick={() => navigate('/clients/new')}
             >
-              <div className="text-center">
-                <UsersIcon className="w-6 h-6 mx-auto mb-1" />
-                <span className="text-sm">Novo Cliente</span>
-              </div>
+              <UsersIcon className="w-6 h-6" />
+              <span className="text-sm">Novo Cliente</span>
             </ThemedButton>
 
-          </ResponsiveGrid>
-        </ResponsiveCard>
+          </div>
+        </ThemedCard>
 
       </div>
-    </ResponsiveLayout>
+    </DashboardLayout>
   );
 };
 
