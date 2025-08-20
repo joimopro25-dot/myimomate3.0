@@ -1,5 +1,5 @@
 // src/components/layout/DashboardLayout.jsx
-// Layout Otimizado - Sistema de 3 Colunas
+// Layout Responsivo - Ocupação Total da Tela
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -31,155 +31,161 @@ import {
   BellIcon
 } from '@heroicons/react/24/outline';
 
-// Widget Sidebar Component
+// Widget Sidebar Responsivo
 const WidgetSidebar = ({ className = '' }) => {
   const { isDark } = useTheme();
   
   return (
-    <div className={`w-80 bg-white border-l border-gray-200 p-4 overflow-auto ${className} ${
-      isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold mb-4 ${
-        isDark() ? 'text-white' : 'text-gray-900'
-      }`}>
-        Analytics & Widgets
-      </h3>
+    <div className={`
+      w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden
+      ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+      ${className}
+    `}>
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className={`text-lg font-semibold ${
+          isDark() ? 'text-white' : 'text-gray-900'
+        }`}>
+          Analytics & Widgets
+        </h3>
+      </div>
       
-      {/* Widget Performance */}
-      <div className={`rounded-lg p-4 mb-4 border ${
-        isDark() 
-          ? 'bg-gray-700 border-gray-600' 
-          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-      }`}>
-        <h4 className={`text-sm font-medium mb-2 ${
-          isDark() ? 'text-gray-200' : 'text-gray-700'
+      <div className="flex-1 p-4 space-y-4 overflow-auto">
+        {/* Widget Performance */}
+        <div className={`rounded-lg p-4 border ${
+          isDark() 
+            ? 'bg-gray-700 border-gray-600' 
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
         }`}>
-          📈 Performance
-        </h4>
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Conversão
-            </span>
-            <span className="font-bold text-green-600">15.3%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-green-500 h-2 rounded-full" style={{width: '15.3%'}}></div>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              ROI Mensal
-            </span>
-            <span className="font-bold text-blue-600">23.4%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-blue-500 h-2 rounded-full" style={{width: '23.4%'}}></div>
+          <h4 className={`text-sm font-medium mb-3 ${
+            isDark() ? 'text-gray-200' : 'text-gray-700'
+          }`}>
+            📈 Performance
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Conversão
+              </span>
+              <span className="font-bold text-green-600">15.3%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-green-500 h-2 rounded-full" style={{width: '15.3%'}}></div>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                ROI Mensal
+              </span>
+              <span className="font-bold text-blue-600">23.4%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-blue-500 h-2 rounded-full" style={{width: '23.4%'}}></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Widget Calendário */}
-      <div className={`rounded-lg p-4 mb-4 border ${
-        isDark() 
-          ? 'bg-gray-700 border-gray-600' 
-          : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-      }`}>
-        <h4 className={`text-sm font-medium mb-2 ${
-          isDark() ? 'text-gray-200' : 'text-gray-700'
+        {/* Widget Calendário */}
+        <div className={`rounded-lg p-4 border ${
+          isDark() 
+            ? 'bg-gray-700 border-gray-600' 
+            : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
         }`}>
-          📅 Próximos Eventos
-        </h4>
-        <div className="space-y-2">
-          <div className="text-xs flex justify-between">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Meeting Ana
-            </span>
-            <span className="text-blue-600 font-medium">14:00</span>
-          </div>
-          <div className="text-xs flex justify-between">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Visita T3 Cascais
-            </span>
-            <span className="text-green-600 font-medium">16:30</span>
-          </div>
-          <div className="text-xs flex justify-between">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Follow-up Carlos
-            </span>
-            <span className="text-yellow-600 font-medium">Amanhã</span>
+          <h4 className={`text-sm font-medium mb-3 ${
+            isDark() ? 'text-gray-200' : 'text-gray-700'
+          }`}>
+            📅 Próximos Eventos
+          </h4>
+          <div className="space-y-3">
+            <div className="text-sm flex justify-between">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Meeting Ana
+              </span>
+              <span className="text-blue-600 font-medium">14:00</span>
+            </div>
+            <div className="text-sm flex justify-between">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Visita T3 Cascais
+              </span>
+              <span className="text-green-600 font-medium">16:30</span>
+            </div>
+            <div className="text-sm flex justify-between">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Follow-up Carlos
+              </span>
+              <span className="text-yellow-600 font-medium">Amanhã</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Widget Pipeline */}
-      <div className={`rounded-lg p-4 mb-4 border ${
-        isDark() 
-          ? 'bg-gray-700 border-gray-600' 
-          : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'
-      }`}>
-        <h4 className={`text-sm font-medium mb-2 ${
-          isDark() ? 'text-gray-200' : 'text-gray-700'
+        {/* Widget Pipeline */}
+        <div className={`rounded-lg p-4 border ${
+          isDark() 
+            ? 'bg-gray-700 border-gray-600' 
+            : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'
         }`}>
-          🎯 Pipeline de Vendas
-        </h4>
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Oportunidades
-            </span>
-            <span className="font-bold">12</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Em negociação
-            </span>
-            <span className="font-bold text-yellow-600">5</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
-              Fechados este mês
-            </span>
-            <span className="font-bold text-green-600">3</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full" style={{width: '75%'}}></div>
+          <h4 className={`text-sm font-medium mb-3 ${
+            isDark() ? 'text-gray-200' : 'text-gray-700'
+          }`}>
+            🎯 Pipeline de Vendas
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Oportunidades
+              </span>
+              <span className="font-bold">12</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Em negociação
+              </span>
+              <span className="font-bold text-yellow-600">5</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className={isDark() ? 'text-gray-300' : 'text-gray-600'}>
+                Fechados este mês
+              </span>
+              <span className="font-bold text-green-600">3</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full" style={{width: '75%'}}></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Widget Quick Actions */}
-      <div className={`rounded-lg p-4 border ${
-        isDark() 
-          ? 'bg-gray-700 border-gray-600' 
-          : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
-      }`}>
-        <h4 className={`text-sm font-medium mb-2 ${
-          isDark() ? 'text-gray-200' : 'text-gray-700'
+        {/* Widget Quick Actions */}
+        <div className={`rounded-lg p-4 border ${
+          isDark() 
+            ? 'bg-gray-700 border-gray-600' 
+            : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
         }`}>
-          ⚡ Quick Actions
-        </h4>
-        <div className="space-y-2">
-          <button className={`w-full text-left p-2 rounded text-xs transition-colors ${
-            isDark() 
-              ? 'bg-blue-900/50 hover:bg-blue-800/50 text-blue-200' 
-              : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+          <h4 className={`text-sm font-medium mb-3 ${
+            isDark() ? 'text-gray-200' : 'text-gray-700'
           }`}>
-            📞 Fazer chamada rápida
-          </button>
-          <button className={`w-full text-left p-2 rounded text-xs transition-colors ${
-            isDark() 
-              ? 'bg-green-900/50 hover:bg-green-800/50 text-green-200' 
-              : 'bg-green-50 hover:bg-green-100 text-green-700'
-          }`}>
-            ✉️ Enviar email template
-          </button>
-          <button className={`w-full text-left p-2 rounded text-xs transition-colors ${
-            isDark() 
-              ? 'bg-yellow-900/50 hover:bg-yellow-800/50 text-yellow-200' 
-              : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700'
-          }`}>
-            📊 Gerar relatório rápido
-          </button>
+            ⚡ Quick Actions
+          </h4>
+          <div className="space-y-2">
+            <button className={`w-full text-left p-2 rounded text-sm transition-colors ${
+              isDark() 
+                ? 'bg-blue-900/50 hover:bg-blue-800/50 text-blue-200' 
+                : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+            }`}>
+              📞 Fazer chamada rápida
+            </button>
+            <button className={`w-full text-left p-2 rounded text-sm transition-colors ${
+              isDark() 
+                ? 'bg-green-900/50 hover:bg-green-800/50 text-green-200' 
+                : 'bg-green-50 hover:bg-green-100 text-green-700'
+            }`}>
+              ✉️ Enviar email template
+            </button>
+            <button className={`w-full text-left p-2 rounded text-sm transition-colors ${
+              isDark() 
+                ? 'bg-yellow-900/50 hover:bg-yellow-800/50 text-yellow-200' 
+                : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700'
+            }`}>
+              📊 Gerar relatório rápido
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -235,7 +241,7 @@ const SidebarContent = ({
         </div>
       </div>
 
-      {/* Navigation compacta */}
+      {/* Navigation */}
       <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
           const IconComponent = item.icon;
@@ -263,7 +269,7 @@ const SidebarContent = ({
         })}
       </nav>
 
-      {/* Secondary Navigation compacta */}
+      {/* Secondary Navigation */}
       <div className={`px-2 py-3 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="space-y-1">
           {secondaryNavigation.map((item) => {
@@ -393,7 +399,7 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
     }
   ];
 
-  // Navegação secundária (bottom da sidebar)
+  // Navegação secundária
   const secondaryNavigation = [
     {
       name: 'Relatórios',
@@ -415,19 +421,12 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
     }
   ];
 
-  const handleLogout = async () => {
-    const result = await logout();
-    if (result.success) {
-      navigate('/login');
-    }
-  };
-
   return (
-    <ThemedContainer background={true} className="min-h-screen">
-      <div className="flex h-screen">
-        {/* Sidebar Desktop - Mais compacta (w-56 em vez de w-64) */}
+    <ThemedContainer background={true} className="h-screen overflow-hidden">
+      <div className="flex h-full">
+        {/* Sidebar Desktop - Mais compacta */}
         <div className={`
-          hidden lg:flex lg:flex-col lg:w-56 lg:fixed lg:inset-y-0
+          hidden lg:flex lg:flex-col lg:w-56 lg:fixed lg:inset-y-0 lg:z-50
           ${isDark() 
             ? 'bg-gray-900 border-r border-gray-700' 
             : 'bg-white border-r border-gray-200'
@@ -475,23 +474,26 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
           </div>
         )}
 
-        {/* Layout 3 Colunas: Conteúdo Principal + Widgets */}
-        <div className={`flex-1 flex overflow-hidden ${showWidgets ? 'lg:ml-56' : 'lg:ml-56'}`}>
+        {/* Layout Principal - Ocupa toda a tela */}
+        <div className={`flex-1 flex overflow-hidden ${
+          showWidgets ? 'lg:ml-56' : 'lg:ml-56'
+        }`}>
           
-          {/* Coluna Central - Conteúdo Principal */}
-          <div className={`flex-1 bg-gray-50 overflow-auto ${
+          {/* Área Central - Expande para ocupar espaço disponível */}
+          <div className={`flex-1 flex flex-col overflow-hidden ${
             isDark() ? 'bg-gray-900' : 'bg-gray-50'
           }`}>
+            
             {/* Header compacto */}
             <header className={`
-              sticky top-0 z-40 border-b backdrop-blur-sm
+              z-40 border-b backdrop-blur-sm flex-shrink-0
               ${isDark() 
                 ? 'bg-gray-900/95 border-gray-700' 
                 : 'bg-white/95 border-gray-200'
               }
             `}>
               <div className="flex items-center justify-between h-14 px-4 sm:px-6">
-                {/* Left side - Mobile menu button */}
+                {/* Left side */}
                 <div className="flex items-center">
                   <button
                     onClick={() => setSidebarOpen(true)}
@@ -506,7 +508,6 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
                     <Bars3Icon className="w-5 h-5" />
                   </button>
 
-                  {/* Page title compacto */}
                   <ThemedHeading 
                     level={4} 
                     className={`ml-4 lg:ml-0 text-lg ${isDark() ? 'text-white' : 'text-gray-900'}`}
@@ -515,14 +516,12 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
                   </ThemedHeading>
                 </div>
 
-                {/* Right side - Actions compactas */}
+                {/* Right side */}
                 <div className="flex items-center space-x-3">
-                  {/* Theme Selector compacto */}
                   <div className="hidden sm:block">
                     <ThemeSelector compact={true} showLabel={false} />
                   </div>
 
-                  {/* Notifications */}
                   <button className={`
                     relative p-2 rounded-full transition-colors
                     ${isDark() 
@@ -536,7 +535,6 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
                     </span>
                   </button>
 
-                  {/* User avatar compacto */}
                   <div className={`
                     w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
                     ${isDark() 
@@ -550,15 +548,17 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
               </div>
             </header>
 
-            {/* Conteúdo da página */}
-            <main className="p-4">
-              {children}
+            {/* Conteúdo da página - Expande para ocupar toda altura disponível */}
+            <main className="flex-1 overflow-auto p-4">
+              <div className="h-full">
+                {children}
+              </div>
             </main>
           </div>
 
-          {/* Coluna Direita - Widgets (condicional) */}
+          {/* Widgets Sidebar - Condicional */}
           {showWidgets && (
-            <WidgetSidebar className="hidden lg:block" />
+            <WidgetSidebar className="hidden lg:flex" />
           )}
           
         </div>
