@@ -161,7 +161,7 @@ const LeadsPage = () => {
     }
   };
 
-  // 🔄 CONVERTER LEAD PARA CLIENTE
+  // 🔄 CONVERTER LEAD PARA CLIENTE + OPORTUNIDADE (PROCESSO CIRÚRGICO)
   const handleConvertLead = async (lead) => {
     try {
       const result = await convertLeadToClient(lead.id, {
@@ -174,13 +174,22 @@ const LeadsPage = () => {
       });
 
       if (result.success) {
-        setFeedbackMessage(`Lead "${lead.name}" convertido para cliente com sucesso!`);
+        // 🎯 MENSAGEM MELHORADA: Inclui informação sobre oportunidade
+        const successMessage = result.opportunityId 
+          ? `✅ Lead "${lead.name}" convertido para cliente + oportunidade criada automaticamente no pipeline!`
+          : `✅ Lead "${lead.name}" convertido para cliente com sucesso!`;
+        
+        setFeedbackMessage(successMessage);
         setFeedbackType('success');
         setShowConvertModal(false);
         setSelectedLead(null);
         
-        // Navegar para o cliente criado (implementar later)
-        // navigate(`/clients/${result.clientId}`);
+        // TODO: Navegar para o cliente criado ou oportunidade
+        // if (result.opportunityId) {
+        //   navigate(`/opportunities/${result.opportunityId}`);
+        // } else {
+        //   navigate(`/clients/${result.clientId}`);
+        // }
       } else {
         setFeedbackMessage(result.message || 'Erro ao converter lead');
         setFeedbackType('error');
