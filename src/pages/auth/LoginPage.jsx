@@ -54,7 +54,7 @@ const LoginPage = () => {
 
   // Redirecionar se já autenticado (após inicialização completa)
   useEffect(() => {
-    if (initializationComplete && isAuthenticated()) {
+    if (initializationComplete && isAuthenticated) {
       console.log('👤 Utilizador já autenticado, redirecionando...');
       setShowWelcomeBack(true);
       

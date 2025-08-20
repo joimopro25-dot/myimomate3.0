@@ -63,7 +63,7 @@ const RegisterPage = () => {
 
   // Redirecionar se já autenticado
   useEffect(() => {
-    if (initializationComplete && isAuthenticated()) {
+    if (initializationComplete && isAuthenticated) {
       console.log('👤 Utilizador já autenticado, redirecionando...');
       navigate('/dashboard', { replace: true });
     }
