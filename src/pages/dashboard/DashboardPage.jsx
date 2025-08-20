@@ -1,4 +1,5 @@
 // src/pages/dashboard/DashboardPage.jsx
+// Dashboard Otimizado - Sistema de 3 Colunas com Máximo Aproveitamento
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,7 +14,7 @@ import {
   ThemedBadge
 } from '../../components/common/ThemedComponents';
 
-// Layout profissional
+// Layout otimizado com widgets
 import DashboardLayout from '../../components/layout/DashboardLayout';
 
 // Hooks para dados reais
@@ -24,7 +25,7 @@ import useOpportunities from '../../hooks/useOpportunities';
 import useDeals from '../../hooks/useDeals';
 import useTasks from '../../hooks/useTasks';
 
-// Ícones profissionais
+// Ícones otimizados
 import {
   UserGroupIcon,
   UsersIcon,
@@ -34,8 +35,181 @@ import {
   CheckIcon,
   CalendarIcon,
   ClockIcon,
-  ArrowTrendingUpIcon 
+  ArrowTrendingUpIcon,
+  PlusIcon,
+  PhoneIcon,
+  ChatBubbleLeftRightIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
+
+// Componente de Métrica Compacta
+const CompactMetricCard = ({ 
+  title, 
+  value, 
+  trend, 
+  icon: Icon, 
+  color = 'blue',
+  onClick,
+  className = ''
+}) => {
+  const { isDark } = useTheme();
+  
+  const colorClasses = {
+    blue: {
+      bg: isDark() ? 'bg-blue-900/20' : 'bg-blue-50',
+      iconBg: isDark() ? 'bg-blue-600' : 'bg-blue-100',
+      iconColor: isDark() ? 'text-white' : 'text-blue-600',
+      text: isDark() ? 'text-blue-200' : 'text-blue-700'
+    },
+    green: {
+      bg: isDark() ? 'bg-green-900/20' : 'bg-green-50',
+      iconBg: isDark() ? 'bg-green-600' : 'bg-green-100',
+      iconColor: isDark() ? 'text-white' : 'text-green-600',
+      text: isDark() ? 'text-green-200' : 'text-green-700'
+    },
+    yellow: {
+      bg: isDark() ? 'bg-yellow-900/20' : 'bg-yellow-50',
+      iconBg: isDark() ? 'bg-yellow-600' : 'bg-yellow-100',
+      iconColor: isDark() ? 'text-white' : 'text-yellow-600',
+      text: isDark() ? 'text-yellow-200' : 'text-yellow-700'
+    },
+    purple: {
+      bg: isDark() ? 'bg-purple-900/20' : 'bg-purple-50',
+      iconBg: isDark() ? 'bg-purple-600' : 'bg-purple-100',
+      iconColor: isDark() ? 'text-white' : 'text-purple-600',
+      text: isDark() ? 'text-purple-200' : 'text-purple-700'
+    }
+  };
+
+  const colors = colorClasses[color] || colorClasses.blue;
+
+  return (
+    <div 
+      className={`
+        ${colors.bg} p-4 rounded-lg shadow-sm transition-all duration-200 cursor-pointer
+        hover:shadow-md hover:scale-[1.02] border
+        ${isDark() ? 'border-gray-700 hover:border-gray-600' : 'border-gray-100 hover:border-gray-200'}
+        ${className}
+      `}
+      onClick={onClick}
+    >
+      <div className="flex items-center">
+        <div className={`
+          w-10 h-10 rounded-lg flex items-center justify-center mr-3
+          ${colors.iconBg}
+        `}>
+          <Icon className={`w-5 h-5 ${colors.iconColor}`} />
+        </div>
+        <div className="flex-1">
+          <p className={`text-xs font-medium ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+            {title}
+          </p>
+          <p className={`text-xl font-bold ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+            {value}
+          </p>
+          {trend && (
+            <p className={`text-xs font-medium ${trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+              {trend}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente de Tabela Compacta
+const CompactTable = ({ 
+  title, 
+  data = [], 
+  columns = [],
+  emptyMessage = "Nenhum item encontrado",
+  onRowClick,
+  className = ''
+}) => {
+  const { isDark } = useTheme();
+
+  return (
+    <div className={`
+      bg-white rounded-lg shadow-sm p-4 border
+      ${isDark() ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}
+      ${className}
+    `}>
+      <h3 className={`text-base font-medium mb-3 flex items-center ${
+        isDark() ? 'text-white' : 'text-gray-900'
+      }`}>
+        {title}
+      </h3>
+      
+      {data.length === 0 ? (
+        <div className="text-center py-8">
+          <p className={`text-sm ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
+            {emptyMessage}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {data.slice(0, 5).map((item, index) => (
+            <div 
+              key={index}
+              className={`
+                p-2 rounded transition-colors cursor-pointer
+                ${isDark() 
+                  ? 'bg-gray-700 hover:bg-gray-600' 
+                  : 'bg-gray-50 hover:bg-gray-100'
+                }
+              `}
+              onClick={() => onRowClick && onRowClick(item)}
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${
+                    isDark() ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {item.name || item.title}
+                  </p>
+                  <p className={`text-xs truncate ${
+                    isDark() ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    {item.description || item.property || item.email}
+                  </p>
+                </div>
+                <div className="ml-3 flex-shrink-0">
+                  {item.priority && (
+                    <span className={`
+                      inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                      ${item.priority === 'alta' 
+                        ? 'bg-red-100 text-red-800' 
+                        : item.priority === 'media'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-blue-100 text-blue-800'
+                      }
+                    `}>
+                      {item.priority === 'alta' ? '🔥' : item.priority === 'media' ? '⏰' : '📌'}
+                    </span>
+                  )}
+                  {item.status && (
+                    <span className={`
+                      inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                      ${item.status === 'confirmada' 
+                        ? 'bg-green-100 text-green-800' 
+                        : item.status === 'pendente'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-blue-100 text-blue-800'
+                      }
+                    `}>
+                      {item.time || item.value || item.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DashboardPage = () => {
   const { userProfile } = useAuth();
@@ -50,6 +224,15 @@ const DashboardPage = () => {
   const { opportunities, getOpportunityStats } = useOpportunities();
   const { deals, getDealStats } = useDeals();
   const { tasks, getTaskStats } = useTasks();
+
+  // Atualizar hora a cada minuto
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return () => clearInterval(timer);
+  }, []);
 
   // CALCULAR MÉTRICAS REAIS
   const realMetrics = {
@@ -74,331 +257,210 @@ const DashboardPage = () => {
     deals: {
       total: deals?.length || 0,
       value: (typeof getDealStats === 'function') ? 
-        (getDealStats()?.totalValue ? `€${getDealStats().totalValue.toLocaleString()}` : '€0') : '€0',
-      trend: '+20%',
-      isPositive: true
-    },
-    tasks: {
-      total: tasks?.length || 0,
-      pending: tasks?.filter(t => t.status === 'pending')?.length || 0,
-      urgent: tasks?.filter(t => t.priority === 'alta')?.length || 0,
-      trend: '+5%',
+        (getDealStats()?.totalValue ? 
+          `€${Math.round(getDealStats().totalValue / 1000)}k` : '€0') : '€0',
+      trend: '+23%',
       isPositive: true
     }
   };
 
-  // Atualizar relógio
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Dados simulados para demonstração
+  // DADOS SIMULADOS PARA DEMONSTRAÇÃO (substituir por dados reais)
   const recentTasks = [
     {
-      id: 1,
-      title: 'Ligar para João Silva',
-      type: 'call',
+      name: 'Ligar para João Silva',
+      description: 'Follow-up interesse T3 Cascais',
       priority: 'alta',
-      dueDate: new Date(),
-      client: 'João Silva'
+      time: '🔥'
     },
     {
-      id: 2,
-      title: 'Preparar proposta comercial',
-      type: 'document',
-      priority: 'média',
-      dueDate: new Date(Date.now() + 86400000),
-      client: 'Maria Santos'
+      name: 'Agendar visita Ana Costa',
+      description: 'T2 Lisboa - Cliente VIP',
+      priority: 'media',
+      time: '⏰'
     },
     {
-      id: 3,
-      title: 'Follow-up reunião',
-      type: 'follow-up',
+      name: 'Enviar proposta comercial',
+      description: 'Carlos Mendes - T4 Porto',
       priority: 'baixa',
-      dueDate: new Date(Date.now() + 172800000),
-      client: 'Pedro Costa'
+      time: '📌'
+    },
+    {
+      name: 'Follow-up email marketing',
+      description: 'Campanha Setembro',
+      priority: 'media',
+      time: '⏰'
     }
   ];
 
   const recentVisits = [
     {
-      id: 1,
-      property: 'Apartamento T2 - Lisboa',
-      client: 'Ana Ferreira',
-      date: new Date(),
-      status: 'confirmada'
+      name: 'Ana Costa',
+      description: 'T3 Cascais - Alameda dos Oceanos',
+      status: 'confirmada',
+      time: '15:00'
     },
     {
-      id: 2,
-      property: 'Moradia T4 - Porto',
-      client: 'Carlos Mendes',
-      date: new Date(Date.now() + 86400000),
-      status: 'pendente'
-    }
-  ];
-
-  // Componente de Métrica
-  const MetricCard = ({ title, value, change, icon: Icon, color, onClick }) => (
-    <ThemedCard 
-      className={`p-6 cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 ${onClick ? 'hover:bg-gray-50' : ''}`}
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`text-sm font-medium ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-            {title}
-          </p>
-          <p className={`text-3xl font-bold mt-2 ${isDark() ? 'text-white' : 'text-gray-900'}`}>
-            {value}
-          </p>
-          <div className="flex items-center mt-2">
-            <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-sm text-green-500 font-medium">{change}</span>
-          </div>
-        </div>
-        <div className={`p-3 rounded-full bg-${color}-100`}>
-          <Icon className={`w-6 h-6 text-${color}-600`} />
-        </div>
-      </div>
-    </ThemedCard>
-  );
-
-  // Componente de Tabela Simples
-  const SimpleTable = ({ title, data, columns, onRowClick, emptyMessage }) => (
-    <ThemedCard className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <ThemedHeading level={3}>{title}</ThemedHeading>
-      </div>
-      {data.length === 0 ? (
-        <p className={`text-center py-8 ${isDark() ? 'text-gray-400' : 'text-gray-500'}`}>
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className={`border-b ${isDark() ? 'border-gray-700' : 'border-gray-200'}`}>
-                {columns.map((col, index) => (
-                  <th key={index} className={`text-left py-3 px-4 font-medium ${isDark() ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {col.header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, index) => (
-                <tr 
-                  key={index}
-                  className={`border-b cursor-pointer hover:bg-gray-50 ${isDark() ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200'}`}
-                  onClick={() => onRowClick && onRowClick(row)}
-                >
-                  {columns.map((col, colIndex) => (
-                    <td key={colIndex} className={`py-3 px-4 ${isDark() ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor]}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </ThemedCard>
-  );
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'alta': return isDark() ? 'text-red-400' : 'text-red-600';
-      case 'média': return isDark() ? 'text-yellow-400' : 'text-yellow-600';
-      case 'baixa': return isDark() ? 'text-green-400' : 'text-green-600';
-      default: return isDark() ? 'text-gray-400' : 'text-gray-600';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmada': return 'text-green-500';
-      case 'pendente': return 'text-yellow-500';
-      case 'cancelada': return 'text-red-500';
-      default: return 'text-gray-500';
-    }
-  };
-
-  const taskColumns = [
-    { 
-      header: 'Tarefa', 
-      accessor: row => (
-        <div className="flex items-center space-x-2">
-          <span>{row.title}</span>
-        </div>
-      )
+      name: 'Carlos Mendes',
+      description: 'T2 Lisboa - Avenidas Novas',
+      status: 'confirmada',
+      time: '17:30'
     },
-    { 
-      header: 'Prioridade', 
-      accessor: row => (
-        <ThemedBadge 
-          variant="secondary" 
-          size="xs"
-          className={getPriorityColor(row.priority)}
-        >
-          {row.priority}
-        </ThemedBadge>
-      )
-    },
-    { 
-      header: 'Data', 
-      accessor: row => 
-        row.dueDate ? row.dueDate.toLocaleDateString('pt-PT') : 'Sem data'
-    }
-  ];
-
-  const visitColumns = [
-    { header: 'Propriedade', accessor: 'property' },
-    { header: 'Cliente', accessor: 'client' },
-    { 
-      header: 'Status', 
-      accessor: row => (
-        <ThemedBadge 
-          variant="secondary" 
-          size="xs"
-          className={getStatusColor(row.status)}
-        >
-          {row.status}
-        </ThemedBadge>
-      )
+    {
+      name: 'Maria Santos',
+      description: 'T4 Porto - Cedofeita',
+      status: 'pendente',
+      time: 'Amanhã'
     }
   ];
 
   return (
-    <DashboardLayout>
+    <DashboardLayout showWidgets={true}>
       <div className="space-y-6">
         
-        {/* Welcome Section */}
-        <ThemedCard className="text-center">
-          <ThemedGradient className="p-6 rounded-lg">
-            <ThemedHeading level={2} className="mb-2 text-white">
-              Bem-vindo de volta, {userProfile?.name || 'Utilizador'}! 👋
+        {/* Saudação otimizada */}
+        <ThemedCard className="p-4">
+          <ThemedGradient className="text-center">
+            <ThemedHeading level={2} className="mb-2">
+              Olá, {userProfile?.name || 'Utilizador'}! 👋
             </ThemedHeading>
-            <ThemedText className="mb-4 text-white/90">
+            <p className={`text-sm ${isDark() ? 'text-gray-300' : 'text-gray-600'}`}>
               {currentTime.toLocaleDateString('pt-PT', { 
                 weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })} • {currentTime.toLocaleTimeString('pt-PT', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </ThemedText>
-            <p className="text-white/80">
-              Você tem {realMetrics.tasks.pending} tarefas pendentes e {realMetrics.visits.today} visitas hoje.
+                day: 'numeric', 
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit'
+              })} | Dashboard Otimizado 🚀
             </p>
           </ThemedGradient>
         </ThemedCard>
 
-        {/* Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
+        {/* Métricas compactas em 2x2 */}
+        <div className="grid grid-cols-2 gap-4">
+          <CompactMetricCard
             title="Leads"
             value={realMetrics.leads.total.toString()}
-            change={realMetrics.leads.trend}
+            trend={realMetrics.leads.trend}
             icon={UserGroupIcon}
             color="blue"
             onClick={() => navigate('/leads')}
           />
-          <MetricCard
+          <CompactMetricCard
             title="Clientes"
             value={realMetrics.clients.total.toString()}
-            change={realMetrics.clients.trend}
+            trend={realMetrics.clients.trend}
             icon={UsersIcon}
             color="green"
             onClick={() => navigate('/clients')}
           />
-          <MetricCard
+          <CompactMetricCard
             title="Visitas"
             value={realMetrics.visits.total.toString()}
-            change={realMetrics.visits.trend}
+            trend={realMetrics.visits.trend}
             icon={EyeIcon}
             color="yellow"
             onClick={() => navigate('/visits')}
           />
-          <MetricCard
+          <CompactMetricCard
             title="Negócios"
             value={realMetrics.deals.value}
-            change={realMetrics.deals.trend}
+            trend={realMetrics.deals.trend}
             icon={CurrencyEuroIcon}
             color="purple"
             onClick={() => navigate('/deals')}
           />
         </div>
 
-        {/* Grid de Conteúdo */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Tarefas Urgentes */}
-          <SimpleTable
-            title="Tarefas Urgentes"
+        {/* Tabelas lado a lado */}
+        <div className="grid grid-cols-2 gap-4">
+          <CompactTable
+            title="🔥 Tarefas Urgentes"
             data={recentTasks}
-            columns={taskColumns}
             emptyMessage="Nenhuma tarefa urgente"
-            onRowClick={(task) => navigate(`/tasks/${task.id}`)}
+            onRowClick={(task) => navigate(`/tasks`)}
           />
-
-          {/* Visitas Próximas */}
-          <SimpleTable
-            title="Visitas Próximas"
+          
+          <CompactTable
+            title="📅 Visitas Hoje"
             data={recentVisits}
-            columns={visitColumns}
             emptyMessage="Nenhuma visita agendada"
-            onRowClick={(visit) => navigate(`/visits/${visit.id}`)}
+            onRowClick={(visit) => navigate(`/visits`)}
           />
-
         </div>
 
-        {/* Ações Rápidas */}
-        <ThemedCard className="p-6">
-          <ThemedHeading level={3} className="mb-4">Ações Rápidas</ThemedHeading>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Ações rápidas horizontais otimizadas */}
+        <ThemedCard className="p-4">
+          <ThemedHeading level={3} className="mb-4 text-base">⚡ Ações Rápidas</ThemedHeading>
+          <div className="grid grid-cols-4 gap-3">
             
             <ThemedButton 
               variant="outline" 
-              className="h-20 flex flex-col items-center justify-center space-y-2"
+              className="h-16 flex flex-col items-center justify-center space-y-1 transition-all hover:scale-105"
               onClick={() => navigate('/leads/new')}
             >
-              <UserGroupIcon className="w-6 h-6" />
-              <span className="text-sm">Novo Lead</span>
+              <PlusIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Novo Lead</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20 flex flex-col items-center justify-center space-y-2"
+              className="h-16 flex flex-col items-center justify-center space-y-1 transition-all hover:scale-105"
               onClick={() => navigate('/visits/schedule')}
             >
-              <CalendarIcon className="w-6 h-6" />
-              <span className="text-sm">Agendar Visita</span>
+              <CalendarIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Agendar</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20 flex flex-col items-center justify-center space-y-2"
+              className="h-16 flex flex-col items-center justify-center space-y-1 transition-all hover:scale-105"
               onClick={() => navigate('/tasks/new')}
             >
-              <CheckIcon className="w-6 h-6" />
-              <span className="text-sm">Nova Tarefa</span>
+              <PhoneIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Ligar</span>
             </ThemedButton>
 
             <ThemedButton 
               variant="outline" 
-              className="h-20 flex flex-col items-center justify-center space-y-2"
-              onClick={() => navigate('/clients/new')}
+              className="h-16 flex flex-col items-center justify-center space-y-1 transition-all hover:scale-105"
+              onClick={() => navigate('/reports')}
             >
-              <UsersIcon className="w-6 h-6" />
-              <span className="text-sm">Novo Cliente</span>
+              <ChartBarIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Relatórios</span>
             </ThemedButton>
 
           </div>
         </ThemedCard>
+
+        {/* Resumo de performance compacto */}
+        <div className="grid grid-cols-3 gap-4">
+          <ThemedCard className="p-4 text-center">
+            <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-blue-400' : 'text-blue-600'}`}>
+              15.3%
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Taxa Conversão
+            </div>
+          </ThemedCard>
+
+          <ThemedCard className="p-4 text-center">
+            <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-green-400' : 'text-green-600'}`}>
+              €42k
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Ticket Médio
+            </div>
+          </ThemedCard>
+
+          <ThemedCard className="p-4 text-center">
+            <div className={`text-2xl font-bold mb-1 ${isDark() ? 'text-purple-400' : 'text-purple-600'}`}>
+              87%
+            </div>
+            <div className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Meta Mensal
+            </div>
+          </ThemedCard>
+        </div>
 
       </div>
     </DashboardLayout>
