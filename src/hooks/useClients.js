@@ -1,113 +1,94 @@
 // src/hooks/useClients.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
   collection, 
+  doc, 
   addDoc, 
+  updateDoc, 
+  deleteDoc, 
   getDocs, 
+  getDoc,
   query, 
-  orderBy, 
   where, 
-  updateDoc,
-  doc,
-  deleteDoc,
+  orderBy, 
   limit,
   serverTimestamp,
-  getDoc,
-  and,
-  or
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// 🎯 HOOK PERSONALIZADO PARA GESTÃO DE CLIENTES
-// =============================================
-// MyImoMate 3.0 - Módulo Core de Clientes
-// Funcionalidades: CRUD, Duplicados, Histórico, Múltiplos contactos, Firebase
+// 🏢 CONSTANTES E CONFIGURAÇÕES
+// =============================
 
-// 👥 TIPOS DE CLIENTE DISPONÍVEIS
+const CLIENTS_COLLECTION = 'clients';
+
+// Status dos clientes
+export const CLIENT_STATUS = {
+  ATIVO: 'ativo',
+  INATIVO: 'inativo',
+  PROSPETO: 'prospeto',
+  EX_CLIENTE: 'ex_cliente'
+};
+
+// Tipos de cliente
 export const CLIENT_TYPES = {
   COMPRADOR: 'comprador',
   VENDEDOR: 'vendedor',
   INQUILINO: 'inquilino',
   SENHORIO: 'senhorio',
-  INVESTIDOR: 'investidor',
-  MISTO: 'misto' // Cliente com múltiplos perfis
+  INVESTIDOR: 'investidor'
 };
 
-// 📊 STATUS DOS CLIENTES
-export const CLIENT_STATUS = {
-  ATIVO: 'ativo',
-  INATIVO: 'inativo',
-  VIP: 'vip',
-  PROSPECT: 'prospect',
-  EX_CLIENTE: 'ex_cliente',
-  BLOQUEADO: 'bloqueado'
-};
-
-// 🎨 CORES POR STATUS (para UI)
-export const CLIENT_STATUS_COLORS = {
-  [CLIENT_STATUS.ATIVO]: 'bg-green-100 text-green-800',
-  [CLIENT_STATUS.INATIVO]: 'bg-gray-100 text-gray-800',
-  [CLIENT_STATUS.VIP]: 'bg-purple-100 text-purple-800',
-  [CLIENT_STATUS.PROSPECT]: 'bg-blue-100 text-blue-800',
-  [CLIENT_STATUS.EX_CLIENTE]: 'bg-orange-100 text-orange-800',
-  [CLIENT_STATUS.BLOQUEADO]: 'bg-red-100 text-red-800'
-};
-
-// 📞 TIPOS DE CONTACTO
-export const CONTACT_TYPES = {
-  PHONE_PRIMARY: 'phone_primary',
-  PHONE_SECONDARY: 'phone_secondary',
-  EMAIL_PRIMARY: 'email_primary',
-  EMAIL_SECONDARY: 'email_secondary',
-  WHATSAPP: 'whatsapp',
-  LINKEDIN: 'linkedin',
-  FACEBOOK: 'facebook'
-};
-
-// 🏠 TIPOS DE INTERESSE IMOBILIÁRIO
-export const PROPERTY_INTERESTS = {
-  COMPRA_CASA: 'compra_casa',
-  COMPRA_APARTAMENTO: 'compra_apartamento',
-  COMPRA_TERRENO: 'compra_terreno',
-  COMPRA_COMERCIAL: 'compra_comercial',
-  VENDA_CASA: 'venda_casa',
-  VENDA_APARTAMENTO: 'venda_apartamento',
-  VENDA_TERRENO: 'venda_terreno',
-  VENDA_COMERCIAL: 'venda_comercial',
-  ARRENDAMENTO_CASA: 'arrendamento_casa',
-  ARRENDAMENTO_APARTAMENTO: 'arrendamento_apartamento',
-  ARRENDAMENTO_COMERCIAL: 'arrendamento_comercial',
-  INVESTIMENTO_COMPRA: 'investimento_compra',
-  INVESTIMENTO_RENDA: 'investimento_renda'
-};
-
-// 💰 FAIXAS DE ORÇAMENTO (expandidas para clientes)
+// Ranges de orçamento
 export const CLIENT_BUDGET_RANGES = {
-  '0-50k': 'Até €50.000',
-  '50k-100k': '€50.000 - €100.000',
-  '100k-200k': '€100.000 - €200.000',
-  '200k-300k': '€200.000 - €300.000', 
-  '300k-500k': '€300.000 - €500.000',
-  '500k-750k': '€500.000 - €750.000',
-  '750k-1M': '€750.000 - €1.000.000',
-  '1M-2M': '€1.000.000 - €2.000.000',
-  '2M+': 'Acima de €2.000.000',
-  'unlimited': 'Sem limite definido'
+  ATE_100K: 'ate_100k',
+  DE_100K_250K: '100k_250k',
+  DE_250K_500K: '250k_500k',
+  DE_500K_1M: '500k_1m',
+  ACIMA_1M: 'acima_1m'
 };
 
-// 🔧 CONFIGURAÇÕES DO HOOK
-const CLIENTS_COLLECTION = 'clients';
-const INTERACTIONS_COLLECTION = 'client_interactions';
-const FETCH_LIMIT = 50;
+// Interesses imobiliários
+export const PROPERTY_INTERESTS = {
+  APARTAMENTO: 'apartamento',
+  MORADIA: 'moradia',
+  TERRENO: 'terreno',
+  COMERCIAL: 'comercial',
+  INDUSTRIAL: 'industrial',
+  ESCRITORIO: 'escritorio'
+};
 
-// 📱 REGEX PARA VALIDAÇÕES
-const PORTUGUESE_PHONE_REGEX = /^(\+351|351|00351)?[ -]?9[1236][0-9][ -]?[0-9]{3}[ -]?[0-9]{3}$/;
+// Cores para status
+export const CLIENT_STATUS_COLORS = {
+  [CLIENT_STATUS.ATIVO]: 'green',
+  [CLIENT_STATUS.INATIVO]: 'gray',
+  [CLIENT_STATUS.PROSPETO]: 'blue',
+  [CLIENT_STATUS.EX_CLIENTE]: 'red'
+};
+
+// Tipos de contacto/interação
+export const CONTACT_TYPES = {
+  CHAMADA: 'chamada',
+  EMAIL: 'email',
+  WHATSAPP: 'whatsapp',
+  REUNIAO: 'reuniao',
+  VISITA: 'visita',
+  OUTRO: 'outro'
+};
+
+// 🔍 REGEX DE VALIDAÇÃO
+// =====================
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NIF_REGEX = /^[1-9][0-9]{8}$/;
+const PORTUGUESE_PHONE_REGEX = /^(\+351|351)?\s?[0-9]{3}\s?[0-9]{3}\s?[0-9]{3}$/;
+const NIF_REGEX = /^[0-9]{9}$/;
 const POSTAL_CODE_REGEX = /^[0-9]{4}-[0-9]{3}$/;
 
 // 🎯 HOOK PRINCIPAL
+// ================
+
 const useClients = () => {
   // Estados principais
   const [clients, setClients] = useState([]);
@@ -117,54 +98,75 @@ const useClients = () => {
   const [updating, setUpdating] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState(false);
 
-  // Estados de filtros
+  // Filtros
   const [filters, setFilters] = useState({
     status: '',
     clientType: '',
-    budgetRange: '',
-    searchTerm: '',
     city: '',
-    hasInteractions: false
+    searchTerm: ''
   });
 
-  // Context de autenticação
-  const { user } = useAuth();
+  // Hook de autenticação
+  const { user, currentUser, isAuthenticated, loading: authLoading } = useAuth();
 
-  // 📥 BUSCAR TODOS OS CLIENTES
+  // ✅ VERIFICAÇÃO DE AUTENTICAÇÃO MELHORADA
+  const isUserReady = !!(user?.uid || currentUser?.uid) && !authLoading;
+  const activeUser = user || currentUser;
+
+  // 🔄 LIMPAR ERRO AUTOMATICAMENTE
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // 📊 BUSCAR CLIENTES - QUERY OTIMIZADA SEM ÍNDICE COMPOSTO
   const fetchClients = useCallback(async () => {
-    if (!user) return;
-    
+    if (!isUserReady) {
+      console.log('🔄 useClients: Aguardando autenticação...');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    
+
     try {
-      let clientQuery = query(
+      console.log('📊 Buscando clientes para utilizador:', activeUser.uid);
+
+      // ✅ QUERY SIMPLES - SEM ORDERBY PARA EVITAR ÍNDICE COMPOSTO
+      const clientsQuery = query(
         collection(db, CLIENTS_COLLECTION),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc'),
-        limit(FETCH_LIMIT)
+        where('userId', '==', activeUser.uid)
+        // Removido orderBy para evitar necessidade de índice composto
       );
 
-      // Aplicar filtros se existirem
-      if (filters.status) {
-        clientQuery = query(clientQuery, where('status', '==', filters.status));
-      }
-      
-      if (filters.clientType) {
-        clientQuery = query(clientQuery, where('clientType', '==', filters.clientType));
-      }
+      const querySnapshot = await getDocs(clientsQuery);
+      const clientsData = [];
 
-      const querySnapshot = await getDocs(clientQuery);
-      const clientsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        lastInteraction: doc.data().lastInteraction?.toDate()
-      }));
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        clientsData.push({
+          id: doc.id,
+          ...data,
+          // Converter timestamps
+          createdAt: data.createdAt?.toDate?.() || null,
+          updatedAt: data.updatedAt?.toDate?.() || null,
+          lastInteraction: data.lastInteraction?.toDate?.() || null,
+        });
+      });
 
-      // Filtrar por termo de busca (client-side para busca mais flexível)
+      // ✅ ORDENAÇÃO CLIENT-SIDE PARA EVITAR ÍNDICE
+      clientsData.sort((a, b) => {
+        const dateA = a.createdAt || new Date(0);
+        const dateB = b.createdAt || new Date(0);
+        return dateB - dateA; // Mais recentes primeiro
+      });
+
+      // Aplicar filtros client-side
       let filteredClients = clientsData;
+
+      // Filtrar por termo de busca
       if (filters.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
         filteredClients = clientsData.filter(client => 
@@ -173,6 +175,20 @@ const useClients = () => {
           client.phone?.includes(term.replace(/\s/g, '')) ||
           client.nif?.includes(term) ||
           client.address?.city?.toLowerCase().includes(term)
+        );
+      }
+
+      // Filtrar por status
+      if (filters.status) {
+        filteredClients = filteredClients.filter(client => 
+          client.status === filters.status
+        );
+      }
+
+      // Filtrar por tipo
+      if (filters.clientType) {
+        filteredClients = filteredClients.filter(client => 
+          client.clientType === filters.clientType
         );
       }
 
@@ -192,19 +208,20 @@ const useClients = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, filters]);
-  
-// 🔍 VERIFICAR DUPLICADOS (mais rigoroso que leads)
-const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = null) => {
-  // ✅ VERIFICAÇÃO ADICIONADA
-  if (!user?.uid) {
-    console.error('❌ Utilizador não autenticado para verificar duplicados');
-    return { hasDuplicates: false, duplicates: [], error: 'Utilizador não autenticado' };
-  }
+  }, [isUserReady, activeUser, filters]);
 
-  setDuplicateCheck(true);
+  // 🔍 VERIFICAR DUPLICADOS - MELHORADA
+  const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = null) => {
+    // ✅ VERIFICAÇÃO ROBUSTA DE AUTENTICAÇÃO
+    if (!isUserReady) {
+      console.log('⏳ useClients: Aguardando autenticação para verificar duplicados...');
+      return { hasDuplicates: false, duplicates: [], error: 'Aguardando autenticação' };
+    }
+
+    setDuplicateCheck(true);
     
     try {
+      console.log('🔍 Verificando duplicados para:', { phone, email, nif });
       const duplicates = [];
       
       // Verificar por telefone (normalizado)
@@ -212,14 +229,19 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
         const normalizedPhone = phone.replace(/\s|-/g, '');
         const phoneQuery = query(
           collection(db, CLIENTS_COLLECTION),
-          where('userId', '==', user.uid),
+          where('userId', '==', activeUser.uid),
           where('phoneNormalized', '==', normalizedPhone)
         );
-        const phoneSnapshot = await getDocs(phoneQuery);
         
-        phoneSnapshot.docs.forEach(doc => {
-          if (doc.id !== excludeId) {
-            duplicates.push({ id: doc.id, ...doc.data(), duplicateField: 'phone' });
+        const phoneSnapshot = await getDocs(phoneQuery);
+        phoneSnapshot.forEach((doc) => {
+          if (!excludeId || doc.id !== excludeId) {
+            duplicates.push({
+              id: doc.id,
+              name: doc.data().name,
+              duplicateField: 'phone',
+              value: doc.data().phone
+            });
           }
         });
       }
@@ -228,33 +250,51 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
       if (email) {
         const emailQuery = query(
           collection(db, CLIENTS_COLLECTION),
-          where('userId', '==', user.uid),
+          where('userId', '==', activeUser.uid),
           where('email', '==', email.toLowerCase())
         );
-        const emailSnapshot = await getDocs(emailQuery);
         
-        emailSnapshot.docs.forEach(doc => {
-          if (doc.id !== excludeId && !duplicates.find(d => d.id === doc.id)) {
-            duplicates.push({ id: doc.id, ...doc.data(), duplicateField: 'email' });
+        const emailSnapshot = await getDocs(emailQuery);
+        emailSnapshot.forEach((doc) => {
+          if (!excludeId || doc.id !== excludeId) {
+            const alreadyFound = duplicates.find(d => d.id === doc.id);
+            if (!alreadyFound) {
+              duplicates.push({
+                id: doc.id,
+                name: doc.data().name,
+                duplicateField: 'email',
+                value: doc.data().email
+              });
+            }
           }
         });
       }
 
-      // Verificar por NIF (se fornecido)
+      // Verificar por NIF
       if (nif) {
         const nifQuery = query(
           collection(db, CLIENTS_COLLECTION),
-          where('userId', '==', user.uid),
+          where('userId', '==', activeUser.uid),
           where('nif', '==', nif)
         );
-        const nifSnapshot = await getDocs(nifQuery);
         
-        nifSnapshot.docs.forEach(doc => {
-          if (doc.id !== excludeId && !duplicates.find(d => d.id === doc.id)) {
-            duplicates.push({ id: doc.id, ...doc.data(), duplicateField: 'nif' });
+        const nifSnapshot = await getDocs(nifQuery);
+        nifSnapshot.forEach((doc) => {
+          if (!excludeId || doc.id !== excludeId) {
+            const alreadyFound = duplicates.find(d => d.id === doc.id);
+            if (!alreadyFound) {
+              duplicates.push({
+                id: doc.id,
+                name: doc.data().name,
+                duplicateField: 'nif',
+                value: doc.data().nif
+              });
+            }
           }
         });
       }
+
+      console.log(`✅ Verificação de duplicados concluída: ${duplicates.length} encontrados`);
 
       return {
         hasDuplicates: duplicates.length > 0,
@@ -268,11 +308,11 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
     } finally {
       setDuplicateCheck(false);
     }
-  }, [user]);
+  }, [isUserReady, activeUser]);
 
   // ➕ CRIAR NOVO CLIENTE
   const createClient = useCallback(async (clientData) => {
-    if (!user) {
+    if (!isUserReady) {
       throw new Error('Utilizador não autenticado');
     }
 
@@ -280,6 +320,8 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
     setError(null);
 
     try {
+      console.log('📝 Criando novo cliente:', clientData.name);
+
       // Validações obrigatórias
       if (!clientData.name?.trim()) {
         throw new Error('Nome é obrigatório');
@@ -348,80 +390,62 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
           street: clientData.address?.street?.trim() || '',
           number: clientData.address?.number?.trim() || '',
           floor: clientData.address?.floor?.trim() || '',
-          door: clientData.address?.door?.trim() || '',
           postalCode: clientData.address?.postalCode?.trim() || '',
           city: clientData.address?.city?.trim() || '',
           district: clientData.address?.district?.trim() || '',
           country: clientData.address?.country?.trim() || 'Portugal'
         },
         
-        // Dados de interesse
-        propertyInterests: clientData.propertyInterests || [PROPERTY_INTERESTS.COMPRA_CASA],
-        budgetRange: clientData.budgetRange || 'undefined',
-        preferredLocations: clientData.preferredLocations || [],
+        // Preferências imobiliárias
+        preferences: {
+          propertyTypes: clientData.preferences?.propertyTypes || [],
+          budgetRange: clientData.preferences?.budgetRange || '',
+          locations: clientData.preferences?.locations || [],
+          urgency: clientData.preferences?.urgency || 'media'
+        },
         
-        // Preferências de contacto
-        preferredContactMethod: clientData.preferredContactMethod || 'phone',
-        preferredContactTime: clientData.preferredContactTime || 'anytime',
-        contactNotes: clientData.contactNotes?.trim() || '',
-        
-        // Dados profissionais (opcional)
-        profession: clientData.profession?.trim() || '',
-        company: clientData.company?.trim() || '',
-        
-        // Relacionamento com leads
-        sourceLeadId: clientData.sourceLeadId || null,
-        sourceType: clientData.sourceType || 'manual', // manual, lead_conversion, referral
-        
-        // Notas e observações
-        notes: clientData.notes?.trim() || '',
-        
-        // Dados de auditoria
-        userId: user.uid,
-        userEmail: user.email,
+        // Metadados
+        userId: activeUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         
-        // Estatísticas
-        totalInteractions: 0,
-        lastInteraction: null,
+        // Estatísticas iniciais
+        stats: {
+          totalInteractions: 0,
+          lastInteraction: null,
+          leadsConverted: 0,
+          propertiesViewed: 0
+        },
         
-        // Flags
-        isActive: true,
-        isVIP: clientData.status === CLIENT_STATUS.VIP,
-        allowsMarketing: clientData.allowsMarketing !== false, // GDPR
+        // Notas e observações
+        notes: clientData.notes?.trim() || '',
+        tags: clientData.tags || [],
         
-        // Metadados técnicos
-        userAgent: navigator.userAgent,
-        ipAddress: 'N/A',
-        source_details: {
-          created_via: 'web_form',
-          form_version: '1.0',
-          timestamp: new Date().toISOString(),
-          conversion_from_lead: !!clientData.sourceLeadId
-        }
+        // Dados de origem
+        source: clientData.source || 'manual',
+        referral: clientData.referral?.trim() || ''
       };
 
-      // Inserir no Firebase
+      // Inserir no Firestore
       const docRef = await addDoc(collection(db, CLIENTS_COLLECTION), newClient);
       
-      // Criar objeto completo para retorno
-      const createdClient = {
+      // Adicionar à lista local
+      const clientWithId = {
         id: docRef.id,
         ...newClient,
         createdAt: new Date(),
         updatedAt: new Date()
       };
+      
+      setClients(prev => [clientWithId, ...prev]);
 
-      // Atualizar lista local
-      setClients(prev => [createdClient, ...prev]);
-
-      console.log('✅ Cliente criado com sucesso:', docRef.id);
+      console.log(`✅ Cliente ${clientData.name} criado com ID: ${docRef.id}`);
       
       return {
         success: true,
-        client: createdClient,
-        message: 'Cliente criado com sucesso!'
+        id: docRef.id,
+        client: clientWithId,
+        message: `Cliente ${clientData.name} criado com sucesso!`
       };
 
     } catch (err) {
@@ -436,11 +460,11 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
     } finally {
       setCreating(false);
     }
-  }, [user, checkForDuplicates]);
+  }, [isUserReady, activeUser, checkForDuplicates]);
 
   // ✏️ ATUALIZAR CLIENTE
   const updateClient = useCallback(async (clientId, updateData) => {
-    if (!user) return;
+    if (!isUserReady) return;
 
     setUpdating(true);
     setError(null);
@@ -511,103 +535,27 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
     } catch (err) {
       console.error('❌ Erro ao atualizar cliente:', err);
       setError(err.message);
-      return { success: false, error: err.message };
+      
+      return {
+        success: false,
+        error: err.message,
+        message: `Erro ao atualizar cliente: ${err.message}`
+      };
     } finally {
       setUpdating(false);
     }
-  }, [user, checkForDuplicates]);
+  }, [isUserReady, checkForDuplicates]);
 
-  // 🔄 ATUALIZAR STATUS DO CLIENTE
-  const updateClientStatus = useCallback(async (clientId, newStatus, notes = '') => {
-    if (!user) return;
-
-    try {
-      const clientRef = doc(db, CLIENTS_COLLECTION, clientId);
-      
-      const updateData = {
-        status: newStatus,
-        isVIP: newStatus === CLIENT_STATUS.VIP,
-        isActive: ![CLIENT_STATUS.INATIVO, CLIENT_STATUS.EX_CLIENTE, CLIENT_STATUS.BLOQUEADO].includes(newStatus),
-        updatedAt: serverTimestamp()
-      };
-
-      // Adicionar nota se fornecida
-      if (notes.trim()) {
-        updateData.statusChangeNote = notes.trim();
-        updateData.lastStatusChange = serverTimestamp();
-      }
-
-      await updateDoc(clientRef, updateData);
-
-      // Atualizar lista local
-      setClients(prev => 
-        prev.map(client => 
-          client.id === clientId 
-            ? { ...client, ...updateData, updatedAt: new Date() }
-            : client
-        )
-      );
-
-      console.log(`✅ Status do cliente ${clientId} atualizado para: ${newStatus}`);
-      
-      return { success: true, message: 'Status atualizado com sucesso!' };
-
-    } catch (err) {
-      console.error('❌ Erro ao atualizar status:', err);
-      return { success: false, error: err.message };
-    }
-  }, [user]);
-
-  // 📝 ADICIONAR INTERAÇÃO
-  const addInteraction = useCallback(async (clientId, interactionData) => {
-    if (!user) return;
-
-    try {
-      // Criar registo de interação
-      const interaction = {
-        clientId,
-        userId: user.uid,
-        type: interactionData.type || 'note', // call, email, meeting, note, whatsapp
-        subject: interactionData.subject?.trim() || '',
-        description: interactionData.description?.trim() || '',
-        duration: interactionData.duration || null, // em minutos
-        outcome: interactionData.outcome || '', // positive, negative, neutral, follow_up_needed
-        nextAction: interactionData.nextAction?.trim() || '',
-        scheduledFollowUp: interactionData.scheduledFollowUp || null,
-        createdAt: serverTimestamp(),
-        metadata: {
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString()
-        }
-      };
-
-      // Adicionar interação à coleção
-      await addDoc(collection(db, INTERACTIONS_COLLECTION), interaction);
-
-      // Atualizar contador no cliente
-      const clientRef = doc(db, CLIENTS_COLLECTION, clientId);
-      await updateDoc(clientRef, {
-        totalInteractions: (clients.find(c => c.id === clientId)?.totalInteractions || 0) + 1,
-        lastInteraction: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      console.log(`✅ Interação adicionada ao cliente ${clientId}`);
-      
-      return { success: true, message: 'Interação registada com sucesso!' };
-
-    } catch (err) {
-      console.error('❌ Erro ao adicionar interação:', err);
-      return { success: false, error: err.message };
-    }
-  }, [user, clients]);
+  // 🎯 ATUALIZAR STATUS DO CLIENTE
+  const updateClientStatus = useCallback(async (clientId, newStatus) => {
+    return await updateClient(clientId, { status: newStatus });
+  }, [updateClient]);
 
   // 🗑️ ELIMINAR CLIENTE
   const deleteClient = useCallback(async (clientId) => {
-    if (!user) return;
+    if (!isUserReady) return;
 
     try {
-      // TODO: Em produção, implementar soft delete em vez de hard delete
       await deleteDoc(doc(db, CLIENTS_COLLECTION, clientId));
       
       // Remover da lista local
@@ -618,72 +566,88 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
 
     } catch (err) {
       console.error('❌ Erro ao eliminar cliente:', err);
+      setError(err.message);
       return { success: false, error: err.message };
     }
-  }, [user]);
+  }, [isUserReady]);
 
-  // 🔍 BUSCAR CLIENTES COM FILTROS
+  // 💬 ADICIONAR INTERAÇÃO
+  const addInteraction = useCallback(async (clientId, interactionData) => {
+    if (!isUserReady) return;
+
+    try {
+      const interaction = {
+        ...interactionData,
+        id: Date.now().toString(),
+        createdAt: serverTimestamp(),
+        userId: activeUser.uid
+      };
+
+      await updateDoc(doc(db, CLIENTS_COLLECTION, clientId), {
+        [`interactions.${interaction.id}`]: interaction,
+        lastInteraction: serverTimestamp(),
+        'stats.totalInteractions': (clients.find(c => c.id === clientId)?.stats?.totalInteractions || 0) + 1,
+        updatedAt: serverTimestamp()
+      });
+
+      // Atualizar lista local
+      setClients(prev => 
+        prev.map(client => 
+          client.id === clientId 
+            ? { 
+                ...client, 
+                interactions: { ...client.interactions, [interaction.id]: interaction },
+                lastInteraction: new Date(),
+                stats: { 
+                  ...client.stats, 
+                  totalInteractions: (client.stats?.totalInteractions || 0) + 1 
+                }
+              }
+            : client
+        )
+      );
+
+      return { success: true, interaction };
+
+    } catch (err) {
+      console.error('❌ Erro ao adicionar interação:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, activeUser, clients]);
+
+  // 🔍 BUSCA DE CLIENTES
   const searchClients = useCallback((searchTerm) => {
     setFilters(prev => ({ ...prev, searchTerm }));
   }, []);
 
   // 📊 ESTATÍSTICAS DOS CLIENTES
   const getClientStats = useCallback(() => {
-    const stats = {
-      total: clients.length,
-      byStatus: {},
-      byType: {},
-      byBudgetRange: {},
-      activeClients: 0,
-      vipClients: 0,
-      withInteractions: 0,
-      recentClients: 0
-    };
-
-    // Contar por status
-    Object.values(CLIENT_STATUS).forEach(status => {
-      stats.byStatus[status] = clients.filter(client => client.status === status).length;
-    });
-
-    // Contar por tipo
-    Object.values(CLIENT_TYPES).forEach(type => {
-      stats.byType[type] = clients.filter(client => client.clientType === type).length;
-    });
-
-    // Contar por faixa de orçamento
-    Object.keys(CLIENT_BUDGET_RANGES).forEach(range => {
-      stats.byBudgetRange[range] = clients.filter(client => client.budgetRange === range).length;
-    });
-
-    // Estatísticas especiais
-    stats.activeClients = clients.filter(client => client.isActive).length;
-    stats.vipClients = clients.filter(client => client.isVIP).length;
-    stats.withInteractions = clients.filter(client => client.totalInteractions > 0).length;
+    const total = clients.length;
+    const active = clients.filter(c => c.status === CLIENT_STATUS.ATIVO).length;
+    const prospects = clients.filter(c => c.status === CLIENT_STATUS.PROSPETO).length;
     
-    // Clientes criados nos últimos 30 dias
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    stats.recentClients = clients.filter(client => 
-      client.createdAt && client.createdAt >= thirtyDaysAgo
-    ).length;
-
-    return stats;
+    return {
+      total,
+      active,
+      prospects,
+      inactive: total - active - prospects,
+      byType: {
+        buyers: clients.filter(c => c.clientType === CLIENT_TYPES.COMPRADOR).length,
+        sellers: clients.filter(c => c.clientType === CLIENT_TYPES.VENDEDOR).length,
+        tenants: clients.filter(c => c.clientType === CLIENT_TYPES.INQUILINO).length,
+        landlords: clients.filter(c => c.clientType === CLIENT_TYPES.SENHORIO).length
+      }
+    };
   }, [clients]);
 
-  // 🔄 Carregar clientes quando user ou filtros mudarem
+  // 🔄 EFFECT PRINCIPAL - CARREGAR DADOS
   useEffect(() => {
-    if (user) {
+    if (isUserReady && !authLoading) {
+      console.log('🚀 useClients: Utilizador pronto, carregando clientes...');
       fetchClients();
     }
-  }, [user, fetchClients]);
-
-  // 🧹 Limpar erro após 5 segundos
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
+  }, [isUserReady, authLoading, fetchClients]);
 
   // 📤 RETORNO DO HOOK
   return {
@@ -728,7 +692,14 @@ const checkForDuplicates = useCallback(async (phone, email, nif, excludeId = nul
     normalizePhone: (phone) => phone?.replace(/\s|-/g, '') || '',
     
     // Estado de conectividade
-    isConnected: !!user && !error
+    isConnected: isUserReady && !error,
+    isUserReady,
+    authStatus: {
+      isAuthenticated,
+      hasUser: !!activeUser,
+      userId: activeUser?.uid,
+      authLoading
+    }
   };
 };
 
