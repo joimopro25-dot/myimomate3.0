@@ -4,7 +4,7 @@
 // ✅ Métricas compactas no topo específicas de Leads
 // ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES
 // ✅ Apenas muda o layout, zero funcionalidades perdidas
-// 🔥 ADICIONADO: Componente LeadsList.jsx com edição inline
+// 🔥 ADICIONADO: Dropdown de ações em vez de ícones separados
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -12,13 +12,13 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useLeads from '../../hooks/useLeads';
-import LeadsList from '../../components/leads/LeadsList'; // 🔥 NOVO IMPORT
 import { 
   UserGroupIcon, 
   PlusIcon, 
   EyeIcon,
   CheckCircleIcon,
-  ClockIcon
+  ClockIcon,
+  EllipsisVerticalIcon // 🔥 NOVO IMPORT
 } from '@heroicons/react/24/outline';
 
 // Componente de Métrica Compacta (reutilizado do Dashboard)
@@ -89,7 +89,6 @@ const LeadsPage = () => {
     setFilters,
     checkForDuplicates,
     getLeadStats,
-    fetchLeads, // 🔥 ADICIONADO para refresh
     LEAD_STATUS,
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
@@ -102,6 +101,7 @@ const LeadsPage = () => {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState(''); // success, error, info
+  const [openDropdown, setOpenDropdown] = useState(null); // 🔥 NOVO ESTADO
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -221,19 +221,6 @@ const LeadsPage = () => {
     }
   };
 
-  // 🔥 NOVOS HANDLERS PARA LeadsList.jsx
-  const handleLeadUpdate = async () => {
-    await fetchLeads(); // Refresh da lista
-    setFeedbackMessage('Lead atualizado com sucesso!');
-    setFeedbackType('success');
-  };
-
-  const handleLeadDelete = async () => {
-    await fetchLeads(); // Refresh da lista
-    setFeedbackMessage('Lead eliminado com sucesso!');
-    setFeedbackType('success');
-  };
-
   // 🔍 OBTER RÓTULO LEGÍVEL PARA TIPO DE INTERESSE
   const getInterestTypeLabel = (type) => {
     const labels = {
@@ -279,6 +266,13 @@ const LeadsPage = () => {
     }
   }, [feedbackMessage]);
 
+  // 🔥 NOVO useEffect para fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => setOpenDropdown(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   return (
     <DashboardLayout showWidgets={false}>
       <div className="h-full flex flex-col overflow-hidden p-4">
@@ -293,7 +287,7 @@ const LeadsPage = () => {
               📋 Gestão de Leads
             </h2>
             <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
-              Gerir prospects e conversões | Layout Otimizado 🚀 | ✨ <strong>Duplo clique para editar</strong>
+              Gerir prospects e conversões | Layout Otimizado 🚀
             </p>
           </div>
         </div>
@@ -335,8 +329,8 @@ const LeadsPage = () => {
         </div>
 
         {/* Conteúdo principal - expande para ocupar todo o espaço restante */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ThemedContainer className="space-y-6 h-full overflow-y-auto">
+        <div className="flex-1 min-h-0">
+          <ThemedContainer className="space-y-6 h-full overflow-y-auto" style={{ position: 'relative' }}>
 
             {/* FEEDBACK MESSAGE */}
             {feedbackMessage && (
@@ -547,31 +541,205 @@ const LeadsPage = () => {
               </ThemedCard>
             )}
 
-            {/* 🔥 LISTA DE LEADS - COMPONENTE COM EDIÇÃO INLINE */}
-            <ThemedCard className="p-6">
+            {/* LISTA DE LEADS */}
+            <ThemedCard className="p-6" style={{ overflow: 'visible' }}>
               <div className="mb-4">
                 <h3 className="text-xl font-bold">
                   Lista de Leads ({leads.length})
                 </h3>
-                <p className="text-gray-600 mt-1">
-                  ✨ <strong>Duplo clique</strong> em qualquer campo para editar inline | 
-                  ✏️ <strong>Editar Completo</strong> | 👁️ <strong>Ver Detalhes</strong> | 🗑️ <strong>Eliminar</strong>
-                </p>
+                {loading && (
+                  <p className="text-gray-500 mt-2">⏳ Carregando leads...</p>
+                )}
+                {error && (
+                  <p className="text-red-600 mt-2">❌ {error}</p>
+                )}
               </div>
 
-              {/* 🔥 SUBSTITUIR TABELA ANTIGA PELO NOVO COMPONENTE */}
-              <LeadsList
-                leads={leads}
-                loading={loading}
-                error={error}
-                onLeadConvert={handleConvertLead}
-                onLeadUpdate={handleLeadUpdate}
-                onLeadDelete={handleLeadDelete}
-                showSelection={true}
-                showActions={true}
-                showFilters={true}
-                maxHeight="500px"
-              />
+              {/* Tabela de leads */}
+              {leads.length > 0 ? (
+                <div className="overflow-x-auto overflow-y-visible" style={{ minHeight: '400px', paddingBottom: '60px' }}>
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-gray-200">
+                        <th className="text-left p-3 font-medium text-gray-700">Nome</th>
+                        <th className="text-left p-3 font-medium text-gray-700">Contacto</th>
+                        <th className="text-left p-3 font-medium text-gray-700">Interesse</th>
+                        <th className="text-left p-3 font-medium text-gray-700">Orçamento</th>
+                        <th className="text-left p-3 font-medium text-gray-700">Status</th>
+                        <th className="text-left p-3 font-medium text-gray-700">Criado</th>
+                        <th className="text-center p-3 font-medium text-gray-700">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead) => (
+                        <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          
+                          {/* Nome */}
+                          <td className="p-3">
+                            <div className="font-medium text-gray-900">{lead.name}</div>
+                            {lead.location && (
+                              <div className="text-sm text-gray-500">📍 {lead.location}</div>
+                            )}
+                          </td>
+
+                          {/* Contacto */}
+                          <td className="p-3">
+                            {lead.phone && (
+                              <div className="text-sm">📞 {lead.phone}</div>
+                            )}
+                            {lead.email && (
+                              <div className="text-sm">✉️ {lead.email}</div>
+                            )}
+                          </td>
+
+                          {/* Interesse */}
+                          <td className="p-3">
+                            <div className="text-sm font-medium">
+                              {getInterestTypeLabel(lead.interestType)}
+                            </div>
+                          </td>
+
+                          {/* Orçamento */}
+                          <td className="p-3">
+                            <div className="text-sm">
+                              {BUDGET_RANGES[lead.budgetRange] || 'N/A'}
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status]}`}>
+                              {getStatusLabel(lead.status)}
+                            </span>
+                          </td>
+
+                          {/* Data de criação */}
+                          <td className="p-3">
+                            <div className="text-sm text-gray-500">
+                              {lead.createdAt?.toLocaleDateString('pt-PT')}
+                            </div>
+                          </td>
+
+                          {/* 🔥 AÇÕES COM DROPDOWN */}
+                          <td className="p-3" style={{ position: 'relative' }}>
+                            <div className="flex justify-center relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenDropdown(openDropdown === lead.id ? null : lead.id);
+                                }}
+                                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                              >
+                                <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
+                              </button>
+                              
+                              {openDropdown === lead.id && (
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border z-50" 
+                                     style={{ 
+                                       boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                       minWidth: '200px'
+                                     }}>
+                                  <div className="py-1">
+                                    {/* Ver Detalhes */}
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdown(null);
+                                        alert(`Ver detalhes de ${lead.name}`);
+                                      }}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      👁️ Ver Detalhes
+                                    </button>
+                                    
+                                    {/* Editar */}
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdown(null);
+                                        alert(`Editar ${lead.name}`);
+                                      }}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      ✏️ Editar
+                                    </button>
+                                    
+                                    {/* Converter */}
+                                    {lead.status !== LEAD_STATUS.CONVERTIDO && (
+                                      <button
+                                        onClick={() => {
+                                          setOpenDropdown(null);
+                                          setSelectedLead(lead);
+                                          setShowConvertModal(true);
+                                        }}
+                                        disabled={converting}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                      >
+                                        🔄 Converter
+                                      </button>
+                                    )}
+                                    
+                                    {/* Alterar Status */}
+                                    <div className="px-4 py-2 border-t">
+                                      <select
+                                        value={lead.status}
+                                        onChange={(e) => {
+                                          handleStatusChange(lead.id, e.target.value);
+                                          setOpenDropdown(null);
+                                        }}
+                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                                        title="Alterar Status"
+                                      >
+                                        {Object.values(LEAD_STATUS).map(status => (
+                                          <option key={status} value={status}>
+                                            {getStatusLabel(status)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    
+                                    {/* Eliminar */}
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdown(null);
+                                        handleDeleteLead(lead.id, lead.name);
+                                      }}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t"
+                                    >
+                                      🗑️ Eliminar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Espaço extra para dropdown da última linha */}
+                  <div style={{ height: '120px' }}></div>
+                </div>
+              ) : (
+                // Estado vazio
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📋</div>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">
+                    Nenhum lead encontrado
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    {filters.searchTerm || filters.status || filters.interestType
+                      ? 'Tente ajustar os filtros de pesquisa'
+                      : 'Comece criando o seu primeiro lead'
+                    }
+                  </p>
+                  {!showCreateForm && (
+                    <ThemedButton
+                      onClick={() => setShowCreateForm(true)}
+                    >
+                      ➕ Criar Primeiro Lead
+                    </ThemedButton>
+                  )}
+                </div>
+              )}
             </ThemedCard>
 
             {/* MODAL DE CONFIRMAÇÃO DE CONVERSÃO */}
