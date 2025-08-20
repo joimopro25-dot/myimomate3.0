@@ -1,5 +1,5 @@
 // src/pages/tasks/TasksPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
@@ -27,7 +27,6 @@ const TasksPage = () => {
     completeTask,
     deleteTask,
     createFromTemplate,
-    getTaskStats,
     isOverdue,
     isDueToday,
     getDaysUntilDue,
@@ -69,8 +68,87 @@ const TasksPage = () => {
     autoReminder: true
   });
 
-  // Obter estatísticas
-  const stats = getTaskStats || {};
+  // Obter estatísticas calculadas diretamente
+  const stats = useMemo(() => {
+    if (!tasks || tasks.length === 0) {
+      return {
+        total: 0,
+        dueToday: 0,
+        overdue: 0,
+        completionRate: 0
+      };
+    }
+
+    const total = tasks.length;
+    const completed = tasks.filter(t => t.status === (TASK_STATUS?.COMPLETA || 'completa')).length;
+    const dueToday = tasks.filter(task => safeIsDueToday(task)).length;
+    const overdue = tasks.filter(task => safeIsOverdue(task)).length;
+    const completionRate = total > 0 ? (completed / total) * 100 : 0;
+
+    return {
+      total,
+      dueToday,
+      overdue,
+      completionRate
+    };
+  }, [tasks, TASK_STATUS]);
+
+  // Métricas para o header otimizado
+  const metrics = useMemo(() => {
+    if (!tasks || tasks.length === 0) {
+      return [
+        { title: 'Total', value: '0', color: 'blue', icon: '📋' },
+        { title: 'Pendentes', value: '0', color: 'yellow', icon: '⏳' },
+        { title: 'Em Progresso', value: '0', color: 'green', icon: '⚡' },
+        { title: 'Concluídas', value: '0', color: 'purple', icon: '✅' },
+        { title: 'Taxa Conclusão', value: '0%', color: 'red', icon: '📊' }
+      ];
+    }
+
+    const totalTasks = tasks.length;
+    const pendingTasks = tasks.filter(t => t.status === (TASK_STATUS?.PENDENTE || 'pendente')).length;
+    const inProgressTasks = tasks.filter(t => t.status === (TASK_STATUS?.EM_PROGRESSO || 'em_progresso')).length;
+    const completedTasks = tasks.filter(t => t.status === (TASK_STATUS?.COMPLETA || 'completa')).length;
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    return [
+      { 
+        title: 'Total', 
+        value: totalTasks.toString(), 
+        color: 'blue', 
+        icon: '📋',
+        onClick: () => setFilters && setFilters(prev => ({ ...prev, status: 'all' }))
+      },
+      { 
+        title: 'Pendentes', 
+        value: pendingTasks.toString(), 
+        color: 'yellow', 
+        icon: '⏳',
+        onClick: () => setFilters && setFilters(prev => ({ ...prev, status: TASK_STATUS?.PENDENTE || 'pendente' }))
+      },
+      { 
+        title: 'Em Progresso', 
+        value: inProgressTasks.toString(), 
+        color: 'green', 
+        icon: '⚡',
+        onClick: () => setFilters && setFilters(prev => ({ ...prev, status: TASK_STATUS?.EM_PROGRESSO || 'em_progresso' }))
+      },
+      { 
+        title: 'Concluídas', 
+        value: completedTasks.toString(), 
+        color: 'purple', 
+        icon: '✅',
+        onClick: () => setFilters && setFilters(prev => ({ ...prev, status: TASK_STATUS?.COMPLETA || 'completa' }))
+      },
+      { 
+        title: 'Taxa Conclusão', 
+        value: `${completionRate}%`, 
+        color: 'red', 
+        icon: '📊',
+        onClick: () => setFilters && setFilters(prev => ({ ...prev, status: 'all' }))
+      }
+    ];
+  }, [tasks, TASK_STATUS, setFilters]);
 
   // Efeito para limpar feedback
   useEffect(() => {
@@ -167,6 +245,12 @@ const TasksPage = () => {
   // Criar tarefa a partir de template
   const handleCreateFromTemplate = async (templateKey) => {
     try {
+      if (!createFromTemplate) {
+        setFeedbackMessage('Funcionalidade de templates não disponível');
+        setFeedbackType('error');
+        return;
+      }
+
       const template = TASK_TEMPLATES[templateKey];
       const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
       
@@ -183,7 +267,37 @@ const TasksPage = () => {
     }
   };
 
-  // Funções auxiliares
+  // Funções auxiliares defensivas
+  const safeIsOverdue = (task) => {
+    if (isOverdue) return isOverdue(task);
+    if (!task.dueDate) return false;
+    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
+    return dueDate < new Date();
+  };
+
+  const safeIsDueToday = (task) => {
+    if (isDueToday) return isDueToday(task);
+    if (!task.dueDate) return false;
+    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
+    const today = new Date();
+    return dueDate.toDateString() === today.toDateString();
+  };
+
+  const safeGetDaysUntilDue = (task) => {
+    if (getDaysUntilDue) return getDaysUntilDue(task);
+    if (!task.dueDate) return null;
+    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
+    const today = new Date();
+    const diffTime = dueDate - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const safeFormatTaskDate = (date) => {
+    if (formatTaskDate) return formatTaskDate(date);
+    if (!date) return 'Data não definida';
+    const taskDate = date instanceof Date ? date : new Date(date);
+    return taskDate.toLocaleDateString('pt-PT');
+  };
   const resetForm = () => {
     setFormData({
       title: '',
@@ -204,51 +318,51 @@ const TasksPage = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      [TASK_STATUS.PENDENTE]: 'Pendente',
-      [TASK_STATUS.EM_PROGRESSO]: 'Em Progresso',
-      [TASK_STATUS.AGUARDANDO]: 'Aguardando',
-      [TASK_STATUS.COMPLETA]: 'Completa',
-      [TASK_STATUS.CANCELADA]: 'Cancelada',
-      [TASK_STATUS.ADIADA]: 'Adiada'
+      [TASK_STATUS?.PENDENTE || 'pendente']: 'Pendente',
+      [TASK_STATUS?.EM_PROGRESSO || 'em_progresso']: 'Em Progresso',
+      [TASK_STATUS?.AGUARDANDO || 'aguardando']: 'Aguardando',
+      [TASK_STATUS?.COMPLETA || 'completa']: 'Completa',
+      [TASK_STATUS?.CANCELADA || 'cancelada']: 'Cancelada',
+      [TASK_STATUS?.ADIADA || 'adiada']: 'Adiada'
     };
     return labels[status] || status;
   };
 
   const getPriorityLabel = (priority) => {
     const labels = {
-      [TASK_PRIORITY.BAIXA]: 'Baixa',
-      [TASK_PRIORITY.MEDIA]: 'Média',
-      [TASK_PRIORITY.ALTA]: 'Alta',
-      [TASK_PRIORITY.URGENTE]: 'Urgente',
-      [TASK_PRIORITY.CRITICA]: 'Crítica'
+      [TASK_PRIORITY?.BAIXA || 'baixa']: 'Baixa',
+      [TASK_PRIORITY?.MEDIA || 'media']: 'Média',
+      [TASK_PRIORITY?.ALTA || 'alta']: 'Alta',
+      [TASK_PRIORITY?.URGENTE || 'urgente']: 'Urgente',
+      [TASK_PRIORITY?.CRITICA || 'critica']: 'Crítica'
     };
     return labels[priority] || priority;
   };
 
   const getTypeLabel = (type) => {
     const labels = {
-      [TASK_TYPES.FOLLOW_UP]: 'Follow-up',
-      [TASK_TYPES.LIGACAO]: 'Ligação',
-      [TASK_TYPES.EMAIL]: 'Email',
-      [TASK_TYPES.REUNIAO]: 'Reunião',
-      [TASK_TYPES.VISITA]: 'Visita',
-      [TASK_TYPES.DOCUMENTOS]: 'Documentos',
-      [TASK_TYPES.PESQUISA]: 'Pesquisa',
-      [TASK_TYPES.PROPOSTA]: 'Proposta',
-      [TASK_TYPES.CONTRATO]: 'Contrato',
-      [TASK_TYPES.ADMINISTRATIVO]: 'Administrativo',
-      [TASK_TYPES.OUTRO]: 'Outro'
+      [TASK_TYPES?.FOLLOW_UP || 'follow_up']: 'Follow-up',
+      [TASK_TYPES?.LIGACAO || 'ligacao']: 'Ligação',
+      [TASK_TYPES?.EMAIL || 'email']: 'Email',
+      [TASK_TYPES?.REUNIAO || 'reuniao']: 'Reunião',
+      [TASK_TYPES?.VISITA || 'visita']: 'Visita',
+      [TASK_TYPES?.DOCUMENTOS || 'documentos']: 'Documentos',
+      [TASK_TYPES?.PESQUISA || 'pesquisa']: 'Pesquisa',
+      [TASK_TYPES?.PROPOSTA || 'proposta']: 'Proposta',
+      [TASK_TYPES?.CONTRATO || 'contrato']: 'Contrato',
+      [TASK_TYPES?.ADMINISTRATIVO || 'administrativo']: 'Administrativo',
+      [TASK_TYPES?.OUTRO || 'outro']: 'Outro'
     };
     return labels[type] || type;
   };
 
   const getPriorityIcon = (priority) => {
     const icons = {
-      [TASK_PRIORITY.BAIXA]: '🟢',
-      [TASK_PRIORITY.MEDIA]: '🔵',
-      [TASK_PRIORITY.ALTA]: '🟡',
-      [TASK_PRIORITY.URGENTE]: '🔴',
-      [TASK_PRIORITY.CRITICA]: '🟣'
+      [TASK_PRIORITY?.BAIXA || 'baixa']: '🟢',
+      [TASK_PRIORITY?.MEDIA || 'media']: '🔵',
+      [TASK_PRIORITY?.ALTA || 'alta']: '🟡',
+      [TASK_PRIORITY?.URGENTE || 'urgente']: '🔴',
+      [TASK_PRIORITY?.CRITICA || 'critica']: '🟣'
     };
     return icons[priority] || '⚪';
   };
@@ -282,11 +396,11 @@ const TasksPage = () => {
   const renderTaskList = () => (
     <div className="space-y-4">
       {tasks.map(task => {
-        const statusColors = TASK_STATUS_COLORS[task.status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-        const priorityColors = PRIORITY_COLORS[task.priority] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-        const overdue = isOverdue(task);
-        const dueToday = isDueToday(task);
-        const daysUntil = getDaysUntilDue(task);
+        const statusColors = TASK_STATUS_COLORS?.[task.status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+        const priorityColors = PRIORITY_COLORS?.[task.priority] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+        const overdue = safeIsOverdue(task);
+        const dueToday = safeIsDueToday(task);
+        const daysUntil = safeGetDaysUntilDue(task);
 
         return (
           <ThemedCard 
@@ -313,7 +427,7 @@ const TasksPage = () => {
                 )}
 
                 <div className="flex items-center space-x-4 text-sm text-gray-500">
-                  <span>📅 {formatTaskDate(task.dueDate)}</span>
+                  <span>📅 {safeFormatTaskDate(task.dueDate)}</span>
                   <span>🏷️ {getTypeLabel(task.type)}</span>
                   {task.estimatedDuration && (
                     <span>⏱️ {task.estimatedDuration}min</span>
@@ -345,7 +459,7 @@ const TasksPage = () => {
               </div>
 
               <div className="flex space-x-2 ml-4">
-                {task.status !== TASK_STATUS.COMPLETA && (
+                {task.status !== (TASK_STATUS?.COMPLETA || 'completa') && (
                   <ThemedButton
                     size="sm"
                     onClick={() => handleCompleteTask(task.id)}
@@ -422,7 +536,7 @@ const TasksPage = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout showWidgets={false}>
         <ThemedContainer className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Carregando tarefas...</p>
@@ -432,15 +546,15 @@ const TasksPage = () => {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout 
+      showWidgets={false}
+      title="Sistema de Tarefas"
+      subtitle="Gestão de produtividade e follow-ups"
+      metrics={metrics}
+    >
       <ThemedContainer className="space-y-6">
-        {/* Cabeçalho */}
+        {/* Ações do Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Sistema de Tarefas</h1>
-            <p className="text-gray-600 mt-1">Gestão de produtividade e follow-ups</p>
-          </div>
-          
           <div className="flex space-x-3">
             <ThemedButton
               variant="outline"
@@ -449,12 +563,14 @@ const TasksPage = () => {
               {viewMode === 'list' ? '📅 Calendário' : '📋 Lista'}
             </ThemedButton>
 
-            <ThemedButton
-              variant="outline"
-              onClick={() => setShowTemplatesModal(true)}
-            >
-              📄 Templates
-            </ThemedButton>
+            {TASK_TEMPLATES && Object.keys(TASK_TEMPLATES).length > 0 && (
+              <ThemedButton
+                variant="outline"
+                onClick={() => setShowTemplatesModal(true)}
+              >
+                📄 Templates
+              </ThemedButton>
+            )}
             
             <ThemedButton
               onClick={() => setShowCreateForm(true)}
@@ -715,24 +831,30 @@ const TasksPage = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {Object.entries(TASK_TEMPLATES).map(([key, template]) => (
-                    <div key={key} className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                         onClick={() => handleCreateFromTemplate(key)}>
-                      <h3 className="font-medium text-gray-900">{template.title}</h3>
-                      <p className="text-sm text-gray-600">{template.description}</p>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-                          {getTypeLabel(template.type)}
-                        </span>
-                        <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
-                          {getPriorityLabel(template.priority)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {template.estimatedDuration}min
-                        </span>
+                  {TASK_TEMPLATES && Object.entries(TASK_TEMPLATES).length > 0 ? (
+                    Object.entries(TASK_TEMPLATES).map(([key, template]) => (
+                      <div key={key} className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                           onClick={() => handleCreateFromTemplate(key)}>
+                        <h3 className="font-medium text-gray-900">{template.title}</h3>
+                        <p className="text-sm text-gray-600">{template.description}</p>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                            {getTypeLabel(template.type)}
+                          </span>
+                          <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
+                            {getPriorityLabel(template.priority)}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {template.estimatedDuration}min
+                          </span>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-gray-500 py-4">
+                      Nenhum template disponível
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-4">
@@ -767,13 +889,13 @@ const TasksPage = () => {
                   {/* Status e Prioridade */}
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      TASK_STATUS_COLORS[selectedTask.status]?.bg || 'bg-gray-100'
-                    } ${TASK_STATUS_COLORS[selectedTask.status]?.text || 'text-gray-800'}`}>
+                      TASK_STATUS_COLORS?.[selectedTask.status]?.bg || 'bg-gray-100'
+                    } ${TASK_STATUS_COLORS?.[selectedTask.status]?.text || 'text-gray-800'}`}>
                       {getStatusLabel(selectedTask.status)}
                     </span>
                     <span className={`px-2 py-1 rounded text-sm ${
-                      PRIORITY_COLORS[selectedTask.priority]?.bg || 'bg-gray-100'
-                    } ${PRIORITY_COLORS[selectedTask.priority]?.text || 'text-gray-800'}`}>
+                      PRIORITY_COLORS?.[selectedTask.priority]?.bg || 'bg-gray-100'
+                    } ${PRIORITY_COLORS?.[selectedTask.priority]?.text || 'text-gray-800'}`}>
                       {getPriorityIcon(selectedTask.priority)} {getPriorityLabel(selectedTask.priority)}
                     </span>
                   </div>
@@ -797,7 +919,7 @@ const TasksPage = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Vencimento:</span>
-                          <span className="font-medium">{formatTaskDate(selectedTask.dueDate)}</span>
+                          <span className="font-medium">{safeFormatTaskDate(selectedTask.dueDate)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Duração:</span>
@@ -827,15 +949,15 @@ const TasksPage = () => {
                   </div>
 
                   {/* Alertas */}
-                  {isOverdue(selectedTask) && (
+                  {safeIsOverdue(selectedTask) && (
                     <div className="p-3 bg-red-100 border border-red-200 rounded-lg">
                       <p className="text-red-800 text-sm font-medium">
-                        ⚠️ Esta tarefa está em atraso há {Math.abs(getDaysUntilDue(selectedTask))} dia(s)
+                        ⚠️ Esta tarefa está em atraso há {Math.abs(safeGetDaysUntilDue(selectedTask))} dia(s)
                       </p>
                     </div>
                   )}
 
-                  {isDueToday(selectedTask) && !isOverdue(selectedTask) && (
+                  {safeIsDueToday(selectedTask) && !safeIsOverdue(selectedTask) && (
                     <div className="p-3 bg-orange-100 border border-orange-200 rounded-lg">
                       <p className="text-orange-800 text-sm font-medium">
                         🔔 Esta tarefa vence hoje
@@ -845,7 +967,7 @@ const TasksPage = () => {
 
                   {/* Ações */}
                   <div className="flex space-x-3 pt-4">
-                    {selectedTask.status !== TASK_STATUS.COMPLETA && (
+                    {selectedTask.status !== (TASK_STATUS?.COMPLETA || 'completa') && (
                       <ThemedButton
                         onClick={() => {
                           handleCompleteTask(selectedTask.id);

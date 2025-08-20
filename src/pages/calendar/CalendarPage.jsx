@@ -1,5 +1,6 @@
 // src/pages/calendar/CalendarPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import { 
   ThemedContainer, 
   ThemedCard, 
@@ -24,7 +25,10 @@ import {
   isSameDay, 
   isToday,
   addMonths,
-  subMonths
+  subMonths,
+  startOfWeek as startOfWeekFns,
+  endOfWeek as endOfWeekFns,
+  isThisWeek
 } from 'date-fns';
 
 // Constantes
@@ -142,6 +146,83 @@ const CalendarPage = () => {
 
     return events.sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [tasks, visits]);
+
+  // Métricas para o header otimizado
+  const metrics = useMemo(() => {
+    if (!calendarEvents || calendarEvents.length === 0) {
+      return [
+        { title: 'Total', value: '0', color: 'blue', icon: '📅' },
+        { title: 'Hoje', value: '0', color: 'green', icon: '📌' },
+        { title: 'Esta Semana', value: '0', color: 'yellow', icon: '📊' },
+        { title: 'Próximos', value: '0', color: 'purple', icon: '⏰' },
+        { title: 'Taxa Ocupação', value: '0%', color: 'red', icon: '📈' }
+      ];
+    }
+
+    const today = new Date();
+    const totalEvents = calendarEvents.length;
+    const todayEvents = calendarEvents.filter(event => isSameDay(event.date, today)).length;
+    const thisWeekEvents = calendarEvents.filter(event => isThisWeek(event.date)).length;
+    const upcomingEvents = calendarEvents.filter(event => event.date > today).length;
+    
+    // Taxa de ocupação baseada nos dias com eventos vs dias totais no mês
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const daysInMonth = Math.ceil((monthEnd - monthStart) / (1000 * 60 * 60 * 24)) + 1;
+    const daysWithEvents = new Set(
+      calendarEvents
+        .filter(event => event.date >= monthStart && event.date <= monthEnd)
+        .map(event => event.date.toDateString())
+    ).size;
+    const occupationRate = daysInMonth > 0 ? Math.round((daysWithEvents / daysInMonth) * 100) : 0;
+
+    return [
+      { 
+        title: 'Total', 
+        value: totalEvents.toString(), 
+        color: 'blue', 
+        icon: '📅',
+        onClick: () => setCurrentView(CALENDAR_VIEWS.MONTH)
+      },
+      { 
+        title: 'Hoje', 
+        value: todayEvents.toString(), 
+        color: 'green', 
+        icon: '📌',
+        onClick: () => {
+          setSelectedDate(today);
+          setCurrentDate(today);
+        }
+      },
+      { 
+        title: 'Esta Semana', 
+        value: thisWeekEvents.toString(), 
+        color: 'yellow', 
+        icon: '📊',
+        onClick: () => setCurrentView(CALENDAR_VIEWS.WEEK)
+      },
+      { 
+        title: 'Próximos', 
+        value: upcomingEvents.toString(), 
+        color: 'purple', 
+        icon: '⏰',
+        onClick: () => {
+          const nextEventDate = calendarEvents.find(event => event.date > today)?.date;
+          if (nextEventDate) {
+            setSelectedDate(nextEventDate);
+            setCurrentDate(nextEventDate);
+          }
+        }
+      },
+      { 
+        title: 'Taxa Ocupação', 
+        value: `${occupationRate}%`, 
+        color: 'red', 
+        icon: '📈',
+        onClick: () => setCurrentView(CALENDAR_VIEWS.MONTH)
+      }
+    ];
+  }, [calendarEvents, currentDate]);
 
   // Função auxiliar para adicionar minutos ao horário
   const addMinutesToTime = (time, minutes) => {
@@ -693,20 +774,23 @@ const CalendarPage = () => {
 
   if (tasksLoading || visitsLoading) {
     return (
-      <ThemedContainer>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <ThemedText>Carregando calendário...</ThemedText>
-          </div>
-        </div>
-      </ThemedContainer>
+      <DashboardLayout showWidgets={false}>
+        <ThemedContainer className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando calendário...</p>
+        </ThemedContainer>
+      </DashboardLayout>
     );
   }
 
   return (
-    <ThemedContainer>
-      <div className="space-y-6">
+    <DashboardLayout 
+      showWidgets={false}
+      title="Sistema de Calendário"
+      subtitle="Gestão de eventos, tarefas e compromissos"
+      metrics={metrics}
+    >
+      <ThemedContainer className="space-y-6">
         {/* Feedback */}
         {feedbackMessage && (
           <div className={`
@@ -729,29 +813,31 @@ const CalendarPage = () => {
         {renderEventLegend()}
 
         {/* Vista do calendário */}
-        {currentView === CALENDAR_VIEWS.MONTH && renderMonthView()}
-        
-        {currentView === CALENDAR_VIEWS.WEEK && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <ThemedText className="text-center text-gray-600">
-              Vista de semana em desenvolvimento...
-            </ThemedText>
-          </div>
-        )}
-        
-        {currentView === CALENDAR_VIEWS.DAY && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <ThemedText className="text-center text-gray-600">
-              Vista de dia em desenvolvimento...
-            </ThemedText>
-          </div>
-        )}
+        <div className="flex-1 overflow-hidden">
+          {currentView === CALENDAR_VIEWS.MONTH && renderMonthView()}
+          
+          {currentView === CALENDAR_VIEWS.WEEK && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <ThemedText className="text-center text-gray-600">
+                Vista de semana em desenvolvimento...
+              </ThemedText>
+            </div>
+          )}
+          
+          {currentView === CALENDAR_VIEWS.DAY && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <ThemedText className="text-center text-gray-600">
+                Vista de dia em desenvolvimento...
+              </ThemedText>
+            </div>
+          )}
+        </div>
 
         {/* Modais */}
         {showEventModal && renderEventModal()}
         {showCreateModal && renderCreateModal()}
-      </div>
-    </ThemedContainer>
+      </ThemedContainer>
+    </DashboardLayout>
   );
 };
 
