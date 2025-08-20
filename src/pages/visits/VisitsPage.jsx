@@ -1,4 +1,10 @@
-// src/pages/visits/VisitsPage.jsx
+// src/pages/visits/VisitsPage.jsx - LAYOUT OTIMIZADO
+// ✅ Aplicando padrão DashboardLayout otimizado
+// ✅ Sistema de 2 colunas sem widgets laterais  
+// ✅ Métricas compactas no topo específicas de Visitas
+// ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES
+// ✅ Apenas muda o layout, zero funcionalidades perdidas
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -6,6 +12,55 @@ import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/comm
 import { useTheme } from '../../contexts/ThemeContext';
 import useVisits from '../../hooks/useVisits';
 import useClients from '../../hooks/useClients';
+import { 
+  CalendarIcon, 
+  PlusIcon, 
+  EyeIcon,
+  CheckCircleIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
+
+// Componente de Métrica Compacta (reutilizado do Dashboard)
+const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) => {
+  const { theme, isDark } = useTheme();
+  
+  const colorClasses = {
+    blue: isDark() ? 'from-blue-600 to-blue-700' : 'from-blue-500 to-blue-600',
+    green: isDark() ? 'from-green-600 to-green-700' : 'from-green-500 to-green-600',
+    yellow: isDark() ? 'from-yellow-600 to-yellow-700' : 'from-yellow-500 to-yellow-600',
+    purple: isDark() ? 'from-purple-600 to-purple-700' : 'from-purple-500 to-purple-600',
+    red: isDark() ? 'from-red-600 to-red-700' : 'from-red-500 to-red-600'
+  };
+
+  return (
+    <div 
+      onClick={onClick}
+      className={`
+        relative overflow-hidden rounded-lg p-3 cursor-pointer
+        bg-gradient-to-r ${colorClasses[color]}
+        text-white shadow-lg hover:shadow-xl 
+        transform hover:scale-105 transition-all duration-200
+        group
+      `}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-xs font-medium text-white/80 mb-1">{title}</p>
+          <p className="text-lg font-bold text-white">{value}</p>
+          {trend && (
+            <p className="text-xs text-white/70 mt-1">{trend}</p>
+          )}
+        </div>
+        <div className="ml-3">
+          <Icon className="h-6 w-6 text-white/80 group-hover:text-white transition-colors" />
+        </div>
+      </div>
+      
+      {/* Efeito hover */}
+      <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+    </div>
+  );
+};
 
 // 🎯 PÁGINA PRINCIPAL DO MÓDULO DE VISITAS
 // ========================================
@@ -14,7 +69,7 @@ import useClients from '../../hooks/useClients';
 
 const VisitsPage = () => {
   const navigate = useNavigate();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   
   // Hook personalizado de visitas
   const {
@@ -378,636 +433,667 @@ const VisitsPage = () => {
   }, [feedbackMessage]);
 
   return (
-    <DashboardLayout>
-      <ThemedContainer className="space-y-6">
+    <DashboardLayout showWidgets={false}>
+      <div className="h-full flex flex-col overflow-hidden p-4">
         
-        {/* HEADER COM TÍTULO E ESTATÍSTICAS */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Sistema de Visitas
-            </h1>
-            <p className="text-gray-600">
-              Agendamento, confirmações e gestão completa de visitas imobiliárias
+        {/* Header compacto */}
+        <div className={`
+          rounded-lg p-4 mb-4 flex-shrink-0
+          ${isDark() ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}
+        `}>
+          <div className="text-center">
+            <h2 className={`text-lg font-bold ${isDark() ? 'text-white' : 'text-gray-900'}`}>
+              📅 Sistema de Visitas
+            </h2>
+            <p className={`text-xs ${isDark() ? 'text-gray-400' : 'text-gray-600'}`}>
+              Agendamento e gestão completa de visitas | Layout Otimizado 🚀
             </p>
-          </div>
-
-          {/* Estatísticas rápidas */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-              <div className="text-sm text-gray-500">Total</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.today}</div>
-              <div className="text-sm text-gray-500">Hoje</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats.upcoming}</div>
-              <div className="text-sm text-gray-500">Próximas</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{stats.confirmed}</div>
-              <div className="text-sm text-gray-500">Confirmadas</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-cyan-600">{stats.conversion_rate}%</div>
-              <div className="text-sm text-gray-500">Taxa Conversão</div>
-            </div>
           </div>
         </div>
 
-        {/* FEEDBACK MESSAGE */}
-        {feedbackMessage && (
-          <div className={`p-4 rounded-lg ${
-            feedbackType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
-            feedbackType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
-            'bg-blue-100 text-blue-800 border border-blue-200'
-          }`}>
-            {feedbackMessage}
-          </div>
-        )}
+        {/* Métricas compactas */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4 flex-shrink-0" style={{height: '80px'}}>
+          <CompactMetricCard
+            title="Total"
+            value={stats.total.toString()}
+            trend="Todas as visitas"
+            icon={CalendarIcon}
+            color="blue"
+            onClick={() => console.log('Ver todas')}
+          />
+          <CompactMetricCard
+            title="Hoje"
+            value={stats.today.toString()}
+            trend="Agendadas hoje"
+            icon={ClockIcon}
+            color="green"
+            onClick={() => console.log('Ver hoje')}
+          />
+          <CompactMetricCard
+            title="Próximas"
+            value={stats.upcoming.toString()}
+            trend="Futuras"
+            icon={EyeIcon}
+            color="yellow"
+            onClick={() => console.log('Ver próximas')}
+          />
+          <CompactMetricCard
+            title="Confirmadas"
+            value={stats.confirmed.toString()}
+            trend="Confirmadas"
+            icon={CheckCircleIcon}
+            color="purple"
+            onClick={() => console.log('Ver confirmadas')}
+          />
+          <CompactMetricCard
+            title="Conversão"
+            value={`${stats.conversion_rate}%`}
+            trend="Taxa sucesso"
+            icon={PlusIcon}
+            color="red"
+            onClick={() => setShowCreateForm(true)}
+          />
+        </div>
 
-        {/* BARRA DE AÇÕES E FILTROS */}
-        <ThemedCard className="p-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            
-            {/* Botão Agendar Visita */}
-            <ThemedButton
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="lg:w-auto"
-              disabled={creating}
-            >
-              {creating ? '⏳ Agendando...' : '📅 Agendar Visita'}
-            </ThemedButton>
+        {/* Conteúdo principal - expande para ocupar todo o espaço restante */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ThemedContainer className="space-y-6 h-full overflow-y-auto">
 
-            {/* Alternância de View */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-4 py-2 text-sm font-medium ${
-                  viewMode === 'list' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                📋 Lista
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-4 py-2 text-sm font-medium ${
-                  viewMode === 'calendar' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                📅 Calendário
-              </button>
-            </div>
-
-            {/* Filtros */}
-            <div className="flex gap-2 flex-1">
-              {/* Filtro por Status */}
-              <select
-                value={filters?.status || ''}
-                onChange={(e) => setFilters?.(prev => ({ ...prev, status: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todos os Status</option>
-                <option value="agendada">Agendada</option>
-                <option value="confirmada">Confirmada</option>
-                <option value="realizada">Realizada</option>
-                <option value="cancelada">Cancelada</option>
-              </select>
-
-              {/* Filtro por Tipo de Visita */}
-              <select
-                value={filters?.visitType || ''}
-                onChange={(e) => setFilters?.(prev => ({ ...prev, visitType: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todos os Tipos</option>
-                <option value="presencial">Presencial</option>
-                <option value="virtual">Virtual</option>
-                <option value="avaliacao">Avaliação</option>
-              </select>
-
-              {/* Filtro por Data */}
-              <select
-                value={filters?.dateRange || 'upcoming'}
-                onChange={(e) => setFilters?.(prev => ({ ...prev, dateRange: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="upcoming">Próximas</option>
-                <option value="today">Hoje</option>
-                <option value="week">Esta Semana</option>
-                <option value="past">Passadas</option>
-                <option value="all">Todas</option>
-              </select>
-            </div>
-          </div>
-        </ThemedCard>
-
-        {/* FORMULÁRIO DE AGENDAMENTO */}
-        {showCreateForm && (
-          <ThemedCard className="p-6">
-            <h3 className="text-xl font-bold mb-4">Agendar Nova Visita</h3>
-            
-            <form onSubmit={handleCreateSubmit} className="space-y-6">
-              
-              {/* DADOS DA VISITA */}
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-3">Dados da Visita</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  
-                  {/* Cliente */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cliente *
-                    </label>
-                    <select
-                      value={formData.clientId}
-                      onChange={(e) => {
-                        const selectedClient = clients?.find(c => c.id === e.target.value);
-                        handleFormChange('clientId', e.target.value);
-                        handleFormChange('clientName', selectedClient?.name || '');
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Selecionar cliente</option>
-                      {clients?.map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.name} - {client.phone || client.email}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Tipo de Visita */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de Visita
-                    </label>
-                    <select
-                      value={formData.visitType}
-                      onChange={(e) => handleFormChange('visitType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="presencial">Presencial</option>
-                      <option value="virtual">Virtual</option>
-                      <option value="avaliacao">Avaliação</option>
-                      <option value="segunda_visita">Segunda Visita</option>
-                      <option value="visita_tecnica">Visita Técnica</option>
-                    </select>
-                  </div>
-
-                  {/* Data */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Data *
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.scheduledDate}
-                      onChange={(e) => handleFormChange('scheduledDate', e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  {/* Hora */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hora *
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.scheduledTime}
-                      onChange={(e) => handleFormChange('scheduledTime', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  {/* Duração */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Duração (minutos)
-                    </label>
-                    <select
-                      value={formData.duration}
-                      onChange={(e) => handleFormChange('duration', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={30}>30 minutos</option>
-                      <option value={60}>1 hora</option>
-                      <option value={90}>1h30</option>
-                      <option value={120}>2 horas</option>
-                    </select>
-                  </div>
-                </div>
+            {/* FEEDBACK MESSAGE */}
+            {feedbackMessage && (
+              <div className={`p-4 rounded-lg ${
+                feedbackType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+                feedbackType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+                'bg-blue-100 text-blue-800 border border-blue-200'
+              }`}>
+                {feedbackMessage}
               </div>
+            )}
 
-              {/* DADOS DO IMÓVEL */}
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-3">Dados do Imóvel</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  
-                  {/* Tipo de Imóvel */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de Imóvel *
-                    </label>
-                    <select
-                      value={formData.property.type}
-                      onChange={(e) => handleFormChange('property.type', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="apartamento">Apartamento</option>
-                      <option value="casa">Casa</option>
-                      <option value="terreno">Terreno</option>
-                      <option value="comercial">Comercial</option>
-                      <option value="escritorio">Escritório</option>
-                      <option value="armazem">Armazém</option>
-                    </select>
-                  </div>
-
-                  {/* Operação */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Operação
-                    </label>
-                    <select
-                      value={formData.property.operation}
-                      onChange={(e) => handleFormChange('property.operation', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="venda">Venda</option>
-                      <option value="arrendamento">Arrendamento</option>
-                      <option value="investimento">Investimento</option>
-                      <option value="avaliacao">Avaliação</option>
-                    </select>
-                  </div>
-
-                  {/* Preço */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Preço (€)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.property.price}
-                      onChange={(e) => handleFormChange('property.price', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="250000"
-                    />
-                  </div>
-
-                  {/* Morada */}
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Morada *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.property.address.street}
-                      onChange={(e) => handleFormChange('property.address.street', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Rua da República, 123, Lisboa"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Botões do formulário */}
-              <div className="flex gap-3 pt-4">
+            {/* BARRA DE AÇÕES E FILTROS */}
+            <ThemedCard className="p-6">
+              <div className="flex flex-col lg:flex-row gap-4">
+                
+                {/* Botão Agendar Visita */}
                 <ThemedButton
-                  type="submit"
+                  onClick={() => setShowCreateForm(!showCreateForm)}
+                  className="lg:w-auto"
                   disabled={creating}
-                  className="flex-1 md:flex-none"
                 >
                   {creating ? '⏳ Agendando...' : '📅 Agendar Visita'}
                 </ThemedButton>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </ThemedCard>
-        )}
 
-        {/* LISTA DE VISITAS */}
-        <ThemedCard className="p-6">
-          <div className="mb-4">
-            <h3 className="text-xl font-bold">
-              {viewMode === 'list' ? 'Lista de Visitas' : 'Calendário de Visitas'} ({visits?.length || 0})
-            </h3>
-            {loading && (
-              <p className="text-gray-500 mt-2">⏳ Carregando visitas...</p>
-            )}
-            {error && (
-              <p className="text-red-600 mt-2">❌ {error}</p>
-            )}
-          </div>
-
-          {/* Vista Lista */}
-          {viewMode === 'list' && (
-            <div>
-              {visits?.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200">
-                        <th className="text-left p-3 font-medium text-gray-700">Cliente</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Imóvel</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Data/Hora</th>
-                        <th className="text-left p-3 font-medium text-gray-700">Status</th>
-                        <th className="text-center p-3 font-medium text-gray-700">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visits.map((visit) => (
-                        <tr key={visit.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          
-                          {/* Cliente */}
-                          <td className="p-3">
-                            <div className="font-medium text-gray-900">{visit.clientName}</div>
-                            <div className="text-sm text-gray-500">
-                              {visit.duration} min • {getVisitTypeLabel(visit.visitType)}
-                            </div>
-                          </td>
-
-                          {/* Imóvel */}
-                          <td className="p-3">
-                            <div className="font-medium">
-                              {getPropertyTypeLabel(visit.property?.type)} - {getOperationTypeLabel(visit.property?.operation)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              📍 {visit.property?.address?.street}
-                            </div>
-                            {visit.property?.price && (
-                              <div className="text-sm text-gray-500">
-                                💰 €{visit.property.price.toLocaleString()}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Data/Hora */}
-                          <td className="p-3">
-                            <div className="font-medium">
-                              {visit.scheduledDate?.toLocaleDateString?.('pt-PT') || 'N/A'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ⏰ {visit.scheduledDate?.toLocaleTimeString?.('pt-PT', { hour: '2-digit', minute: '2-digit' }) || 'N/A'}
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              VISIT_STATUS_COLORS?.[visit.status] || 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {getStatusLabel(visit.status)}
-                            </span>
-                            {visit.is_shared && (
-                              <div className="text-xs text-blue-600 mt-1">🤝 Partilhada</div>
-                            )}
-                          </td>
-
-                          {/* Ações */}
-                          <td className="p-3">
-                            <div className="flex justify-center gap-1 flex-wrap">
-                              
-                              {/* Confirmar Visita */}
-                              {visit.status === 'agendada' && (
-                                <button
-                                  onClick={() => handleConfirmVisit(visit.id, 'consultor')}
-                                  disabled={confirming}
-                                  className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
-                                  title="Confirmar como Consultor"
-                                >
-                                  ✅
-                                </button>
-                              )}
-
-                              {/* Adicionar Feedback */}
-                              {visit.status === 'confirmada_ambos' && (
-                                <button
-                                  onClick={() => handleQuickFeedback(visit)}
-                                  className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
-                                  title="Adicionar Feedback"
-                                >
-                                  📝
-                                </button>
-                              )}
-
-                              {/* Partilhar */}
-                              <button
-                                onClick={() => {
-                                  setSelectedVisit(visit);
-                                  setShowShareModal(true);
-                                }}
-                                className="text-purple-600 hover:text-purple-800 text-xs px-2 py-1 rounded"
-                                title="Partilhar Visita"
-                              >
-                                🤝
-                              </button>
-
-                              {/* Cancelar */}
-                              {visit.status !== 'cancelada' && visit.status !== 'realizada' && (
-                                <button
-                                  onClick={() => handleCancelVisit(visit.id, visit.clientName)}
-                                  className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded"
-                                  title="Cancelar Visita"
-                                >
-                                  ❌
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Alternância de View */}
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      viewMode === 'list' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    📋 Lista
+                  </button>
+                  <button
+                    onClick={() => setViewMode('calendar')}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      viewMode === 'calendar' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    📅 Calendário
+                  </button>
                 </div>
-              ) : (
-                // Estado vazio
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">📅</div>
-                  <h3 className="text-xl font-medium text-gray-900 mb-2">
-                    Nenhuma visita encontrada
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    {Object.values(filters || {}).some(f => f) && filters?.dateRange !== 'upcoming'
-                      ? 'Tente ajustar os filtros de pesquisa'
-                      : 'Comece agendando a sua primeira visita'
-                    }
-                  </p>
-                  {!showCreateForm && (
+
+                {/* Filtros */}
+                <div className="flex gap-2 flex-1">
+                  {/* Filtro por Status */}
+                  <select
+                    value={filters?.status || ''}
+                    onChange={(e) => setFilters?.(prev => ({ ...prev, status: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Todos os Status</option>
+                    <option value="agendada">Agendada</option>
+                    <option value="confirmada">Confirmada</option>
+                    <option value="realizada">Realizada</option>
+                    <option value="cancelada">Cancelada</option>
+                  </select>
+
+                  {/* Filtro por Tipo de Visita */}
+                  <select
+                    value={filters?.visitType || ''}
+                    onChange={(e) => setFilters?.(prev => ({ ...prev, visitType: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Todos os Tipos</option>
+                    <option value="presencial">Presencial</option>
+                    <option value="virtual">Virtual</option>
+                    <option value="avaliacao">Avaliação</option>
+                  </select>
+
+                  {/* Filtro por Data */}
+                  <select
+                    value={filters?.dateRange || 'upcoming'}
+                    onChange={(e) => setFilters?.(prev => ({ ...prev, dateRange: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="upcoming">Próximas</option>
+                    <option value="today">Hoje</option>
+                    <option value="week">Esta Semana</option>
+                    <option value="past">Passadas</option>
+                    <option value="all">Todas</option>
+                  </select>
+                </div>
+              </div>
+            </ThemedCard>
+
+            {/* FORMULÁRIO DE AGENDAMENTO */}
+            {showCreateForm && (
+              <ThemedCard className="p-6">
+                <h3 className="text-xl font-bold mb-4">Agendar Nova Visita</h3>
+                
+                <form onSubmit={handleCreateSubmit} className="space-y-6">
+                  
+                  {/* DADOS DA VISITA */}
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-3">Dados da Visita</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      
+                      {/* Cliente */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Cliente *
+                        </label>
+                        <select
+                          value={formData.clientId}
+                          onChange={(e) => {
+                            const selectedClient = clients?.find(c => c.id === e.target.value);
+                            handleFormChange('clientId', e.target.value);
+                            handleFormChange('clientName', selectedClient?.name || '');
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="">Selecionar cliente</option>
+                          {clients?.map(client => (
+                            <option key={client.id} value={client.id}>
+                              {client.name} - {client.phone || client.email}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Tipo de Visita */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tipo de Visita
+                        </label>
+                        <select
+                          value={formData.visitType}
+                          onChange={(e) => handleFormChange('visitType', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="presencial">Presencial</option>
+                          <option value="virtual">Virtual</option>
+                          <option value="avaliacao">Avaliação</option>
+                          <option value="segunda_visita">Segunda Visita</option>
+                          <option value="visita_tecnica">Visita Técnica</option>
+                        </select>
+                      </div>
+
+                      {/* Data */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Data *
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.scheduledDate}
+                          onChange={(e) => handleFormChange('scheduledDate', e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+
+                      {/* Hora */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Hora *
+                        </label>
+                        <input
+                          type="time"
+                          value={formData.scheduledTime}
+                          onChange={(e) => handleFormChange('scheduledTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+
+                      {/* Duração */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Duração (minutos)
+                        </label>
+                        <select
+                          value={formData.duration}
+                          onChange={(e) => handleFormChange('duration', parseInt(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={30}>30 minutos</option>
+                          <option value={60}>1 hora</option>
+                          <option value={90}>1h30</option>
+                          <option value={120}>2 horas</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DADOS DO IMÓVEL */}
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-3">Dados do Imóvel</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      
+                      {/* Tipo de Imóvel */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tipo de Imóvel *
+                        </label>
+                        <select
+                          value={formData.property.type}
+                          onChange={(e) => handleFormChange('property.type', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="apartamento">Apartamento</option>
+                          <option value="casa">Casa</option>
+                          <option value="terreno">Terreno</option>
+                          <option value="comercial">Comercial</option>
+                          <option value="escritorio">Escritório</option>
+                          <option value="armazem">Armazém</option>
+                        </select>
+                      </div>
+
+                      {/* Operação */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Operação
+                        </label>
+                        <select
+                          value={formData.property.operation}
+                          onChange={(e) => handleFormChange('property.operation', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="venda">Venda</option>
+                          <option value="arrendamento">Arrendamento</option>
+                          <option value="investimento">Investimento</option>
+                          <option value="avaliacao">Avaliação</option>
+                        </select>
+                      </div>
+
+                      {/* Preço */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Preço (€)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.property.price}
+                          onChange={(e) => handleFormChange('property.price', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="250000"
+                        />
+                      </div>
+
+                      {/* Morada */}
+                      <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Morada *
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.property.address.street}
+                          onChange={(e) => handleFormChange('property.address.street', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="Rua da República, 123, Lisboa"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botões do formulário */}
+                  <div className="flex gap-3 pt-4">
                     <ThemedButton
-                      onClick={() => setShowCreateForm(true)}
+                      type="submit"
+                      disabled={creating}
+                      className="flex-1 md:flex-none"
                     >
-                      📅 Agendar Primeira Visita
+                      {creating ? '⏳ Agendando...' : '📅 Agendar Visita'}
                     </ThemedButton>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        resetForm();
+                      }}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </ThemedCard>
+            )}
+
+            {/* LISTA DE VISITAS */}
+            <ThemedCard className="p-6">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold">
+                  {viewMode === 'list' ? 'Lista de Visitas' : 'Calendário de Visitas'} ({visits?.length || 0})
+                </h3>
+                {loading && (
+                  <p className="text-gray-500 mt-2">⏳ Carregando visitas...</p>
+                )}
+                {error && (
+                  <p className="text-red-600 mt-2">❌ {error}</p>
+                )}
+              </div>
+
+              {/* Vista Lista */}
+              {viewMode === 'list' && (
+                <div>
+                  {visits?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-200">
+                            <th className="text-left p-3 font-medium text-gray-700">Cliente</th>
+                            <th className="text-left p-3 font-medium text-gray-700">Imóvel</th>
+                            <th className="text-left p-3 font-medium text-gray-700">Data/Hora</th>
+                            <th className="text-left p-3 font-medium text-gray-700">Status</th>
+                            <th className="text-center p-3 font-medium text-gray-700">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visits.map((visit) => (
+                            <tr key={visit.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              
+                              {/* Cliente */}
+                              <td className="p-3">
+                                <div className="font-medium text-gray-900">{visit.clientName}</div>
+                                <div className="text-sm text-gray-500">
+                                  {visit.duration} min • {getVisitTypeLabel(visit.visitType)}
+                                </div>
+                              </td>
+
+                              {/* Imóvel */}
+                              <td className="p-3">
+                                <div className="font-medium">
+                                  {getPropertyTypeLabel(visit.property?.type)} - {getOperationTypeLabel(visit.property?.operation)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  📍 {visit.property?.address?.street}
+                                </div>
+                                {visit.property?.price && (
+                                  <div className="text-sm text-gray-500">
+                                    💰 €{visit.property.price.toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Data/Hora */}
+                              <td className="p-3">
+                                <div className="font-medium">
+                                  {visit.scheduledDate?.toLocaleDateString?.('pt-PT') || 'N/A'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ⏰ {visit.scheduledDate?.toLocaleTimeString?.('pt-PT', { hour: '2-digit', minute: '2-digit' }) || 'N/A'}
+                                </div>
+                              </td>
+
+                              {/* Status */}
+                              <td className="p-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  VISIT_STATUS_COLORS?.[visit.status] || 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {getStatusLabel(visit.status)}
+                                </span>
+                                {visit.is_shared && (
+                                  <div className="text-xs text-blue-600 mt-1">🤝 Partilhada</div>
+                                )}
+                              </td>
+
+                              {/* Ações */}
+                              <td className="p-3">
+                                <div className="flex justify-center gap-1 flex-wrap">
+                                  
+                                  {/* Confirmar Visita */}
+                                  {visit.status === 'agendada' && (
+                                    <button
+                                      onClick={() => handleConfirmVisit(visit.id, 'consultor')}
+                                      disabled={confirming}
+                                      className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
+                                      title="Confirmar como Consultor"
+                                    >
+                                      ✅
+                                    </button>
+                                  )}
+
+                                  {/* Adicionar Feedback */}
+                                  {visit.status === 'confirmada_ambos' && (
+                                    <button
+                                      onClick={() => handleQuickFeedback(visit)}
+                                      className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
+                                      title="Adicionar Feedback"
+                                    >
+                                      📝
+                                    </button>
+                                  )}
+
+                                  {/* Partilhar */}
+                                  <button
+                                    onClick={() => {
+                                      setSelectedVisit(visit);
+                                      setShowShareModal(true);
+                                    }}
+                                    className="text-purple-600 hover:text-purple-800 text-xs px-2 py-1 rounded"
+                                    title="Partilhar Visita"
+                                  >
+                                    🤝
+                                  </button>
+
+                                  {/* Cancelar */}
+                                  {visit.status !== 'cancelada' && visit.status !== 'realizada' && (
+                                    <button
+                                      onClick={() => handleCancelVisit(visit.id, visit.clientName)}
+                                      className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded"
+                                      title="Cancelar Visita"
+                                    >
+                                      ❌
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    // Estado vazio
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">📅</div>
+                      <h3 className="text-xl font-medium text-gray-900 mb-2">
+                        Nenhuma visita encontrada
+                      </h3>
+                      <p className="text-gray-500 mb-6">
+                        {Object.values(filters || {}).some(f => f) && filters?.dateRange !== 'upcoming'
+                          ? 'Tente ajustar os filtros de pesquisa'
+                          : 'Comece agendando a sua primeira visita'
+                        }
+                      </p>
+                      {!showCreateForm && (
+                        <ThemedButton
+                          onClick={() => setShowCreateForm(true)}
+                        >
+                          📅 Agendar Primeira Visita
+                        </ThemedButton>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Vista Calendário - Placeholder */}
-          {viewMode === 'calendar' && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📅</div>
-              <h3 className="text-xl font-medium text-gray-900 mb-2">
-                Vista de Calendário
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Funcionalidade em desenvolvimento. Use a vista de lista por agora.
-              </p>
-              <button
-                onClick={() => setViewMode('list')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                📋 Ver Lista
-              </button>
-            </div>
-          )}
-        </ThemedCard>
-
-        {/* MODAL DE FEEDBACK */}
-        {showFeedbackModal && selectedVisit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Feedback da Visita</h3>
-              
-              <div className="mb-4">
-                <p className="text-gray-600">
-                  <strong>Cliente:</strong> {selectedVisit.clientName}<br/>
-                  <strong>Imóvel:</strong> {getPropertyTypeLabel(selectedVisit.property?.type)} - {selectedVisit.property?.address?.street}
-                </p>
-              </div>
-
-              <form onSubmit={handleFeedbackSubmit} className="space-y-4">
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Resultado da Visita
-                  </label>
-                  <select
-                    value={feedbackForm.outcome}
-                    onChange={(e) => handleFeedbackChange('outcome', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              {/* Vista Calendário - Placeholder */}
+              {viewMode === 'calendar' && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📅</div>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">
+                    Vista de Calendário
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Funcionalidade em desenvolvimento. Use a vista de lista por agora.
+                  </p>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
-                    <option value="interessado">Interessado</option>
-                    <option value="nao_interessado">Não Interessado</option>
-                    <option value="proposta">Fez Proposta</option>
-                    <option value="segunda_visita">Segunda Visita</option>
-                  </select>
+                    📋 Ver Lista
+                  </button>
                 </div>
+              )}
+            </ThemedCard>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observações do Consultor
-                  </label>
-                  <textarea
-                    value={feedbackForm.feedback}
-                    onChange={(e) => handleFeedbackChange('feedback', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Como correu a visita, pontos positivos/negativos..."
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <ThemedButton
-                    type="submit"
-                    disabled={updating}
-                    className="flex-1"
-                  >
-                    {updating ? '⏳ Registando...' : '✅ Registar Feedback'}
-                  </ThemedButton>
+            {/* MODAL DE FEEDBACK */}
+            {showFeedbackModal && selectedVisit && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <h3 className="text-xl font-bold mb-4">Feedback da Visita</h3>
                   
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFeedbackModal(false);
-                      setSelectedVisit(null);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+                  <div className="mb-4">
+                    <p className="text-gray-600">
+                      <strong>Cliente:</strong> {selectedVisit.clientName}<br/>
+                      <strong>Imóvel:</strong> {getPropertyTypeLabel(selectedVisit.property?.type)} - {selectedVisit.property?.address?.street}
+                    </p>
+                  </div>
 
-        {/* MODAL DE PARTILHA */}
-        {showShareModal && selectedVisit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Partilhar Visita</h3>
-              
-              <div className="mb-4">
-                <p className="text-gray-600">
-                  <strong>Visita:</strong> {selectedVisit.clientName}<br/>
-                  <strong>Data:</strong> {selectedVisit.scheduledDate?.toLocaleDateString?.('pt-PT') || 'N/A'}
-                </p>
+                  <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Resultado da Visita
+                      </label>
+                      <select
+                        value={feedbackForm.outcome}
+                        onChange={(e) => handleFeedbackChange('outcome', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="interessado">Interessado</option>
+                        <option value="nao_interessado">Não Interessado</option>
+                        <option value="proposta">Fez Proposta</option>
+                        <option value="segunda_visita">Segunda Visita</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Observações do Consultor
+                      </label>
+                      <textarea
+                        value={feedbackForm.feedback}
+                        onChange={(e) => handleFeedbackChange('feedback', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Como correu a visita, pontos positivos/negativos..."
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <ThemedButton
+                        type="submit"
+                        disabled={updating}
+                        className="flex-1"
+                      >
+                        {updating ? '⏳ Registando...' : '✅ Registar Feedback'}
+                      </ThemedButton>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeedbackModal(false);
+                          setSelectedVisit(null);
+                        }}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
+            )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notas da Partilha
-                  </label>
-                  <textarea
-                    value={shareForm.notes}
-                    onChange={(e) => setShareForm(prev => ({ ...prev, notes: e.target.value }))}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Motivo da partilha, instruções especiais..."
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={handleShareVisit}
-                    disabled={true} // Temporariamente desabilitado
-                    className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                  >
-                    🤝 Partilhar (Em breve)
-                  </button>
+            {/* MODAL DE PARTILHA */}
+            {showShareModal && selectedVisit && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <h3 className="text-xl font-bold mb-4">Partilhar Visita</h3>
                   
-                  <button
-                    onClick={() => {
-                      setShowShareModal(false);
-                      setSelectedVisit(null);
-                      setShareForm({ consultorIds: [], notes: '' });
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
+                  <div className="mb-4">
+                    <p className="text-gray-600">
+                      <strong>Visita:</strong> {selectedVisit.clientName}<br/>
+                      <strong>Data:</strong> {selectedVisit.scheduledDate?.toLocaleDateString?.('pt-PT') || 'N/A'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Notas da Partilha
+                      </label>
+                      <textarea
+                        value={shareForm.notes}
+                        onChange={(e) => setShareForm(prev => ({ ...prev, notes: e.target.value }))}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Motivo da partilha, instruções especiais..."
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={handleShareVisit}
+                        disabled={true} // Temporariamente desabilitado
+                        className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
+                      >
+                        🤝 Partilhar (Em breve)
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowShareModal(false);
+                          setSelectedVisit(null);
+                          setShareForm({ consultorIds: [], notes: '' });
+                        }}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-      </ThemedContainer>
+            )}
+
+          </ThemedContainer>
+        </div>
+
+      </div>
     </DashboardLayout>
   );
 };
