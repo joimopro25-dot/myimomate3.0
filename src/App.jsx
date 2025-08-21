@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx - CONECTIVIDADE TOTAL IMPLEMENTADA
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { db } from './config/firebase';
@@ -26,7 +26,7 @@ import ProfilePage from './pages/profile/ProfilePage';
 // Pages - Main Dashboard
 import DashboardPage from './pages/dashboard/DashboardPage';
 
-// Pages - CRM Modules (Implemented)
+// ✅ PÁGINAS PRINCIPAIS - TODAS IMPLEMENTADAS E FUNCIONAIS
 import LeadsPage from './pages/leads/LeadsPage';
 import ClientsPage from './pages/clients/ClientsPage';
 import VisitsPage from './pages/visits/VisitsPage';
@@ -485,6 +485,7 @@ function App() {
               <Route path="/crm" element={<Navigate to="/dashboard" replace />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/automations" element={<AutomationManager />} />
+              
               {/* === PÁGINAS LEGAIS === */}
               <Route 
                 path="/terms" 
