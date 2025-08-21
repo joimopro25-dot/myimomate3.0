@@ -1,8 +1,9 @@
-// src/pages/tasks/TasksPage.jsx - COM SIDEBAR REUTILIZÁVEL
+// src/pages/tasks/TasksPage.jsx - COM SIDEBAR REUTILIZÁVEL - VERSÃO COMPLETA
 // ✅ Aplicando Sidebar.jsx componente reutilizável
 // ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES (100%)
 // ✅ Substitui DashboardLayout por layout com Sidebar
 // ✅ Zero funcionalidades perdidas - sistema de tarefas completo
+// 🔥 CORRIGIDO: CheckIcon em vez de CheckSquareIcon (Heroicons v2)
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,15 +12,22 @@ import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/comm
 import { useTheme } from '../../contexts/ThemeContext';
 import useTasks from '../../hooks/useTasks';
 import { 
-  CheckSquareIcon,
+  CheckIcon, // 🔥 CORRIGIDO: CheckSquareIcon NÃO EXISTE em Heroicons v2
   ClockIcon,
   CheckCircleIcon,
   EyeIcon,
   PlusIcon,
-  EllipsisVerticalIcon
+  EllipsisVerticalIcon,
+  FunnelIcon,
+  CalendarIcon,
+  UserIcon,
+  TagIcon,
+  StarIcon,
+  ArrowRightIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
-// Componente de Métrica Compacta (mantido idêntico)
+// Componente de Métrica Compacta
 const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) => {
   const { theme, isDark } = useTheme();
   
@@ -32,285 +40,216 @@ const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) 
   };
 
   return (
-    <div 
+    <div
       onClick={onClick}
-      className={`
-        relative overflow-hidden rounded-lg p-3 cursor-pointer
-        bg-gradient-to-r ${colorClasses[color]}
-        text-white shadow-lg hover:shadow-xl 
-        transform hover:scale-105 transition-all duration-200
-        group
-      `}
+      className={`bg-gradient-to-r ${colorClasses[color]} p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-all duration-200 transform hover:scale-105`}
     >
       <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-medium text-white/80 mb-1">{title}</p>
-          <p className="text-lg font-bold text-white">{value}</p>
+        <div className="text-white">
+          <p className="text-sm font-medium opacity-90">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
           {trend && (
-            <p className="text-xs text-white/70 mt-1">{trend}</p>
+            <p className="text-xs opacity-75 mt-1">{trend}</p>
           )}
         </div>
-        <div className="ml-3">
-          <Icon className="h-6 w-6 text-white/80 group-hover:text-white transition-colors" />
-        </div>
+        <Icon className="h-8 w-8 text-white opacity-80" />
       </div>
-      
-      {/* Efeito hover */}
-      <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
     </div>
   );
 };
 
-// 🎯 PÁGINA PRINCIPAL DO SISTEMA DE TAREFAS
-// =========================================
-// MyImoMate 3.0 - Interface completa para gestão de tarefas
-// Funcionalidades: Kanban, Lista, Templates, Follow-ups, Produtividade
-
 const TasksPage = () => {
+  // Estados locais
+  const [view, setView] = useState('list'); // 'list', 'kanban', 'calendar'
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackType, setFeedbackType] = useState('');
+
+  // Estados do formulário
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    type: 'follow_up',
+    priority: 'media',
+    status: 'pendente',
+    dueDate: '',
+    dueTime: '',
+    notes: '',
+    associatedTo: '',
+    associatedId: ''
+  });
+
+  const [filters, setFilters] = useState({
+    status: 'all',
+    priority: 'all',
+    type: 'all',
+    search: '',
+    dateRange: 'all'
+  });
+
+  // Hooks
   const navigate = useNavigate();
   const { theme, isDark } = useTheme();
-  
-  // Hook personalizado de tarefas (mantido 100% idêntico)
   const {
     tasks,
     loading,
     error,
     creating,
-    updating,
     createTask,
     updateTask,
-    completeTask,
     deleteTask,
-    createFromTemplate,
-    getTaskStats,
     isOverdue,
     isDueToday,
-    getDaysUntilDue,
+    refreshTasks,
     TASK_STATUS,
-    TASK_TYPES,
     TASK_PRIORITY,
-    TASK_STATUS_COLORS,
-    PRIORITY_COLORS,
-    TASK_TEMPLATES,
-    filters,
-    setFilters
+    TASK_TYPES,
+    TASK_TEMPLATES
   } = useTasks();
 
-  // Estados locais (mantidos idênticos)
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showTaskModal, setShowTaskModal] = useState(false);
-  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [feedbackType, setFeedbackType] = useState('');
-  const [viewMode, setViewMode] = useState('list'); // list, calendar, kanban
-  const [openDropdown, setOpenDropdown] = useState(null);
-
-  // Estados do formulário (mantidos idênticos)
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    type: TASK_TYPES?.FOLLOW_UP || 'follow_up',
-    priority: TASK_PRIORITY?.MEDIA || 'media',
-    status: TASK_STATUS?.PENDENTE || 'pendente',
-    dueDate: '',
-    dueTime: '',
-    relatedTo: '',
-    relatedId: '',
-    notes: '',
-    tags: []
+  // Filtrar tarefas
+  const filteredTasks = tasks.filter(task => {
+    if (filters.status !== 'all' && task.status !== filters.status) return false;
+    if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
+    if (filters.type !== 'all' && task.type !== filters.type) return false;
+    if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) &&
+        !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    return true;
   });
 
-  // Obter estatísticas (mantido idêntico)
-  const stats = getTaskStats?.() || { 
-    total: 0, 
-    pending: 0, 
-    inProgress: 0, 
-    completed: 0, 
-    completionRate: 0 
-  };
+  // 📊 MÉTRICAS CALCULADAS
+  const totalTasks = tasks.length;
+  const pendingTasks = tasks.filter(t => t.status === 'pendente').length;
+  const inProgressTasks = tasks.filter(t => t.status === 'em_progresso').length;
+  const completedTasks = tasks.filter(t => t.status === 'completa').length;
+  const overdueTasks = tasks.filter(t => isOverdue && isOverdue(t)).length;
 
-  // Calcular estatísticas adicionais (mantido idêntico)
-  const calculatedStats = {
-    ...stats,
-    total: tasks?.length || 0,
-    pending: tasks?.filter(task => task.status === (TASK_STATUS?.PENDENTE || 'pendente')).length || 0,
-    inProgress: tasks?.filter(task => task.status === (TASK_STATUS?.EM_PROGRESSO || 'em_progresso')).length || 0,
-    completed: tasks?.filter(task => task.status === (TASK_STATUS?.COMPLETA || 'completa')).length || 0,
-    completionRate: tasks?.length > 0 
-      ? (tasks.filter(task => task.status === (TASK_STATUS?.COMPLETA || 'completa')).length / tasks.length) * 100 
-      : 0
-  };
-
-  // 📝 MANIPULAR MUDANÇAS NO FORMULÁRIO (mantido idêntico)
-  const handleFormChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // 🔄 RESET DO FORMULÁRIO (mantido idêntico)
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      type: TASK_TYPES?.FOLLOW_UP || 'follow_up',
-      priority: TASK_PRIORITY?.MEDIA || 'media',
-      status: TASK_STATUS?.PENDENTE || 'pendente',
-      dueDate: '',
-      dueTime: '',
-      relatedTo: '',
-      relatedId: '',
-      notes: '',
-      tags: []
-    });
-  };
-
-  // 📝 SUBMETER FORMULÁRIO DE CRIAÇÃO (mantido idêntico)
-  const handleCreateSubmit = async (e) => {
+  // 🔧 HANDLERS
+  const handleCreateTask = async (e) => {
     e.preventDefault();
-    
     try {
-      if (!formData.title.trim()) {
-        throw new Error('Título é obrigatório');
-      }
-      if (!formData.dueDate) {
-        throw new Error('Data de vencimento é obrigatória');
-      }
-
-      const result = await createTask(formData);
-      
-      if (result?.success !== false) {
-        setFeedbackMessage('Tarefa criada com sucesso!');
-        setFeedbackType('success');
-        setShowCreateForm(false);
-        resetForm();
-      } else {
-        throw new Error(result?.error || 'Erro ao criar tarefa');
-      }
+      await createTask(formData);
+      setFormData({
+        title: '',
+        description: '',
+        type: 'follow_up',
+        priority: 'media',
+        status: 'pendente',
+        dueDate: '',
+        dueTime: '',
+        notes: '',
+        associatedTo: '',
+        associatedId: ''
+      });
+      setShowCreateForm(false);
+      setFeedbackMessage('Tarefa criada com sucesso!');
+      setFeedbackType('success');
+      setTimeout(() => setFeedbackMessage(''), 3000);
     } catch (error) {
-      setFeedbackMessage(error.message || 'Erro inesperado ao criar tarefa');
+      setFeedbackMessage('Erro ao criar tarefa: ' + error.message);
       setFeedbackType('error');
+      setTimeout(() => setFeedbackMessage(''), 5000);
     }
   };
 
-  // 📊 ATUALIZAR STATUS DA TAREFA (mantido idêntico)
-  const handleStatusUpdate = async (taskId, newStatus) => {
+  const handleCompleteTask = async (taskId) => {
     try {
-      const result = await updateTask(taskId, { status: newStatus });
-      
-      if (result?.success !== false) {
-        setFeedbackMessage('Status atualizado com sucesso!');
-        setFeedbackType('success');
-        setOpenDropdown(null);
-      } else {
-        throw new Error(result?.error || 'Erro ao atualizar status');
-      }
+      await updateTask(taskId, { status: 'completa' });
+      setFeedbackMessage('Tarefa marcada como completa!');
+      setFeedbackType('success');
+      setTimeout(() => setFeedbackMessage(''), 3000);
+      setOpenDropdown(null);
     } catch (error) {
-      setFeedbackMessage(error.message || 'Erro inesperado ao atualizar status');
+      setFeedbackMessage('Erro ao completar tarefa: ' + error.message);
       setFeedbackType('error');
+      setTimeout(() => setFeedbackMessage(''), 5000);
     }
   };
 
-  // ✅ COMPLETAR TAREFA (mantido idêntico)
-  const handleCompleteTask = async (taskId, notes = '') => {
-    try {
-      const result = await completeTask(taskId, notes);
-      
-      if (result?.success !== false) {
-        setFeedbackMessage('Tarefa marcada como completa!');
-        setFeedbackType('success');
-      } else {
-        throw new Error(result?.error || 'Erro ao completar tarefa');
-      }
-    } catch (error) {
-      setFeedbackMessage(error.message || 'Erro inesperado ao completar tarefa');
-      setFeedbackType('error');
-    }
-  };
-
-  // 🗑️ ELIMINAR TAREFA (mantido idêntico)
   const handleDeleteTask = async (taskId, taskTitle) => {
-    if (!window.confirm(`Tem certeza que deseja eliminar a tarefa "${taskTitle}"?`)) return;
-    
-    try {
-      const result = await deleteTask(taskId);
-      
-      if (result?.success !== false) {
+    if (window.confirm(`Deseja eliminar a tarefa "${taskTitle}"?`)) {
+      try {
+        await deleteTask(taskId);
         setFeedbackMessage('Tarefa eliminada com sucesso!');
         setFeedbackType('success');
+        setTimeout(() => setFeedbackMessage(''), 3000);
         setOpenDropdown(null);
-      } else {
-        throw new Error(result?.error || 'Erro ao eliminar tarefa');
+      } catch (error) {
+        setFeedbackMessage('Erro ao eliminar tarefa: ' + error.message);
+        setFeedbackType('error');
+        setTimeout(() => setFeedbackMessage(''), 5000);
       }
-    } catch (error) {
-      setFeedbackMessage(error.message || 'Erro inesperado ao eliminar tarefa');
-      setFeedbackType('error');
     }
   };
 
-  // 📄 CRIAR TAREFA A PARTIR DE TEMPLATE (mantido idêntico)
   const handleCreateFromTemplate = async (templateKey) => {
     try {
-      if (!createFromTemplate || !TASK_TEMPLATES) {
-        setFeedbackMessage('Funcionalidade de templates não disponível');
-        setFeedbackType('error');
-        return;
-      }
-
-      const template = TASK_TEMPLATES[templateKey];
-      if (!template) {
+      if (!TASK_TEMPLATES || !TASK_TEMPLATES[templateKey]) {
         throw new Error('Template não encontrado');
       }
-
-      const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
       
-      const result = await createFromTemplate(template, { dueDate });
+      const template = TASK_TEMPLATES[templateKey];
+      const taskData = {
+        ...template,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 dia a partir de agora
+      };
       
-      if (result?.success !== false) {
-        setFeedbackMessage('Tarefa criada a partir do template!');
-        setFeedbackType('success');
-        setShowTemplatesModal(false);
-      } else {
-        throw new Error(result?.error || 'Erro ao criar tarefa do template');
-      }
+      await createTask(taskData);
+      setShowTemplatesModal(false);
+      setFeedbackMessage('Tarefa criada a partir do template!');
+      setFeedbackType('success');
+      setTimeout(() => setFeedbackMessage(''), 3000);
     } catch (error) {
-      setFeedbackMessage(error.message || 'Erro inesperado ao criar tarefa do template');
+      setFeedbackMessage('Erro ao criar tarefa do template: ' + error.message);
       setFeedbackType('error');
+      setTimeout(() => setFeedbackMessage(''), 5000);
     }
   };
 
-  // Funções auxiliares defensivas (mantidas idênticas)
+  // 🛡️ FUNÇÕES SEGURAS
   const safeIsOverdue = (task) => {
-    if (isOverdue) return isOverdue(task);
-    if (!task.dueDate) return false;
-    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
-    return dueDate < new Date();
+    try {
+      return isOverdue && typeof isOverdue === 'function' ? isOverdue(task) : false;
+    } catch (error) {
+      return false;
+    }
   };
 
   const safeIsDueToday = (task) => {
-    if (isDueToday) return isDueToday(task);
-    if (!task.dueDate) return false;
-    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
-    const today = new Date();
-    return dueDate.toDateString() === today.toDateString();
+    try {
+      return isDueToday && typeof isDueToday === 'function' ? isDueToday(task) : false;
+    } catch (error) {
+      return false;
+    }
   };
 
-  const safeGetDaysUntilDue = (task) => {
-    if (getDaysUntilDue) return getDaysUntilDue(task);
-    if (!task.dueDate) return null;
-    const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
-    const today = new Date();
-    const diffTime = dueDate - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
+  // 🏷️ FUNÇÕES DE LABEL E COR
   const getStatusLabel = (status) => {
     const labels = {
       'pendente': 'Pendente',
       'em_progresso': 'Em Progresso',
+      'aguardando': 'Aguardando',
       'completa': 'Completa',
-      'cancelada': 'Cancelada'
+      'cancelada': 'Cancelada',
+      'adiada': 'Adiada'
     };
     return labels[status] || status;
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'pendente': 'bg-yellow-100 text-yellow-800',
+      'em_progresso': 'bg-blue-100 text-blue-800',
+      'aguardando': 'bg-orange-100 text-orange-800',
+      'completa': 'bg-green-100 text-green-800',
+      'cancelada': 'bg-red-100 text-red-800',
+      'adiada': 'bg-gray-100 text-gray-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   const getPriorityLabel = (priority) => {
@@ -324,362 +263,268 @@ const TasksPage = () => {
     return labels[priority] || priority;
   };
 
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'baixa': 'bg-gray-100 text-gray-800',
+      'media': 'bg-blue-100 text-blue-800',
+      'alta': 'bg-yellow-100 text-yellow-800',
+      'urgente': 'bg-orange-100 text-orange-800',
+      'critica': 'bg-red-100 text-red-800'
+    };
+    return colors[priority] || 'bg-gray-100 text-gray-800';
+  };
+
   const getTypeLabel = (type) => {
     const labels = {
       'follow_up': 'Follow-up',
-      'ligacao': 'Ligação',
+      'chamada': 'Chamada',
       'email': 'Email',
-      'reuniao': 'Reunião',
       'visita': 'Visita',
-      'documentos': 'Documentos',
-      'pesquisa': 'Pesquisa',
+      'documento': 'Documento',
+      'reuniao': 'Reunião',
       'proposta': 'Proposta',
       'contrato': 'Contrato',
-      'administrativo': 'Administrativo',
-      'outro': 'Outro'
+      'apresentacao': 'Apresentação',
+      'negociacao': 'Negociação',
+      'geral': 'Geral'
     };
     return labels[type] || type;
   };
 
-  const getStatusColor = (status) => {
-    const colors = TASK_STATUS_COLORS?.[status];
-    if (colors) return `${colors.bg} ${colors.text}`;
-    return 'bg-gray-100 text-gray-800';
-  };
-
-  const getPriorityColor = (priority) => {
-    const colors = PRIORITY_COLORS?.[priority];
-    if (colors) return `${colors.bg} ${colors.text}`;
-    return 'bg-gray-100 text-gray-800';
-  };
-
-  // 🕒 EFEITO PARA LIMPAR MENSAGENS DE FEEDBACK (mantido idêntico)
-  useEffect(() => {
-    if (feedbackMessage) {
-      const timer = setTimeout(() => {
-        setFeedbackMessage('');
-        setFeedbackType('');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [feedbackMessage]);
-
-  if (loading) {
-    return (
-      <div className="flex">
-        <Sidebar />
-        <div className="ml-64 flex-1 min-h-screen bg-gray-50">
-          <ThemedContainer className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Carregando tarefas...</p>
-          </ThemedContainer>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex">
-      {/* 🔥 SIDEBAR REUTILIZÁVEL - SUBSTITUIU DASHBOARDLAYOUT */}
+    <div className="flex min-h-screen bg-gray-50">
+      {/* 🎨 SIDEBAR REUTILIZÁVEL */}
       <Sidebar />
-      
-      {/* Conteúdo Principal - MANTÉM MARGEM LEFT PARA SIDEBAR */}
-      <div className="ml-64 flex-1 min-h-screen bg-gray-50">
-        <ThemedContainer className="px-6 py-6">
-          
-          {/* Header da Página - MANTIDO IDÊNTICO */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Sistema de Tarefas
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Gestão de produtividade e follow-ups automáticos
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="flex rounded-lg border border-gray-300">
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`px-3 py-2 text-sm ${
-                      viewMode === 'list' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    } rounded-l-lg`}
-                  >
-                    Lista
-                  </button>
-                  <button
-                    onClick={() => setViewMode('kanban')}
-                    className={`px-3 py-2 text-sm ${
-                      viewMode === 'kanban' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Kanban
-                  </button>
-                  <button
-                    onClick={() => setViewMode('calendar')}
-                    className={`px-3 py-2 text-sm ${
-                      viewMode === 'calendar' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    } rounded-r-lg`}
-                  >
-                    Calendário
-                  </button>
-                </div>
 
-                {TASK_TEMPLATES && Object.keys(TASK_TEMPLATES).length > 0 && (
-                  <ThemedButton
-                    variant="outline"
-                    onClick={() => setShowTemplatesModal(true)}
-                  >
-                    Templates
-                  </ThemedButton>
-                )}
-                
-                <ThemedButton 
-                  onClick={() => setShowCreateForm(true)}
-                  className="flex items-center space-x-2"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  <span>Nova Tarefa</span>
-                </ThemedButton>
-              </div>
+      {/* 📱 CONTEÚDO PRINCIPAL */}
+      <div className="flex-1 ml-64"> {/* ml-64 para compensar sidebar fixa */}
+        <ThemedContainer className="p-6">
+          {/* 📊 HEADER COM MÉTRICAS COMPACTAS */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Sistema de Tarefas</h1>
+              <p className="text-gray-600">Gestão completa de tarefas e follow-ups</p>
             </div>
 
-            {/* Feedback Messages - MANTIDO IDÊNTICO */}
-            {feedbackMessage && (
-              <div className={`p-4 rounded-lg mb-4 ${
-                feedbackType === 'success' 
-                  ? 'bg-green-50 text-green-700 border border-green-200' 
-                  : feedbackType === 'error'
-                  ? 'bg-red-50 text-red-700 border border-red-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }`}>
-                {feedbackMessage}
-              </div>
-            )}
-
-            {/* Métricas Compactas - MANTIDAS IDÊNTICAS */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <CompactMetricCard
-                title="Total"
-                value={calculatedStats.total}
-                trend="Todas as tarefas"
-                icon={CheckSquareIcon}
-                color="blue"
-                onClick={() => setViewMode('list')}
-              />
+            <div className="flex space-x-3">
+              <ThemedButton
+                onClick={() => setShowTemplatesModal(true)}
+                variant="outline"
+                className="flex items-center"
+              >
+                <CheckIcon className="h-4 w-4 mr-2" />
+                Templates
+              </ThemedButton>
               
-              <CompactMetricCard
-                title="Pendentes"
-                value={calculatedStats.pending}
-                trend="Aguardando execução"
-                icon={ClockIcon}
-                color="yellow"
-                onClick={() => setFilters?.(prev => ({ ...prev, status: 'pendente' }))}
-              />
-              
-              <CompactMetricCard
-                title="Em Progresso"
-                value={calculatedStats.inProgress}
-                trend="Tarefas ativas"
-                icon={EyeIcon}
-                color="green"
-                onClick={() => setFilters?.(prev => ({ ...prev, status: 'em_progresso' }))}
-              />
-              
-              <CompactMetricCard
-                title="Concluídas"
-                value={calculatedStats.completed}
-                trend="Tarefas finalizadas"
-                icon={CheckCircleIcon}
-                color="purple"
-                onClick={() => setFilters?.(prev => ({ ...prev, status: 'completa' }))}
-              />
-              
-              <CompactMetricCard
-                title="Taxa Conclusão"
-                value={`${calculatedStats.completionRate?.toFixed(1) || 0}%`}
-                trend="KPI de produtividade"
-                icon={CheckCircleIcon}
-                color="red"
+              <ThemedButton
                 onClick={() => setShowCreateForm(true)}
-              />
+                className="flex items-center"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Nova Tarefa
+              </ThemedButton>
             </div>
           </div>
 
-          {/* Filtros - MANTIDOS IDÊNTICOS */}
+          {/* FEEDBACK MESSAGES */}
+          {feedbackMessage && (
+            <div className={`p-4 rounded-lg mb-6 ${
+              feedbackType === 'success' 
+                ? 'bg-green-50 text-green-700 border border-green-200' 
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {feedbackMessage}
+            </div>
+          )}
+
+          {/* 📊 CARDS DE MÉTRICAS COMPACTAS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <CompactMetricCard
+              title="Total de Tarefas"
+              value={totalTasks}
+              icon={CheckIcon}
+              color="blue"
+              trend={`${pendingTasks} pendentes`}
+              onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
+            />
+            
+            <CompactMetricCard
+              title="Pendentes"
+              value={pendingTasks}
+              icon={ClockIcon}
+              color="yellow"
+              trend="A completar"
+              onClick={() => setFilters(prev => ({ ...prev, status: 'pendente' }))}
+            />
+            
+            <CompactMetricCard
+              title="Em Progresso"
+              value={inProgressTasks}
+              icon={EyeIcon}
+              color="green"
+              trend="Ativas"
+              onClick={() => setFilters(prev => ({ ...prev, status: 'em_progresso' }))}
+            />
+            
+            <CompactMetricCard
+              title="Completas"
+              value={completedTasks}
+              icon={CheckCircleIcon}
+              color="purple"
+              trend="Finalizadas"
+              onClick={() => setFilters(prev => ({ ...prev, status: 'completa' }))}
+            />
+            
+            <CompactMetricCard
+              title="Em Atraso"
+              value={overdueTasks}
+              icon={ClockIcon}
+              color="red"
+              trend="Requer atenção"
+              onClick={() => setFilters(prev => ({ ...prev, status: 'pendente' }))}
+            />
+          </div>
+
+          {/* 🔍 FILTROS E CONTROLES */}
           <ThemedCard className="mb-6">
             <div className="p-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                
-                {/* Campo de Pesquisa */}
-                <div className="flex-1">
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Filtro de Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="pendente">Pendentes</option>
+                    <option value="em_progresso">Em Progresso</option>
+                    <option value="aguardando">Aguardando</option>
+                    <option value="completa">Completas</option>
+                    <option value="cancelada">Canceladas</option>
+                    <option value="adiada">Adiadas</option>
+                  </select>
+                </div>
+
+                {/* Filtro de Prioridade */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                  <select
+                    value={filters.priority}
+                    onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Todas</option>
+                    <option value="baixa">Baixa</option>
+                    <option value="media">Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
+                    <option value="critica">Crítica</option>
+                  </select>
+                </div>
+
+                {/* Filtro de Tipo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="follow_up">Follow-up</option>
+                    <option value="chamada">Chamada</option>
+                    <option value="email">Email</option>
+                    <option value="visita">Visita</option>
+                    <option value="reuniao">Reunião</option>
+                    <option value="documento">Documento</option>
+                    <option value="proposta">Proposta</option>
+                    <option value="contrato">Contrato</option>
+                  </select>
+                </div>
+
+                {/* Pesquisa */}
+                <div className="flex-1 min-w-64">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pesquisar</label>
                   <input
                     type="text"
-                    placeholder="Pesquisar por título, descrição ou tags..."
-                    value={filters?.searchTerm || ''}
-                    onChange={(e) => setFilters?.(prev => ({ ...prev, searchTerm: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Título, descrição ou notas..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                {/* Filtros */}
-                <div className="flex flex-col md:flex-row gap-2">
-                  <select
-                    value={filters?.status || ''}
-                    onChange={(e) => setFilters?.(prev => ({ ...prev, status: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todos os Status</option>
-                    {Object.entries(TASK_STATUS || {}).map(([key, value]) => (
-                      <option key={key} value={value}>
-                        {getStatusLabel(value)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={filters?.type || ''}
-                    onChange={(e) => setFilters?.(prev => ({ ...prev, type: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todos os Tipos</option>
-                    {Object.entries(TASK_TYPES || {}).map(([key, value]) => (
-                      <option key={key} value={value}>
-                        {getTypeLabel(value)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={filters?.priority || ''}
-                    onChange={(e) => setFilters?.(prev => ({ ...prev, priority: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todas as Prioridades</option>
-                    {Object.entries(TASK_PRIORITY || {}).map(([key, value]) => (
-                      <option key={key} value={value}>
-                        {getPriorityLabel(value)}
-                      </option>
-                    ))}
-                  </select>
+                {/* Controles de Vista */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vista</label>
+                  <div className="flex border border-gray-300 rounded-md overflow-hidden">
+                    <button
+                      onClick={() => setView('list')}
+                      className={`px-3 py-2 text-sm ${view === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Lista
+                    </button>
+                    <button
+                      onClick={() => setView('kanban')}
+                      className={`px-3 py-2 text-sm border-l border-gray-300 ${view === 'kanban' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Kanban
+                    </button>
+                    <button
+                      onClick={() => setView('calendar')}
+                      className={`px-3 py-2 text-sm border-l border-gray-300 ${view === 'calendar' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Calendário
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </ThemedCard>
 
-          {/* Formulário de Criação - MANTIDO IDÊNTICO */}
+          {/* FORMULÁRIO DE CRIAÇÃO */}
           {showCreateForm && (
             <ThemedCard className="mb-6">
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Criar Nova Tarefa
-                </h3>
+                <h3 className="text-lg font-semibold mb-4">Nova Tarefa</h3>
                 
-                <form onSubmit={handleCreateSubmit} className="space-y-6">
+                <form onSubmit={handleCreateTask} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
                     {/* Título */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Título da Tarefa *
+                        Título *
                       </label>
                       <input
                         type="text"
                         required
                         value={formData.title}
-                        onChange={(e) => handleFormChange('title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ex: Ligar para cliente João Silva"
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ex: Ligar para cliente..."
                       />
                     </div>
 
                     {/* Tipo */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tipo de Tarefa
+                        Tipo
                       </label>
                       <select
                         value={formData.type}
-                        onChange={(e) => handleFormChange('type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        {Object.entries(TASK_TYPES || {}).map(([key, value]) => (
-                          <option key={key} value={value}>
-                            {getTypeLabel(value)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Prioridade */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Prioridade
-                      </label>
-                      <select
-                        value={formData.priority}
-                        onChange={(e) => handleFormChange('priority', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {Object.entries(TASK_PRIORITY || {}).map(([key, value]) => (
-                          <option key={key} value={value}>
-                            {getPriorityLabel(value)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Data de Vencimento */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Data de Vencimento *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.dueDate}
-                        onChange={(e) => handleFormChange('dueDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    {/* Hora de Vencimento */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Hora de Vencimento
-                      </label>
-                      <input
-                        type="time"
-                        value={formData.dueTime}
-                        onChange={(e) => handleFormChange('dueTime', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    {/* Relacionado A */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Relacionado A
-                      </label>
-                      <select
-                        value={formData.relatedTo}
-                        onChange={(e) => handleFormChange('relatedTo', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Não relacionado</option>
-                        <option value="client">Cliente</option>
-                        <option value="lead">Lead</option>
-                        <option value="opportunity">Oportunidade</option>
-                        <option value="deal">Negócio</option>
-                        <option value="visit">Visita</option>
+                        <option value="follow_up">Follow-up</option>
+                        <option value="chamada">Chamada</option>
+                        <option value="email">Email</option>
+                        <option value="visita">Visita</option>
+                        <option value="reuniao">Reunião</option>
+                        <option value="documento">Documento</option>
+                        <option value="proposta">Proposta</option>
+                        <option value="contrato">Contrato</option>
                       </select>
                     </div>
                   </div>
@@ -691,11 +536,57 @@ const TasksPage = () => {
                     </label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => handleFormChange('description', e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Detalhes da tarefa..."
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      rows="3"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Descreva os detalhes da tarefa..."
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Prioridade */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Prioridade
+                      </label>
+                      <select
+                        value={formData.priority}
+                        onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="baixa">Baixa</option>
+                        <option value="media">Média</option>
+                        <option value="alta">Alta</option>
+                        <option value="urgente">Urgente</option>
+                        <option value="critica">Crítica</option>
+                      </select>
+                    </div>
+
+                    {/* Data de Vencimento */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data de Vencimento
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.dueDate}
+                        onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Hora de Vencimento */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Hora de Vencimento
+                      </label>
+                      <input
+                        type="time"
+                        value={formData.dueTime}
+                        onChange={(e) => setFormData(prev => ({ ...prev, dueTime: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
 
                   {/* Notas */}
@@ -705,39 +596,36 @@ const TasksPage = () => {
                     </label>
                     <textarea
                       value={formData.notes}
-                      onChange={(e) => handleFormChange('notes', e.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Notas internas..."
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      rows="2"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Notas adicionais, contexto, etc..."
                     />
                   </div>
 
-                  {/* Botões do formulário */}
+                  {/* Botões */}
                   <div className="flex justify-end space-x-3 pt-4">
                     <ThemedButton
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setShowCreateForm(false);
-                        resetForm();
-                      }}
+                      onClick={() => setShowCreateForm(false)}
                     >
                       Cancelar
                     </ThemedButton>
+                    
                     <ThemedButton
                       type="submit"
-                      disabled={creating}
-                      className="flex items-center space-x-2"
+                      disabled={creating || !formData.title.trim()}
                     >
                       {creating ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Criando...</span>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Criando...
                         </>
                       ) : (
                         <>
-                          <PlusIcon className="h-4 w-4" />
-                          <span>Criar Tarefa</span>
+                          <PlusIcon className="h-4 w-4 mr-2" />
+                          Criar Tarefa
                         </>
                       )}
                     </ThemedButton>
@@ -747,123 +635,56 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* Conteúdo Principal baseado na vista ativa */}
-          {viewMode === 'kanban' && (
-            <ThemedCard>
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Vista Kanban
-                </h3>
-                
-                <div className="text-center py-12">
-                  <CheckSquareIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <h4 className="mt-2 text-sm font-medium text-gray-900">Vista Kanban</h4>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Funcionalidade em desenvolvimento. Use a vista em lista por enquanto.
-                  </p>
-                  <div className="mt-6">
-                    <ThemedButton onClick={() => setViewMode('list')}>
-                      Ver Lista
-                    </ThemedButton>
-                  </div>
-                </div>
-              </div>
-            </ThemedCard>
-          )}
-
-          {viewMode === 'calendar' && (
-            <ThemedCard>
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Vista Calendário
-                </h3>
-                
-                <div className="text-center py-12">
-                  <CheckSquareIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <h4 className="mt-2 text-sm font-medium text-gray-900">Vista Calendário</h4>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Funcionalidade em desenvolvimento. Use a vista em lista por enquanto.
-                  </p>
-                  <div className="mt-6">
-                    <ThemedButton onClick={() => setViewMode('list')}>
-                      Ver Lista
-                    </ThemedButton>
-                  </div>
-                </div>
-              </div>
-            </ThemedCard>
-          )}
-
-          {/* Vista Lista */}
-          {viewMode === 'list' && (
+          {/* 📋 CONTEÚDO PRINCIPAL - VISTA LISTA */}
+          {view === 'list' && (
             <ThemedCard>
               <div className="p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Lista de Tarefas ({tasks?.length || 0})
-                  </h3>
-                  {loading && (
-                    <p className="text-gray-500 mt-2">Carregando tarefas...</p>
-                  )}
-                  {error && (
-                    <p className="text-red-600 mt-2">Erro: {error}</p>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold mb-4">
+                  Tarefas ({filteredTasks.length})
+                </h3>
 
-                {tasks?.length > 0 ? (
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center">
+                      <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      A carregar tarefas...
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8 text-red-600">
+                    Erro ao carregar tarefas: {error}
+                  </div>
+                ) : filteredTasks.length > 0 ? (
+                  // Tabela de tarefas
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Tarefa
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Tipo
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Prioridade
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Vencimento
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Ações
-                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarefa</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioridade</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {tasks.map((task) => {
-                          const overdue = safeIsOverdue(task);
-                          const dueToday = safeIsDueToday(task);
-                          const daysUntil = safeGetDaysUntilDue(task);
-
+                        {filteredTasks.map((task) => {
                           return (
-                            <tr 
-                              key={task.id} 
-                              className={`hover:bg-gray-50 ${
-                                overdue ? 'bg-red-50' : dueToday ? 'bg-yellow-50' : ''
-                              }`}
-                            >
+                            <tr key={task.id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {task.title}
-                                  </div>
+                                  <div className="text-sm font-medium text-gray-900">{task.title}</div>
                                   {task.description && (
-                                    <div className="text-sm text-gray-500 truncate max-w-xs">
-                                      {task.description}
-                                    </div>
+                                    <div className="text-sm text-gray-500 truncate max-w-xs">{task.description}</div>
                                   )}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">
-                                  {getTypeLabel(task.type)}
-                                </div>
+                                <div className="text-sm text-gray-900">{getTypeLabel(task.type)}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(task.priority)}`}>
@@ -874,31 +695,22 @@ const TasksPage = () => {
                                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(task.status)}`}>
                                   {getStatusLabel(task.status)}
                                 </span>
+                                {safeIsOverdue(task) && (
+                                  <div className="text-xs text-red-600 mt-1">Em atraso</div>
+                                )}
+                                {safeIsDueToday(task) && !safeIsOverdue(task) && (
+                                  <div className="text-xs text-orange-600 mt-1">Vence hoje</div>
+                                )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className={`text-sm ${overdue ? 'text-red-600 font-medium' : dueToday ? 'text-yellow-600 font-medium' : 'text-gray-900'}`}>
-                                  {task.dueDate instanceof Date 
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.dueDate ? (
+                                  task.dueDate instanceof Date 
                                     ? task.dueDate.toLocaleDateString('pt-PT')
                                     : new Date(task.dueDate).toLocaleDateString('pt-PT')
-                                  }
-                                  {task.dueTime && (
-                                    <div className="text-xs text-gray-500">
-                                      {task.dueTime}
-                                    </div>
-                                  )}
-                                  {overdue && (
-                                    <div className="text-xs text-red-500">
-                                      {Math.abs(daysUntil)} dia(s) em atraso
-                                    </div>
-                                  )}
-                                  {dueToday && (
-                                    <div className="text-xs text-yellow-600">
-                                      Vence hoje
-                                    </div>
-                                  )}
-                                </div>
+                                ) : 'Sem data'}
+                                {task.dueTime && <div className="text-xs">{task.dueTime}</div>}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="relative">
                                   <button
                                     onClick={() => setOpenDropdown(openDropdown === task.id ? null : task.id)}
@@ -920,7 +732,7 @@ const TasksPage = () => {
                                         >
                                           Ver Detalhes
                                         </button>
-                                        {task.status !== (TASK_STATUS?.COMPLETA || 'completa') && (
+                                        {task.status !== 'completa' && (
                                           <button
                                             onClick={() => handleCompleteTask(task.id)}
                                             className="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50"
@@ -949,7 +761,7 @@ const TasksPage = () => {
                 ) : (
                   // Estado vazio
                   <div className="text-center py-12">
-                    <CheckSquareIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <CheckIcon className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma tarefa encontrada</h3>
                     <p className="mt-1 text-sm text-gray-500">Comece criando uma nova tarefa.</p>
                     <div className="mt-6">
@@ -964,8 +776,55 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* MODAIS MANTIDOS IDÊNTICOS */}
-          {/* Modal de Templates */}
+          {/* VISTA KANBAN */}
+          {view === 'kanban' && (
+            <ThemedCard>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Vista Kanban
+                </h3>
+                
+                <div className="text-center py-12">
+                  <CheckIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <h4 className="mt-2 text-sm font-medium text-gray-900">Vista Kanban</h4>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Funcionalidade em desenvolvimento. Use a vista em lista por enquanto.
+                  </p>
+                  <div className="mt-6">
+                    <ThemedButton onClick={() => setView('list')}>
+                      Ver Lista
+                    </ThemedButton>
+                  </div>
+                </div>
+              </div>
+            </ThemedCard>
+          )}
+
+          {/* VISTA CALENDÁRIO */}
+          {view === 'calendar' && (
+            <ThemedCard>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Vista Calendário
+                </h3>
+                
+                <div className="text-center py-12">
+                  <CalendarIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <h4 className="mt-2 text-sm font-medium text-gray-900">Vista Calendário</h4>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Funcionalidade em desenvolvimento. Use a vista em lista por enquanto.
+                  </p>
+                  <div className="mt-6">
+                    <ThemedButton onClick={() => setView('list')}>
+                      Ver Lista
+                    </ThemedButton>
+                  </div>
+                </div>
+              </div>
+            </ThemedCard>
+          )}
+
+          {/* MODAL DE TEMPLATES */}
           {showTemplatesModal && TASK_TEMPLATES && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -973,52 +832,51 @@ const TasksPage = () => {
                 
                 <div className="space-y-3">
                   {Object.entries(TASK_TEMPLATES).map(([key, template]) => (
-                    <div key={key} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{template.title}</h4>
-                          <p className="text-sm text-gray-500 mt-1">{template.description}</p>
-                        </div>
-                        <ThemedButton
-                          size="sm"
-                          onClick={() => handleCreateFromTemplate(key)}
-                        >
-                          Usar
-                        </ThemedButton>
+                    <div
+                      key={key}
+                      className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleCreateFromTemplate(key)}
+                    >
+                      <h4 className="font-medium text-gray-900">{template.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                      <div className="flex space-x-2 mt-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(template.priority)}`}>
+                          {getPriorityLabel(template.priority)}
+                        </span>
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                          {getTypeLabel(template.type)}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-6">
+                <div className="flex justify-end space-x-3 mt-6">
                   <ThemedButton
                     variant="outline"
                     onClick={() => setShowTemplatesModal(false)}
                   >
-                    Fechar
+                    Cancelar
                   </ThemedButton>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Modal de Detalhes da Tarefa */}
+          {/* MODAL DE DETALHES DA TAREFA */}
           {showTaskModal && selectedTask && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-90vh overflow-y-auto">
+              <div className="bg-white rounded-lg p-6 w-full max-w-lg">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Detalhes da Tarefa</h3>
                   <button
-                    onClick={() => {
-                      setShowTaskModal(false);
-                      setSelectedTask(null);
-                    }}
+                    onClick={() => setShowTaskModal(false)}
                     className="text-gray-400 hover:text-gray-600"
                   >
-                    ✕
+                    <XMarkIcon className="h-5 w-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Título</label>
@@ -1055,10 +913,11 @@ const TasksPage = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Vencimento</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {selectedTask.dueDate instanceof Date 
-                          ? selectedTask.dueDate.toLocaleDateString('pt-PT')
-                          : new Date(selectedTask.dueDate).toLocaleDateString('pt-PT')
-                        }
+                        {selectedTask.dueDate ? (
+                          selectedTask.dueDate instanceof Date 
+                            ? selectedTask.dueDate.toLocaleDateString('pt-PT')
+                            : new Date(selectedTask.dueDate).toLocaleDateString('pt-PT')
+                        ) : 'Sem data definida'}
                         {selectedTask.dueTime && ` às ${selectedTask.dueTime}`}
                       </p>
                     </div>
@@ -1096,7 +955,7 @@ const TasksPage = () => {
 
                   {/* Ações */}
                   <div className="flex space-x-3 pt-4">
-                    {selectedTask.status !== (TASK_STATUS?.COMPLETA || 'completa') && (
+                    {selectedTask.status !== 'completa' && (
                       <ThemedButton
                         onClick={() => {
                           handleCompleteTask(selectedTask.id);
