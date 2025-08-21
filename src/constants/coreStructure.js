@@ -4,6 +4,20 @@
 // Campos base que TODOS os módulos devem implementar
 // Garante consistência total e rastreamento completo
 
+// 📚 IMPORTS DAS CONSTANTES UNIFICADAS
+// ====================================
+import {
+  UNIFIED_INTEREST_TYPES,
+  UNIFIED_BUDGET_RANGES,
+  UNIFIED_PRIORITIES,
+  UNIFIED_LEAD_STATUS,
+  UNIFIED_CLIENT_STATUS,
+  UNIFIED_OPPORTUNITY_STATUS,
+  UNIFIED_DEAL_STATUS,
+  UNIFIED_LEAD_SOURCES,
+  UNIFIED_CONTACT_TIMES
+} from './unifiedTypes.js';
+
 // 🏗️ ESTRUTURA BASE OBRIGATÓRIA (CORE_DATA_STRUCTURE)
 // ===================================================
 // Campos que DEVEM existir em TODOS os registos
@@ -252,37 +266,84 @@ export const PERSONAL_DATA_STRUCTURE = {
     enum: ['telefone', 'email', 'whatsapp', 'sms'],
     default: 'telefone',
     description: 'Método preferencial de contacto'
-  }
-};
-
-// 🏠 ESTRUTURA DADOS IMOBILIÁRIOS
-// ===============================
-// Para oportunidades e negócios
-export const PROPERTY_DATA_STRUCTURE = {
-  // DADOS BÁSICOS DO IMÓVEL
-  propertyType: {
-    type: 'enum',
-    required: false,
-    enum: Object.values(UNIFIED_PROPERTY_TYPES),
-    description: 'Tipo de imóvel padronizado'
   },
   
-  operationType: {
-    type: 'enum',
+  // DADOS PROFISSIONAIS
+  profession: {
+    type: 'string',
     required: false,
-    enum: ['venda', 'compra', 'arrendamento', 'avaliacao'],
-    description: 'Tipo de operação'
+    description: 'Profissão'
   },
   
-  // LOCALIZAÇÃO
-  location: {
+  employer: {
+    type: 'string',
+    required: false,
+    description: 'Empregador atual'
+  },
+  
+  monthlyIncome: {
+    type: 'number',
+    required: false,
+    description: 'Rendimento mensal declarado'
+  },
+  
+  // DADOS BANCÁRIOS
+  bankDetails: {
     type: 'object',
     required: false,
     structure: {
-      address: { type: 'string', description: 'Morada completa' },
+      bankName: { type: 'string', description: 'Nome do banco principal' },
+      iban: { 
+        type: 'string', 
+        pattern: /^PT50[0-9]{21}$/,
+        description: 'IBAN português' 
+      },
+      hasMortgage: { type: 'boolean', description: 'Tem crédito habitação' },
+      creditScore: { type: 'string', description: 'Score de crédito (se conhecido)' }
+    }
+  },
+  
+  // DADOS DE MARKETING E PRIVACIDADE
+  marketingConsent: {
+    type: 'object',
+    required: false,
+    structure: {
+      email: { type: 'boolean', default: false, description: 'Aceita marketing por email' },
+      sms: { type: 'boolean', default: false, description: 'Aceita marketing por SMS' },
+      phone: { type: 'boolean', default: false, description: 'Aceita marketing por telefone' },
+      whatsapp: { type: 'boolean', default: false, description: 'Aceita marketing por WhatsApp' },
+      consentDate: { type: 'timestamp', description: 'Data do consentimento' },
+      gdprCompliant: { type: 'boolean', default: true, description: 'Conforme GDPR' }
+    }
+  }
+};
+
+// 🏢 ESTRUTURA DADOS DE PROPRIEDADE
+// =================================
+// Para oportunidades e negócios
+export const PROPERTY_DATA_STRUCTURE = {
+  // IDENTIFICAÇÃO DO IMÓVEL
+  propertyReference: {
+    type: 'string',
+    required: false,
+    description: 'Referência interna do imóvel'
+  },
+  
+  propertyType: {
+    type: 'enum',
+    required: false,
+    enum: ['apartamento', 'moradia', 'terreno', 'comercial', 'quinta'],
+    description: 'Tipo de propriedade'
+  },
+  
+  propertyAddress: {
+    type: 'object',
+    required: false,
+    structure: {
+      street: { type: 'string', description: 'Morada da propriedade' },
+      postalCode: { type: 'string', description: 'Código postal' },
       city: { type: 'string', description: 'Cidade' },
       district: { type: 'string', description: 'Distrito' },
-      postalCode: { type: 'string', description: 'Código postal' },
       coordinates: {
         type: 'object',
         structure: {
@@ -293,56 +354,53 @@ export const PROPERTY_DATA_STRUCTURE = {
     }
   },
   
-  // CARACTERÍSTICAS
-  characteristics: {
+  // CARACTERÍSTICAS FÍSICAS
+  propertyFeatures: {
     type: 'object',
     required: false,
     structure: {
       area: { type: 'number', description: 'Área em m²' },
       bedrooms: { type: 'number', description: 'Número de quartos' },
       bathrooms: { type: 'number', description: 'Número de casas de banho' },
-      garage: { type: 'boolean', description: 'Tem garagem' },
-      garden: { type: 'boolean', description: 'Tem jardim' },
-      balcony: { type: 'boolean', description: 'Tem varanda' },
+      parkingSpaces: { type: 'number', description: 'Lugares de estacionamento' },
+      buildYear: { type: 'number', description: 'Ano de construção' },
       condition: { 
         type: 'enum',
-        enum: ['novo', 'como_novo', 'bom', 'para_remodelar', 'para_restaurar'],
-        description: 'Estado de conservação'
+        enum: ['novo', 'excelente', 'bom', 'razoavel', 'necessita_obras'],
+        description: 'Estado de conservação' 
       },
-      yearBuilt: { type: 'number', description: 'Ano de construção' },
       energyRating: {
         type: 'enum',
-        enum: ['A+', 'A', 'B', 'B-', 'C', 'D', 'E', 'F', 'G'],
+        enum: ['A+', 'A', 'B', 'B-', 'C', 'D', 'E', 'F'],
         description: 'Certificação energética'
       }
     }
   },
   
-  // VALORES FINANCEIROS
-  financialData: {
+  // DADOS FINANCEIROS DA PROPRIEDADE
+  propertyFinancials: {
     type: 'object',
     required: false,
     structure: {
       askingPrice: { type: 'number', description: 'Preço pedido' },
-      minPrice: { type: 'number', description: 'Preço mínimo' },
-      marketValue: { type: 'number', description: 'Valor de mercado' },
-      monthlyRent: { type: 'number', description: 'Renda mensal (se arrendamento)' },
-      condominium: { type: 'number', description: 'Valor condomínio' },
+      estimatedValue: { type: 'number', description: 'Valor estimado' },
+      pricePerSqm: { type: 'number', description: 'Preço por m²' },
       imt: { type: 'number', description: 'IMT calculado' },
-      stampDuty: { type: 'number', description: 'Imposto de selo' }
+      stampDuty: { type: 'number', description: 'Imposto de selo' },
+      notaryFees: { type: 'number', description: 'Custos de notário estimados' }
     }
   }
 };
 
-// 💼 ESTRUTURA DADOS NEGÓCIO
-// ==========================
+// 💼 ESTRUTURA DADOS DE NEGÓCIO
+// ============================
 // Para deals e transações
 export const BUSINESS_DATA_STRUCTURE = {
-  // VALORES DA TRANSAÇÃO
+  // DADOS COMERCIAIS
   dealValue: {
     type: 'number',
     required: false,
-    description: 'Valor total da transação'
+    description: 'Valor total do negócio'
   },
   
   commissionPercentage: {
@@ -350,109 +408,87 @@ export const BUSINESS_DATA_STRUCTURE = {
     required: false,
     min: 0,
     max: 100,
+    default: 2.5,
     description: 'Percentagem de comissão'
   },
   
   commissionValue: {
     type: 'number',
     required: false,
-    description: 'Valor da comissão calculado'
+    description: 'Valor da comissão (calculado automaticamente)'
   },
   
-  // SISTEMA DE TRANCHES (para pagamentos faseados)
-  paymentTranches: {
-    type: 'array',
+  // PRAZOS
+  expectedCloseDate: {
+    type: 'date',
     required: false,
-    description: 'Sistema de pagamentos faseados',
-    itemStructure: {
-      trancheNumber: { type: 'number', description: 'Número da tranche' },
-      description: { type: 'string', description: 'Descrição da tranche' },
-      amount: { type: 'number', description: 'Valor da tranche' },
-      percentage: { type: 'number', description: 'Percentagem do total' },
-      dueDate: { type: 'date', description: 'Data de vencimento' },
-      status: { 
-        type: 'enum',
-        enum: ['pendente', 'pago', 'atrasado', 'cancelado'],
-        description: 'Status do pagamento'
-      },
-      paidDate: { type: 'date', description: 'Data de pagamento efetivo' },
-      paidAmount: { type: 'number', description: 'Valor pago' },
-      notes: { type: 'string', description: 'Observações' }
-    }
+    description: 'Data prevista de fecho'
   },
   
-  // DATAS CRÍTICAS DO PROCESSO LEGAL PORTUGUÊS
-  legalDates: {
+  actualCloseDate: {
+    type: 'date',
+    required: false,
+    description: 'Data real de fecho'
+  },
+  
+  // FINANCIAMENTO
+  financingDetails: {
     type: 'object',
     required: false,
     structure: {
-      // FASE 1: NEGOCIAÇÃO
-      proposalDate: { type: 'date', description: 'Data da proposta' },
-      proposalExpiryDate: { type: 'date', description: 'Validade da proposta' },
-      proposalAcceptedDate: { type: 'date', description: 'Proposta aceite' },
-      
-      // FASE 2: CPCV (Contrato Promessa)
-      cpcvSignedDate: { type: 'date', description: 'CPCV assinado' },
-      cpcvAmount: { type: 'number', description: 'Valor do CPCV' },
-      cpcvDueDate: { type: 'date', description: 'Vencimento sinal CPCV' },
-      
-      // FASE 3: FINANCIAMENTO
-      mortgageApplicationDate: { type: 'date', description: 'Pedido crédito habitação' },
-      mortgageApprovalDate: { type: 'date', description: 'Aprovação financiamento' },
-      mortgageAmount: { type: 'number', description: 'Valor financiamento' },
-      
-      // FASE 4: ESCRITURA
-      deedScheduledDate: { type: 'date', description: 'Escritura agendada' },
-      deedCompletedDate: { type: 'date', description: 'Escritura realizada' },
-      deedLocation: { type: 'string', description: 'Local da escritura' },
-      notaryName: { type: 'string', description: 'Nome do notário' },
-      
-      // FASE 5: PÓS-VENDA
-      keysDeliveredDate: { type: 'date', description: 'Entrega das chaves' },
-      guaranteeExpiryDate: { type: 'date', description: 'Fim período garantia' }
+      hasFinancing: { type: 'boolean', description: 'Necessita financiamento' },
+      loanAmount: { type: 'number', description: 'Montante do empréstimo' },
+      downPayment: { type: 'number', description: 'Entrada inicial' },
+      bankName: { type: 'string', description: 'Banco para financiamento' },
+      preApproved: { type: 'boolean', description: 'Pré-aprovado' },
+      interestRate: { type: 'number', description: 'Taxa de juro' },
+      loanTerm: { type: 'number', description: 'Prazo do empréstimo (anos)' }
     }
   },
   
-  // DOCUMENTAÇÃO NECESSÁRIA
-  requiredDocuments: {
-    type: 'array',
+  // PARTES ENVOLVIDAS
+  parties: {
+    type: 'object',
     required: false,
-    itemStructure: {
-      documentType: { 
-        type: 'enum',
-        enum: [
-          'certidao_predial', 'caderneta_predial', 'planta_aprovada',
-          'licenca_habitacao', 'certificado_energetico', 'certidao_comercial',
-          'cc_proprietario', 'nif_proprietario', 'certidao_casamento',
-          'cpcv_anterior', 'escritura_anterior', 'comprovativo_irs'
-        ],
-        description: 'Tipo de documento'
-      },
-      status: {
-        type: 'enum',
-        enum: ['nao_solicitado', 'solicitado', 'recebido', 'validado', 'em_falta'],
-        description: 'Status do documento'
-      },
-      requestedDate: { type: 'date', description: 'Data solicitação' },
-      receivedDate: { type: 'date', description: 'Data receção' },
-      expiryDate: { type: 'date', description: 'Data validade' },
-      notes: { type: 'string', description: 'Observações' }
+    structure: {
+      buyer: { type: 'string', description: 'Comprador' },
+      seller: { type: 'string', description: 'Vendedor' },
+      buyerLawyer: { type: 'string', description: 'Advogado do comprador' },
+      sellerLawyer: { type: 'string', description: 'Advogado do vendedor' },
+      notary: { type: 'string', description: 'Notário' },
+      bankRepresentative: { type: 'string', description: 'Representante do banco' }
+    }
+  },
+  
+  // DOCUMENTAÇÃO
+  documents: {
+    type: 'object',
+    required: false,
+    structure: {
+      promissoryContract: { type: 'boolean', description: 'Contrato promessa' },
+      deedOfSale: { type: 'boolean', description: 'Escritura' },
+      energyCertificate: { type: 'boolean', description: 'Certificado energético' },
+      habitationLicense: { type: 'boolean', description: 'Licença habitação' },
+      propertyRegistration: { type: 'boolean', description: 'Registo predial' },
+      taxClearance: { type: 'boolean', description: 'Certidão fiscal' }
     }
   }
 };
 
-// 📊 ESTRUTURA DADOS ANÁLISE
-// ==========================
+// 📊 ESTRUTURA DADOS DE ANALYTICS
+// ==============================
 // Para relatórios e métricas
 export const ANALYTICS_DATA_STRUCTURE = {
   // MÉTRICAS DE PERFORMANCE
-  metrics: {
+  performance: {
     type: 'object',
     required: false,
     structure: {
-      conversionRate: { type: 'number', description: 'Taxa de conversão' },
-      averageResponseTime: { type: 'number', description: 'Tempo médio resposta' },
-      totalInteractions: { type: 'number', description: 'Total de interações' },
+      responseTime: { type: 'number', description: 'Tempo resposta (horas)' },
+      followUpCount: { type: 'number', description: 'Número de follow-ups' },
+      meetingsScheduled: { type: 'number', description: 'Reuniões agendadas' },
+      callsAttempted: { type: 'number', description: 'Tentativas de contacto' },
+      emailsSent: { type: 'number', description: 'Emails enviados' },
       lastContactDate: { type: 'date', description: 'Último contacto' },
       nextFollowUpDate: { type: 'date', description: 'Próximo follow-up' }
     }
@@ -608,7 +644,7 @@ export const createEmptyRecord = (moduleType, userId, userEmail) => {
     phone: '',
     email: '',
     interestType: UNIFIED_INTEREST_TYPES.COMPRA_CASA,
-    budgetRange: 'indefinido',
+    budgetRange: UNIFIED_BUDGET_RANGES.INDEFINIDO,
     priority: UNIFIED_PRIORITIES.NORMAL,
     isActive: true,
     isConverted: false,
@@ -627,7 +663,7 @@ export const createEmptyRecord = (moduleType, userId, userEmail) => {
 export const LEAD_TEMPLATE = {
   ...CORE_DATA_STRUCTURE,
   status: UNIFIED_LEAD_STATUS.NOVO,
-  source: UNIFIED_LEAD_SOURCES.WEBSITE,
+  source: UNIFIED_LEAD_SOURCES.MANUAL,
   notes: ''
 };
 

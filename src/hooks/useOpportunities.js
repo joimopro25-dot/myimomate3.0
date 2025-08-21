@@ -1,108 +1,124 @@
 // src/hooks/useOpportunities.js
-import { useState, useEffect, useCallback, useMemo } from 'react';
+// 🎯 HOOK UNIFICADO PARA GESTÃO DE OPORTUNIDADES - MyImoMate 3.0
+// ==============================================================
+// VERSÃO UNIFICADA com estrutura padronizada
+// Funcionalidades: Pipeline de Vendas, CRUD, Validações Unificadas, Estrutura Base
+
+import { useState, useEffect, useCallback } from 'react';
 import { 
   collection, 
-  doc, 
   addDoc, 
   updateDoc, 
   deleteDoc, 
   getDocs, 
+  getDoc,
+  doc, 
   query, 
   where, 
   orderBy, 
   limit,
-  serverTimestamp,
-  increment,
-  runTransaction
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// 🎯 HOOK PRINCIPAL PARA GESTÃO DE OPORTUNIDADES
-// =============================================
-// MyImoMate 3.0 - Sistema completo de pipeline de vendas
-// Funcionalidades: CRUD, Pipeline, Probabilidades, Previsões, Análise
+// 📚 IMPORTS DA ESTRUTURA UNIFICADA
+// =================================
+import {
+  UNIFIED_INTEREST_TYPES,
+  UNIFIED_BUDGET_RANGES,
+  UNIFIED_OPPORTUNITY_STATUS,
+  UNIFIED_OPPORTUNITY_PROBABILITIES,
+  UNIFIED_PRIORITIES,
+  UNIFIED_PROPERTY_TYPES,
+  getInterestTypeLabel,
+  getBudgetRangeLabel,
+  formatCurrency,
+  getOpportunityProbability
+} from '../constants/unifiedTypes.js';
 
-// 📊 CONSTANTES DO NEGÓCIO
+import {
+  CORE_DATA_STRUCTURE,
+  PROPERTY_DATA_STRUCTURE,
+  applyCoreStructure,
+  validateCoreStructure,
+  OPPORTUNITY_TEMPLATE
+} from '../constants/coreStructure.js';
+
+import {
+  validateOpportunity,
+  validateForDuplicates,
+  formatValidatedData,
+  validateCurrency,
+  validateCommissionPercentage
+} from '../constants/validations.js';
+
+// 🔧 CONFIGURAÇÕES DO HOOK
+// ========================
 const OPPORTUNITIES_COLLECTION = 'opportunities';
 const CLIENTS_COLLECTION = 'clients';
-const PROPERTIES_COLLECTION = 'properties';
-const FETCH_LIMIT = 500;
+const DEALS_COLLECTION = 'deals';
+const FETCH_LIMIT = 100;
 
-// Status das oportunidades (pipeline de vendas)
-const OPPORTUNITY_STATUS = {
-  IDENTIFICACAO: 'identificacao',
-  QUALIFICACAO: 'qualificacao',
-  APRESENTACAO: 'apresentacao',
-  NEGOCIACAO: 'negociacao',
-  PROPOSTA: 'proposta',
-  CONTRATO: 'contrato',
-  FECHADO_GANHO: 'fechado_ganho',
-  FECHADO_PERDIDO: 'fechado_perdido',
-  PAUSADO: 'pausado'
-};
-
-// Probabilidades por status (%)
-const STATUS_PROBABILITIES = {
-  identificacao: 10,
-  qualificacao: 25,
-  apresentacao: 40,
-  negociacao: 60,
-  proposta: 80,
-  contrato: 95,
-  fechado_ganho: 100,
-  fechado_perdido: 0,
-  pausado: 0
-};
-
-// Tipos de oportunidade
-const OPPORTUNITY_TYPES = {
-  VENDA: 'venda',
-  COMPRA: 'compra',
+// 🎯 TIPOS DE OPORTUNIDADE ESPECÍFICOS
+export const OPPORTUNITY_TYPES = {
+  VENDAS: 'vendas',
+  CAPTACAO: 'captacao',
   ARRENDAMENTO: 'arrendamento',
+  INVESTIMENTO: 'investimento',
   AVALIACAO: 'avaliacao',
-  INVESTIMENTO: 'investimento'
+  CONSULTORIA: 'consultoria'
 };
 
-// Prioridades
-const OPPORTUNITY_PRIORITIES = {
-  BAIXA: 'baixa',
-  MEDIA: 'media',
-  ALTA: 'alta',
-  URGENTE: 'urgente'
+export const OPPORTUNITY_TYPE_LABELS = {
+  [OPPORTUNITY_TYPES.VENDAS]: 'Vendas',
+  [OPPORTUNITY_TYPES.CAPTACAO]: 'Captação',
+  [OPPORTUNITY_TYPES.ARRENDAMENTO]: 'Arrendamento',
+  [OPPORTUNITY_TYPES.INVESTIMENTO]: 'Investimento',
+  [OPPORTUNITY_TYPES.AVALIACAO]: 'Avaliação',
+  [OPPORTUNITY_TYPES.CONSULTORIA]: 'Consultoria'
 };
 
-// Origens da oportunidade
-const OPPORTUNITY_SOURCES = {
-  LEAD_CONVERSION: 'lead_conversion',
-  CLIENT_DIRECT: 'client_direct',
-  REFERRAL: 'referral',
-  WEBSITE: 'website',
-  SOCIAL_MEDIA: 'social_media',
-  ADVERTISEMENT: 'advertisement',
-  COLD_CALL: 'cold_call',
-  EVENT: 'event',
-  OTHER: 'other'
+// 🎨 CORES PARA STATUS (usando constantes unificadas)
+export const OPPORTUNITY_STATUS_COLORS = {
+  [UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO]: 'bg-blue-100 text-blue-800 border-blue-200',
+  [UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO]: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  [UNIFIED_OPPORTUNITY_STATUS.APRESENTACAO]: 'bg-orange-100 text-orange-800 border-orange-200',
+  [UNIFIED_OPPORTUNITY_STATUS.NEGOCIACAO]: 'bg-purple-100 text-purple-800 border-purple-200',
+  [UNIFIED_OPPORTUNITY_STATUS.PROPOSTA]: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  [UNIFIED_OPPORTUNITY_STATUS.CONTRATO]: 'bg-green-100 text-green-800 border-green-200',
+  [UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO]: 'bg-green-100 text-green-800 border-green-200',
+  [UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO]: 'bg-red-100 text-red-800 border-red-200',
+  [UNIFIED_OPPORTUNITY_STATUS.PAUSADO]: 'bg-gray-100 text-gray-800 border-gray-200'
 };
 
-// Cores dos status para UI
-const STATUS_COLORS = {
-  identificacao: 'bg-gray-100 text-gray-800',
-  qualificacao: 'bg-blue-100 text-blue-800',
-  apresentacao: 'bg-yellow-100 text-yellow-800',
-  negociacao: 'bg-orange-100 text-orange-800',
-  proposta: 'bg-purple-100 text-purple-800',
-  contrato: 'bg-green-100 text-green-800',
-  fechado_ganho: 'bg-green-200 text-green-900',
-  fechado_perdido: 'bg-red-100 text-red-800',
-  pausado: 'bg-gray-200 text-gray-700'
+// 📊 TIPOS DE ATIVIDADE
+export const ACTIVITY_TYPES = {
+  CHAMADA: 'chamada',
+  EMAIL: 'email',
+  REUNIAO: 'reuniao',
+  VISITA: 'visita',
+  PROPOSTA: 'proposta',
+  NEGOCIACAO: 'negociacao',
+  FOLLOW_UP: 'follow_up',
+  DOCUMENTO: 'documento',
+  OUTRO: 'outro'
 };
 
-// Regex para validações
-const CURRENCY_REGEX = /^[0-9]+(\.[0-9]{1,2})?$/;
-const PERCENTAGE_REGEX = /^[0-9]{1,3}$/;
+export const ACTIVITY_TYPE_LABELS = {
+  [ACTIVITY_TYPES.CHAMADA]: 'Chamada',
+  [ACTIVITY_TYPES.EMAIL]: 'Email',
+  [ACTIVITY_TYPES.REUNIAO]: 'Reunião',
+  [ACTIVITY_TYPES.VISITA]: 'Visita a Imóvel',
+  [ACTIVITY_TYPES.PROPOSTA]: 'Proposta Enviada',
+  [ACTIVITY_TYPES.NEGOCIACAO]: 'Negociação',
+  [ACTIVITY_TYPES.FOLLOW_UP]: 'Follow-up',
+  [ACTIVITY_TYPES.DOCUMENTO]: 'Documento',
+  [ACTIVITY_TYPES.OUTRO]: 'Outro'
+};
 
-// 🎯 HOOK PRINCIPAL
+// 🎯 HOOK PRINCIPAL UNIFICADO
+// ===========================
 const useOpportunities = () => {
   // Estados principais
   const [opportunities, setOpportunities] = useState([]);
@@ -112,152 +128,380 @@ const useOpportunities = () => {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Estados de filtros
+  // Estados de filtros expandidos
   const [filters, setFilters] = useState({
     status: '',
-    type: '',
+    opportunityType: '',
     priority: '',
+    interestType: '',
+    budgetRange: '',
     clientId: '',
-    source: '',
+    propertyType: '',
     dateRange: 'all',
     searchTerm: ''
   });
 
   // Context de autenticação
   const { user } = useAuth();
+  const isUserReady = !!user;
 
-  // 📥 BUSCAR TODAS AS OPORTUNIDADES
+  // 📥 BUSCAR TODAS AS OPORTUNIDADES COM ESTRUTURA UNIFICADA
+  // =======================================================
   const fetchOpportunities = useCallback(async () => {
-    if (!user) return;
+    if (!isUserReady) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const oppQuery = query(
+      // Query simplificada para evitar problemas de índice
+      let oppQuery = query(
         collection(db, OPPORTUNITIES_COLLECTION),
         where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc'),
         limit(FETCH_LIMIT)
       );
 
       const querySnapshot = await getDocs(oppQuery);
-      const oppsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        expectedCloseDate: doc.data().expectedCloseDate?.toDate(),
-        actualCloseDate: doc.data().actualCloseDate?.toDate()
-      }));
+      const oppsData = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          
+          // Aplicar migração automática se necessário
+          const migratedData = migrateOpportunityData(data);
+          
+          return {
+            id: doc.id,
+            ...migratedData,
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
+            expectedCloseDate: data.expectedCloseDate?.toDate(),
+            actualCloseDate: data.actualCloseDate?.toDate(),
+            lastActivityDate: data.lastActivityDate?.toDate()
+          };
+        })
+        .filter(opp => opp.isActive !== false) // Filtrar inativos
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // Ordenar por data
 
-      setOpportunities(oppsData);
+      // Aplicar filtros client-side
+      let filteredOpportunities = oppsData;
+      
+      if (filters.status && Object.values(UNIFIED_OPPORTUNITY_STATUS).includes(filters.status)) {
+        filteredOpportunities = filteredOpportunities.filter(opp => opp.status === filters.status);
+      }
+      
+      if (filters.opportunityType) {
+        filteredOpportunities = filteredOpportunities.filter(opp => opp.opportunityType === filters.opportunityType);
+      }
+      
+      if (filters.priority && Object.values(UNIFIED_PRIORITIES).includes(filters.priority)) {
+        filteredOpportunities = filteredOpportunities.filter(opp => opp.priority === filters.priority);
+      }
+      
+      if (filters.searchTerm) {
+        const term = filters.searchTerm.toLowerCase();
+        filteredOpportunities = filteredOpportunities.filter(opp => 
+          opp.title?.toLowerCase().includes(term) ||
+          opp.description?.toLowerCase().includes(term) ||
+          opp.clientName?.toLowerCase().includes(term) ||
+          opp.propertyAddress?.toLowerCase().includes(term)
+        );
+      }
+
+      setOpportunities(filteredOpportunities);
+      console.log(`Carregadas ${filteredOpportunities.length} oportunidades com estrutura unificada`);
+      
     } catch (err) {
       console.error('Erro ao buscar oportunidades:', err);
-      setError('Erro ao carregar oportunidades. Tente novamente.');
+      setError(`Erro ao carregar oportunidades: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [isUserReady, user, filters]);
 
-  // ➕ CRIAR NOVA OPORTUNIDADE
-  const createOpportunity = async (opportunityData) => {
-    if (!user) return { success: false, error: 'Utilizador não autenticado' };
-    
+  // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
+  // =======================================
+  const migrateOpportunityData = useCallback((oldData) => {
+    // Se já tem estrutura nova, retornar como está
+    if (oldData.structureVersion === '3.0') {
+      return oldData;
+    }
+
+    // Mapear campos antigos para novos
+    const migrated = {
+      ...oldData,
+      
+      // Garantir estrutura base obrigatória
+      isActive: oldData.isActive !== undefined ? oldData.isActive : true,
+      priority: oldData.priority || UNIFIED_PRIORITIES.NORMAL,
+      
+      // Migrar status de oportunidade
+      status: migrateOpportunityStatus(oldData.status),
+      
+      // Migrar tipos de interesse
+      interestType: migrateInterestType(oldData.interestType),
+      
+      // Migrar faixas de orçamento
+      budgetRange: migrateBudgetRange(oldData.budgetRange),
+      
+      // Atualizar probabilidade baseada no status
+      probability: getOpportunityProbability(oldData.status) || oldData.probability || 10,
+      
+      // Garantir campos obrigatórios
+      title: oldData.title || oldData.name || 'Oportunidade sem título',
+      
+      // Adicionar campos novos
+      structureVersion: '3.0',
+      migratedAt: new Date().toISOString(),
+      
+      // Garantir referências cruzadas
+      leadId: oldData.leadId || null,
+      clientId: oldData.clientId || null,
+      opportunityId: oldData.id || null,
+      dealId: oldData.dealId || null
+    };
+
+    return migrated;
+  }, []);
+
+  // 🔄 FUNÇÕES DE MIGRAÇÃO ESPECÍFICAS
+  // ==================================
+  const migrateOpportunityStatus = (oldStatus) => {
+    const statusMap = {
+      'identificacao': UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO,
+      'qualificacao': UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO,
+      'apresentacao': UNIFIED_OPPORTUNITY_STATUS.APRESENTACAO,
+      'negociacao': UNIFIED_OPPORTUNITY_STATUS.NEGOCIACAO,
+      'proposta': UNIFIED_OPPORTUNITY_STATUS.PROPOSTA,
+      'contrato': UNIFIED_OPPORTUNITY_STATUS.CONTRATO,
+      'fechado_ganho': UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
+      'fechado_perdido': UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO,
+      'pausado': UNIFIED_OPPORTUNITY_STATUS.PAUSADO
+    };
+    return statusMap[oldStatus] || UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO;
+  };
+
+  const migrateInterestType = (oldType) => {
+    const typeMap = {
+      'compra_casa': UNIFIED_INTEREST_TYPES.COMPRA_CASA,
+      'compra_apartamento': UNIFIED_INTEREST_TYPES.COMPRA_APARTAMENTO,
+      'venda_casa': UNIFIED_INTEREST_TYPES.VENDA_CASA,
+      'venda_apartamento': UNIFIED_INTEREST_TYPES.VENDA_APARTAMENTO,
+      'arrendamento_casa': UNIFIED_INTEREST_TYPES.ARRENDAMENTO_CASA,
+      'arrendamento_apartamento': UNIFIED_INTEREST_TYPES.ARRENDAMENTO_APARTAMENTO
+    };
+    return typeMap[oldType] || UNIFIED_INTEREST_TYPES.COMPRA_CASA;
+  };
+
+  const migrateBudgetRange = (oldRange) => {
+    const rangeMap = {
+      'ate_100k': UNIFIED_BUDGET_RANGES.ATE_100K,
+      '100k_200k': UNIFIED_BUDGET_RANGES.DE_100K_200K,
+      '200k_300k': UNIFIED_BUDGET_RANGES.DE_200K_300K,
+      '300k_500k': UNIFIED_BUDGET_RANGES.DE_300K_500K,
+      '500k_750k': UNIFIED_BUDGET_RANGES.DE_500K_750K,
+      '750k_1M': UNIFIED_BUDGET_RANGES.DE_750K_1M,
+      '1M+': UNIFIED_BUDGET_RANGES.ACIMA_1M
+    };
+    return rangeMap[oldRange] || UNIFIED_BUDGET_RANGES.INDEFINIDO;
+  };
+
+  // ➕ CRIAR NOVA OPORTUNIDADE COM ESTRUTURA UNIFICADA
+  // =================================================
+  const createOpportunity = useCallback(async (opportunityData) => {
+    if (!isUserReady) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     setCreating(true);
     setError(null);
-    
+
     try {
-      // Validar dados obrigatórios
-      const validation = validateOpportunityData(opportunityData);
-      if (!validation.isValid) {
-        setCreating(false);
-        return { success: false, error: validation.errors.join(', ') };
+      // 1. VALIDAÇÃO BÁSICA
+      if (!opportunityData.title?.trim()) {
+        throw new Error('Título é obrigatório');
+      }
+      
+      if (!opportunityData.clientId?.trim()) {
+        throw new Error('Cliente é obrigatório');
       }
 
-      // Preparar dados para criação
+      // Validações específicas
+      if (opportunityData.estimatedValue && !validateCurrency(opportunityData.estimatedValue)) {
+        throw new Error('Valor estimado inválido');
+      }
+
+      if (opportunityData.commissionPercentage && !validateCommissionPercentage(opportunityData.commissionPercentage)) {
+        throw new Error('Percentagem de comissão deve estar entre 0 e 100');
+      }
+
+      // 2. PREPARAR DADOS COM ESTRUTURA UNIFICADA
+      const estimatedValue = parseFloat(opportunityData.estimatedValue) || 0;
+      const commissionPercentage = parseFloat(opportunityData.commissionPercentage) || 2.5;
+      const commissionValue = (estimatedValue * commissionPercentage) / 100;
+      const probability = getOpportunityProbability(opportunityData.status) || 10;
+      const pipelineValue = (estimatedValue * probability) / 100;
+
+      // 3. CRIAR OBJETO DA OPORTUNIDADE COM ESTRUTURA UNIFICADA
       const newOpportunity = {
-        ...opportunityData,
+        // Dados básicos obrigatórios
+        title: opportunityData.title.trim(),
+        description: opportunityData.description?.trim() || '',
+        
+        // Referências obrigatórias
+        clientId: opportunityData.clientId,
+        clientName: opportunityData.clientName?.trim() || '',
+        
+        // Dados de interesse com estrutura unificada
+        interestType: opportunityData.interestType || UNIFIED_INTEREST_TYPES.COMPRA_CASA,
+        budgetRange: opportunityData.budgetRange || UNIFIED_BUDGET_RANGES.INDEFINIDO,
+        
+        // Dados de propriedade (PROPERTY_DATA_STRUCTURE)
+        propertyReference: opportunityData.propertyReference?.trim() || '',
+        propertyType: opportunityData.propertyType || '',
+        propertyAddress: {
+          street: opportunityData.propertyAddress?.street?.trim() || '',
+          postalCode: opportunityData.propertyAddress?.postalCode?.trim() || '',
+          city: opportunityData.propertyAddress?.city?.trim() || '',
+          district: opportunityData.propertyAddress?.district?.trim() || '',
+          coordinates: opportunityData.propertyAddress?.coordinates || null
+        },
+        propertyFeatures: {
+          area: opportunityData.propertyFeatures?.area || null,
+          bedrooms: opportunityData.propertyFeatures?.bedrooms || null,
+          bathrooms: opportunityData.propertyFeatures?.bathrooms || null,
+          parkingSpaces: opportunityData.propertyFeatures?.parkingSpaces || null,
+          buildYear: opportunityData.propertyFeatures?.buildYear || null,
+          condition: opportunityData.propertyFeatures?.condition || '',
+          energyRating: opportunityData.propertyFeatures?.energyRating || ''
+        },
+        
+        // Dados financeiros
+        estimatedValue: estimatedValue,
+        commissionPercentage: commissionPercentage,
+        commissionValue: commissionValue,
+        pipelineValue: pipelineValue,
+        
+        // Pipeline e status
+        status: opportunityData.status || UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO,
+        probability: probability,
+        opportunityType: opportunityData.opportunityType || OPPORTUNITY_TYPES.VENDAS,
+        priority: opportunityData.priority || UNIFIED_PRIORITIES.NORMAL,
+        
+        // Datas importantes
+        expectedCloseDate: opportunityData.expectedCloseDate || null,
+        lastActivityDate: null,
+        actualCloseDate: null,
+        
+        // Atividades e histórico
+        activities: [],
+        documents: [],
+        notes: opportunityData.notes?.trim() || '',
+        
+        // Dados de auditoria obrigatórios
         userId: user.uid,
-        status: opportunityData.status || OPPORTUNITY_STATUS.IDENTIFICACAO,
-        probability: opportunityData.probability || STATUS_PROBABILITIES[opportunityData.status || 'identificacao'],
-        totalValue: parseFloat(opportunityData.totalValue || 0),
-        commissionValue: parseFloat(opportunityData.commissionValue || 0),
-        commissionPercentage: parseFloat(opportunityData.commissionPercentage || 0),
+        userEmail: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        // Dados de auditoria
-        createdBy: user.uid,
-        updatedBy: user.uid,
-        createdFromIP: await getUserIP(),
-        userAgent: navigator.userAgent
+        
+        // Flags de controlo
+        isActive: true,
+        isConverted: false,
+        
+        // Referências cruzadas
+        leadId: opportunityData.leadId || null,
+        clientId: opportunityData.clientId,
+        opportunityId: null, // Auto-preenchido após criação
+        dealId: null,
+        
+        // Fonte e rastreamento
+        source: opportunityData.source || 'manual',
+        
+        // Versão da estrutura
+        structureVersion: '3.0',
+        
+        // Metadados técnicos
+        userAgent: navigator.userAgent,
+        source_details: {
+          created_via: 'web_form',
+          form_version: '3.0',
+          timestamp: new Date().toISOString()
+        }
       };
 
-      // Adicionar à base de dados
+      // 4. INSERIR NO FIREBASE
       const docRef = await addDoc(collection(db, OPPORTUNITIES_COLLECTION), newOpportunity);
       
-      // Atualizar lista local
+      // 5. CRIAR OBJETO COMPLETO PARA RETORNO
       const createdOpportunity = {
         id: docRef.id,
         ...newOpportunity,
+        opportunityId: docRef.id, // Atualizar referência própria
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      
+
+      // 6. ATUALIZAR LISTA LOCAL
       setOpportunities(prev => [createdOpportunity, ...prev]);
-      
-      // Atualizar contador do cliente (se existir)
+
+      // 7. ATUALIZAR CONTADOR DO CLIENTE
       if (opportunityData.clientId) {
         await updateClientOpportunityCount(opportunityData.clientId, 'increment');
       }
 
-      setCreating(false);
-      return { success: true, opportunity: createdOpportunity };
+      console.log('Oportunidade criada com estrutura unificada:', docRef.id);
       
+      return {
+        success: true,
+        opportunity: createdOpportunity,
+        message: 'Oportunidade criada com sucesso!'
+      };
+
     } catch (err) {
       console.error('Erro ao criar oportunidade:', err);
-      setError('Erro ao criar oportunidade. Tente novamente.');
+      setError(err.message);
+      
+      return {
+        success: false,
+        error: err.message,
+        message: `Erro ao criar oportunidade: ${err.message}`
+      };
+    } finally {
       setCreating(false);
-      return { success: false, error: err.message };
     }
-  };
+  }, [isUserReady, user]);
 
-  // ✏️ ATUALIZAR OPORTUNIDADE
-  const updateOpportunity = async (opportunityId, updates) => {
-    if (!user) return { success: false, error: 'Utilizador não autenticado' };
+  // 🔄 ATUALIZAR OPORTUNIDADE
+  // =========================
+  const updateOpportunity = useCallback(async (opportunityId, updates) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     setUpdating(true);
     setError(null);
     
     try {
-      // Validar dados
-      const validation = validateOpportunityData(updates, false);
-      if (!validation.isValid) {
-        setUpdating(false);
-        return { success: false, error: validation.errors.join(', ') };
-      }
-
       // Preparar dados para atualização
       const updateData = {
         ...updates,
         updatedAt: serverTimestamp(),
-        updatedBy: user.uid
+        lastModifiedBy: user.uid,
+        structureVersion: '3.0'
       };
 
       // Atualizar probabilidade se status mudou
-      if (updates.status && STATUS_PROBABILITIES[updates.status] !== undefined) {
-        updateData.probability = STATUS_PROBABILITIES[updates.status];
+      if (updates.status) {
+        updateData.probability = getOpportunityProbability(updates.status) || updateData.probability;
       }
 
-      // Atualizar valores monetários se fornecidos
-      if (updates.totalValue !== undefined) {
-        updateData.totalValue = parseFloat(updates.totalValue);
-      }
-      if (updates.commissionValue !== undefined) {
-        updateData.commissionValue = parseFloat(updates.commissionValue);
-      }
-      if (updates.commissionPercentage !== undefined) {
-        updateData.commissionPercentage = parseFloat(updates.commissionPercentage);
+      // Recalcular valores monetários se necessário
+      if (updates.estimatedValue !== undefined || updates.commissionPercentage !== undefined) {
+        const currentOpp = opportunities.find(opp => opp.id === opportunityId);
+        const estimatedValue = parseFloat(updates.estimatedValue) || currentOpp?.estimatedValue || 0;
+        const commissionPercentage = parseFloat(updates.commissionPercentage) || currentOpp?.commissionPercentage || 2.5;
+        
+        updateData.estimatedValue = estimatedValue;
+        updateData.commissionPercentage = commissionPercentage;
+        updateData.commissionValue = (estimatedValue * commissionPercentage) / 100;
+        updateData.pipelineValue = (estimatedValue * updateData.probability) / 100;
       }
 
       // Atualizar na base de dados
@@ -271,80 +515,138 @@ const useOpportunities = () => {
           : opp
       ));
 
-      setUpdating(false);
-      return { success: true };
+      console.log(`Oportunidade ${opportunityId} atualizada`);
+      
+      return { success: true, message: 'Oportunidade atualizada com sucesso!' };
       
     } catch (err) {
       console.error('Erro ao atualizar oportunidade:', err);
-      setError('Erro ao atualizar oportunidade. Tente novamente.');
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
       setUpdating(false);
+    }
+  }, [isUserReady, user, opportunities]);
+
+  // 🔄 ATUALIZAR STATUS DA OPORTUNIDADE COM AUDITORIA
+  // =================================================
+  const updateOpportunityStatus = useCallback(async (opportunityId, newStatus, reason = '') => {
+    if (!isUserReady) return;
+
+    try {
+      // Validar se o status é válido
+      if (!Object.values(UNIFIED_OPPORTUNITY_STATUS).includes(newStatus)) {
+        throw new Error(`Status inválido: ${newStatus}`);
+      }
+
+      const updates = { 
+        status: newStatus,
+        probability: getOpportunityProbability(newStatus) || 0,
+        statusChangeReason: reason.trim(),
+        
+        // Auditoria de mudança de status
+        [`statusHistory.change_${Date.now()}`]: {
+          to: newStatus,
+          changedBy: user.uid,
+          changedAt: new Date().toISOString(),
+          reason: reason.trim(),
+          userAgent: navigator.userAgent
+        }
+      };
+
+      // Se fechou (ganho ou perdido), adicionar data de fecho
+      if (newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO || 
+          newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO) {
+        updates.actualCloseDate = serverTimestamp();
+        updates.isConverted = newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO;
+      }
+
+      const result = await updateOpportunity(opportunityId, updates);
+      
+      if (result.success) {
+        console.log(`Status da oportunidade ${opportunityId} atualizado para: ${newStatus}`);
+      }
+      
+      return result;
+
+    } catch (err) {
+      console.error('Erro ao atualizar status:', err);
       return { success: false, error: err.message };
     }
-  };
+  }, [isUserReady, user, updateOpportunity]);
 
-  // 🔄 ATUALIZAR STATUS DA OPORTUNIDADE
-  const updateOpportunityStatus = async (opportunityId, newStatus, reason = '') => {
-    const updates = { 
-      status: newStatus,
-      probability: STATUS_PROBABILITIES[newStatus] || 0,
-      statusChangeReason: reason
-    };
-
-    // Se fechou (ganho ou perdido), adicionar data de fecho
-    if (newStatus === OPPORTUNITY_STATUS.FECHADO_GANHO || newStatus === OPPORTUNITY_STATUS.FECHADO_PERDIDO) {
-      updates.actualCloseDate = serverTimestamp();
-    }
-
-    return await updateOpportunity(opportunityId, updates);
-  };
-
-  // 🗑️ ELIMINAR OPORTUNIDADE
-  const deleteOpportunity = async (opportunityId) => {
-    if (!user) return { success: false, error: 'Utilizador não autenticado' };
+  // 🗑️ ELIMINAR OPORTUNIDADE (SOFT DELETE)
+  // ======================================
+  const deleteOpportunity = useCallback(async (opportunityId, hardDelete = false) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     setDeleting(true);
     setError(null);
     
     try {
-      // Encontrar a oportunidade para obter o clientId
       const opportunity = opportunities.find(opp => opp.id === opportunityId);
+      const oppRef = doc(db, OPPORTUNITIES_COLLECTION, opportunityId);
       
-      // Eliminar da base de dados
-      await deleteDoc(doc(db, OPPORTUNITIES_COLLECTION, opportunityId));
+      if (hardDelete) {
+        // Eliminação definitiva
+        await deleteDoc(oppRef);
+        console.log(`Oportunidade ${opportunityId} eliminada permanentemente`);
+      } else {
+        // Soft delete (recomendado)
+        await updateDoc(oppRef, {
+          isActive: false,
+          status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO,
+          deletedAt: serverTimestamp(),
+          deletedBy: user.uid,
+          updatedAt: serverTimestamp()
+        });
+        console.log(`Oportunidade ${opportunityId} marcada como inativa`);
+      }
       
-      // Atualizar lista local
+      // Remover da lista local
       setOpportunities(prev => prev.filter(opp => opp.id !== opportunityId));
       
-      // Atualizar contador do cliente (se existir)
+      // Atualizar contador do cliente
       if (opportunity?.clientId) {
         await updateClientOpportunityCount(opportunity.clientId, 'decrement');
       }
 
-      setDeleting(false);
-      return { success: true };
+      return { 
+        success: true, 
+        message: hardDelete ? 'Oportunidade eliminada permanentemente!' : 'Oportunidade removida da lista!' 
+      };
       
     } catch (err) {
       console.error('Erro ao eliminar oportunidade:', err);
-      setError('Erro ao eliminar oportunidade. Tente novamente.');
-      setDeleting(false);
+      setError(err.message);
       return { success: false, error: err.message };
+    } finally {
+      setDeleting(false);
     }
-  };
+  }, [isUserReady, user, opportunities]);
 
   // 📞 ADICIONAR ATIVIDADE À OPORTUNIDADE
-  const addActivity = async (opportunityId, activityData) => {
-    if (!user) return { success: false, error: 'Utilizador não autenticado' };
+  // ====================================
+  const addActivity = useCallback(async (opportunityId, activityData) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     try {
       const activity = {
-        ...activityData,
         id: Date.now().toString(),
+        type: activityData.type || ACTIVITY_TYPES.OUTRO,
+        title: activityData.title?.trim() || '',
+        description: activityData.description?.trim() || '',
+        outcome: activityData.outcome?.trim() || '',
+        nextAction: activityData.nextAction?.trim() || '',
+        duration: activityData.duration || null,
+        cost: activityData.cost || null,
+        createdAt: serverTimestamp(),
         userId: user.uid,
-        createdAt: new Date(),
-        createdBy: user.uid
+        userEmail: user.email,
+        structureVersion: '3.0'
       };
 
-      // Atualizar oportunidade com nova atividade
+      // Encontrar a oportunidade
       const opportunity = opportunities.find(opp => opp.id === opportunityId);
       if (!opportunity) {
         return { success: false, error: 'Oportunidade não encontrada' };
@@ -352,179 +654,132 @@ const useOpportunities = () => {
 
       const activities = [...(opportunity.activities || []), activity];
       
-      await updateOpportunity(opportunityId, { 
+      const updateData = {
         activities,
-        lastActivityDate: serverTimestamp()
-      });
+        lastActivityDate: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
 
-      return { success: true, activity };
+      await updateOpportunity(opportunityId, updateData);
+
+      console.log(`Atividade adicionada à oportunidade ${opportunityId}`);
+      
+      return { success: true, activity, message: 'Atividade registada com sucesso!' };
       
     } catch (err) {
       console.error('Erro ao adicionar atividade:', err);
       return { success: false, error: err.message };
     }
-  };
+  }, [isUserReady, user, opportunities, updateOpportunity]);
 
   // 🔍 PESQUISAR OPORTUNIDADES
-  const searchOpportunities = async (searchTerm) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      await fetchOpportunities();
-      return;
-    }
+  // ==========================
+  const searchOpportunities = useCallback((searchTerm) => {
+    setFilters(prev => ({ ...prev, searchTerm }));
+  }, []);
 
-    setLoading(true);
-    
-    try {
-      // Buscar por múltiplos campos
-      const filtered = opportunities.filter(opp =>
-        opp.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp.propertyAddress?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-      setOpportunities(filtered);
-    } catch (err) {
-      console.error('Erro na pesquisa:', err);
-      setError('Erro na pesquisa. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 📊 ESTATÍSTICAS DAS OPORTUNIDADES
-  const getOpportunityStats = useMemo(() => {
+  // 📊 ESTATÍSTICAS UNIFICADAS
+  // ==========================
+  const getOpportunityStats = useCallback(() => {
     const stats = {
       total: opportunities.length,
       byStatus: {},
-      byType: {},
+      byOpportunityType: {},
+      byInterestType: {},
       byPriority: {},
-      totalValue: 0,
-      averageValue: 0,
-      conversionRate: 0,
-      pipelineValue: 0
+      financials: {
+        totalValue: 0,
+        totalCommission: 0,
+        pipelineValue: 0,
+        averageValue: 0,
+        conversionRate: 0
+      }
     };
 
-    opportunities.forEach(opp => {
-      // Contagem por status
-      stats.byStatus[opp.status] = (stats.byStatus[opp.status] || 0) + 1;
-      
-      // Contagem por tipo
-      stats.byType[opp.type] = (stats.byType[opp.type] || 0) + 1;
-      
-      // Contagem por prioridade
-      stats.byPriority[opp.priority] = (stats.byPriority[opp.priority] || 0) + 1;
-      
-      // Valores monetários
-      const value = parseFloat(opp.totalValue || 0);
-      stats.totalValue += value;
-      
-      // Valor do pipeline (apenas oportunidades ativas)
-      if (opp.status !== OPPORTUNITY_STATUS.FECHADO_GANHO && 
-          opp.status !== OPPORTUNITY_STATUS.FECHADO_PERDIDO) {
-        stats.pipelineValue += value * (opp.probability / 100);
-      }
+    // Contar por status unificado
+    Object.values(UNIFIED_OPPORTUNITY_STATUS).forEach(status => {
+      stats.byStatus[status] = opportunities.filter(opp => opp.status === status).length;
     });
 
-    // Valor médio
-    stats.averageValue = stats.total > 0 ? stats.totalValue / stats.total : 0;
+    // Contar por tipo de oportunidade
+    Object.values(OPPORTUNITY_TYPES).forEach(type => {
+      stats.byOpportunityType[type] = opportunities.filter(opp => opp.opportunityType === type).length;
+    });
 
-    // Taxa de conversão
-    const wonOpps = stats.byStatus[OPPORTUNITY_STATUS.FECHADO_GANHO] || 0;
-    const lostOpps = stats.byStatus[OPPORTUNITY_STATUS.FECHADO_PERDIDO] || 0;
-    const closedOpps = wonOpps + lostOpps;
-    stats.conversionRate = closedOpps > 0 ? (wonOpps / closedOpps * 100) : 0;
+    // Contar por tipo de interesse unificado
+    Object.values(UNIFIED_INTEREST_TYPES).forEach(type => {
+      stats.byInterestType[type] = opportunities.filter(opp => opp.interestType === type).length;
+    });
+
+    // Contar por prioridade
+    Object.values(UNIFIED_PRIORITIES).forEach(priority => {
+      stats.byPriority[priority] = opportunities.filter(opp => opp.priority === priority).length;
+    });
+
+    // Calcular métricas financeiras
+    const totalValue = opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0);
+    const totalCommission = opportunities.reduce((sum, opp) => sum + (opp.commissionValue || 0), 0);
+    const pipelineValue = opportunities.reduce((sum, opp) => sum + (opp.pipelineValue || 0), 0);
+    
+    const wonCount = stats.byStatus[UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO] || 0;
+    const lostCount = stats.byStatus[UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO] || 0;
+    const totalClosed = wonCount + lostCount;
+    
+    stats.financials = {
+      totalValue,
+      totalCommission,
+      pipelineValue,
+      averageValue: stats.total > 0 ? totalValue / stats.total : 0,
+      conversionRate: totalClosed > 0 ? (wonCount / totalClosed * 100).toFixed(1) : 0
+    };
 
     return stats;
   }, [opportunities]);
 
   // 🔧 FUNÇÕES AUXILIARES
-
-  // Validar dados da oportunidade
-  const validateOpportunityData = (data, isCreate = true) => {
-    const errors = [];
-
-    if (isCreate || data.title !== undefined) {
-      if (!data.title || data.title.trim().length < 3) {
-        errors.push('Título deve ter pelo menos 3 caracteres');
-      }
-    }
-
-    if (isCreate || data.clientId !== undefined) {
-      if (!data.clientId) {
-        errors.push('Cliente é obrigatório');
-      }
-    }
-
-    if (data.totalValue !== undefined) {
-      if (!CURRENCY_REGEX.test(data.totalValue.toString())) {
-        errors.push('Valor total inválido');
-      }
-    }
-
-    if (data.commissionPercentage !== undefined) {
-      const percentage = parseInt(data.commissionPercentage);
-      if (!PERCENTAGE_REGEX.test(percentage.toString()) || percentage > 100) {
-        errors.push('Percentagem de comissão inválida (0-100)');
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  };
-
-  // Atualizar contador de oportunidades do cliente
-  const updateClientOpportunityCount = async (clientId, operation) => {
+  // =====================
+  const updateClientOpportunityCount = async (clientId, action) => {
     try {
       const clientRef = doc(db, CLIENTS_COLLECTION, clientId);
-      const incrementValue = operation === 'increment' ? 1 : -1;
+      const clientDoc = await getDoc(clientRef);
       
-      await updateDoc(clientRef, {
-        totalOpportunities: increment(incrementValue),
-        updatedAt: serverTimestamp()
-      });
+      if (clientDoc.exists()) {
+        const currentCount = clientDoc.data().opportunityCount || 0;
+        const newCount = action === 'increment' ? currentCount + 1 : Math.max(0, currentCount - 1);
+        
+        await updateDoc(clientRef, {
+          opportunityCount: newCount,
+          updatedAt: serverTimestamp()
+        });
+      }
     } catch (err) {
-      console.error('Erro ao atualizar contador do cliente:', err);
+      console.warn('Erro ao atualizar contador do cliente:', err);
     }
   };
 
-  // Obter IP do utilizador
-  const getUserIP = async () => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch {
-      return 'unknown';
-    }
+  const getStatusLabel = (status) => {
+    const labels = {
+      [UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO]: 'Identificação',
+      [UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO]: 'Qualificação',
+      [UNIFIED_OPPORTUNITY_STATUS.APRESENTACAO]: 'Apresentação',
+      [UNIFIED_OPPORTUNITY_STATUS.NEGOCIACAO]: 'Negociação',
+      [UNIFIED_OPPORTUNITY_STATUS.PROPOSTA]: 'Proposta',
+      [UNIFIED_OPPORTUNITY_STATUS.CONTRATO]: 'Contrato',
+      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO]: 'Fechado Ganho',
+      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO]: 'Fechado Perdido',
+      [UNIFIED_OPPORTUNITY_STATUS.PAUSADO]: 'Pausado'
+    };
+    return labels[status] || status;
   };
 
-  // Validar valor monetário
-  const isValidCurrency = (value) => {
-    return CURRENCY_REGEX.test(value.toString());
-  };
-
-  // Formatar valor monetário
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-PT', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value || 0);
-  };
-
-  // Calcular comissão
-  const calculateCommission = (totalValue, percentage) => {
-    return (parseFloat(totalValue || 0) * parseFloat(percentage || 0)) / 100;
-  };
-
-  // 🔄 EFEITOS
+  // 🔄 EFFECTS
+  // ==========
   useEffect(() => {
-    if (user) {
+    if (isUserReady) {
+      console.log('useOpportunities: Utilizador pronto, carregando oportunidades...');
       fetchOpportunities();
     }
-  }, [user, fetchOpportunities]);
+  }, [isUserReady, fetchOpportunities]);
 
   useEffect(() => {
     if (error) {
@@ -533,7 +788,8 @@ const useOpportunities = () => {
     }
   }, [error]);
 
-  // 📤 RETORNO DO HOOK
+  // 📤 RETORNO DO HOOK UNIFICADO
+  // ============================
   return {
     // Estados
     opportunities,
@@ -559,22 +815,35 @@ const useOpportunities = () => {
     // Estatísticas
     getOpportunityStats,
     
-    // Constantes úteis
-    OPPORTUNITY_STATUS,
+    // Constantes unificadas (compatibilidade)
+    OPPORTUNITY_STATUS: UNIFIED_OPPORTUNITY_STATUS,
     OPPORTUNITY_TYPES,
-    OPPORTUNITY_PRIORITIES,
-    OPPORTUNITY_SOURCES,
-    STATUS_COLORS,
-    STATUS_PROBABILITIES,
+    ACTIVITY_TYPES,
+    OPPORTUNITY_STATUS_COLORS,
     
-    // Helpers
-    isValidCurrency,
+    // Novos: constantes unificadas
+    UNIFIED_OPPORTUNITY_STATUS,
+    UNIFIED_OPPORTUNITY_PROBABILITIES,
+    UNIFIED_INTEREST_TYPES,
+    UNIFIED_PRIORITIES,
+    UNIFIED_PROPERTY_TYPES,
+    OPPORTUNITY_TYPE_LABELS,
+    ACTIVITY_TYPE_LABELS,
+    
+    // Helpers unificados
+    getInterestTypeLabel,
+    getBudgetRangeLabel,
     formatCurrency,
-    calculateCommission,
-    validateOpportunityData,
+    getOpportunityProbability,
+    getStatusLabel,
     
     // Estado de conectividade
-    isConnected: !!user && !error
+    isConnected: isUserReady && !error,
+    isUserReady,
+    
+    // Informações da estrutura
+    structureVersion: '3.0',
+    isUnified: true
   };
 };
 

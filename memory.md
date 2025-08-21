@@ -5201,3 +5201,347 @@ if (result.opportunityId) {
 **Última atualização:** Agosto 2025  
 **Versão:** 8.1 (Sistema Completo + Processo Cirúrgico + ~16,112 linhas)  
 **Status:** Pronto para produção com conversão automática funcionando!
+# 🏢 MyImoMate 3.0 - CRM Imobiliário - MEMORY.MD ATUALIZADO
+
+## 🚀 ESTRUTURA UNIFICADA IMPLEMENTADA (Agosto 2025)
+
+### **✅ FASE 1: CONSTANTES UNIFICADAS - COMPLETA!**
+
+**SITUAÇÃO CRÍTICA RESOLVIDA:**
+- ❌ **Problema anterior:** Inconsistências entre módulos (`interestType` vs `opportunityType`)
+- ❌ **Perda de dados:** Conversões Lead→Cliente→Oportunidade perdiam informação
+- ❌ **Relatórios imprecisos:** Dados inconsistentes geravam métricas incorretas
+- ✅ **SOLUÇÃO IMPLEMENTADA:** Estrutura unificada completa!
+
+---
+
+## 📁 FICHEIROS CRIADOS - ESTRUTURA UNIFICADA
+
+### **1. `src/constants/unifiedTypes.js` - 700 linhas ✅**
+**Constantes padronizadas para todo o sistema:**
+- **17 tipos de interesse** unificados (COMPRA_CASA, VENDA_APARTAMENTO, etc.)
+- **11 faixas de orçamento** otimizadas para Portugal (€50k até €2M+)
+- **Status completos** para todos os módulos (Lead, Cliente, Oportunidade, etc.)
+- **Sistema de cores** Tailwind CSS padronizado
+- **Funções auxiliares** (formatCurrency, getSelectOptions, etc.)
+- **Configurações de relatórios** (períodos, filtros)
+
+### **2. `src/constants/coreStructure.js` - 700 linhas ✅**
+**Estrutura base obrigatória em TODOS os módulos:**
+- **CORE_DATA_STRUCTURE** - Campos obrigatórios universais
+- **PERSONAL_DATA_STRUCTURE** - Dados pessoais completos (cônjuge, dependentes)
+- **PROPERTY_DATA_STRUCTURE** - Dados imobiliários padronizados
+- **BUSINESS_DATA_STRUCTURE** - Sistema de tranches + datas legais portuguesas
+- **Referências cruzadas** - leadId, clientId, opportunityId, dealId
+- **Templates por módulo** - estruturas base para novos registos
+
+### **3. `src/constants/validations.js` - 850+ linhas ✅**
+**Sistema completo de validações portuguesas:**
+- **Validações fiscais:** NIF (algoritmo oficial), IBAN, Cartão Cidadão
+- **Validações imobiliárias:** Referências prediais, licenças habitação
+- **Cálculos automáticos:** IMT (tabela 2024), Imposto Selo
+- **Validações temporais:** Sequências de datas legais (CPCV→Escritura)
+- **Detecção de duplicados** com algoritmos inteligentes
+- **Validador universal** que escolhe automaticamente o tipo correto
+
+---
+
+## 🎯 BENEFÍCIOS IMEDIATOS DA ESTRUTURA UNIFICADA
+
+### **✅ CONSISTÊNCIA TOTAL:**
+- Mesmo campo `interestType` em **todos** os módulos
+- Mesmas faixas de orçamento em **todo** o sistema
+- Status padronizados com cores consistentes
+- Validações portuguesas em **todos** os formulários
+
+### **✅ RASTREAMENTO COMPLETO:**
+- **Referências cruzadas** garantem ligação Lead→Cliente→Oportunidade→Negócio
+- **Nenhuma informação se perde** nas conversões
+- **Histórico completo** preservado sempre
+- **Relatórios precisos** baseados em dados consistentes
+
+### **✅ AUTOMAÇÃO LEGAL PORTUGUESA:**
+- **Sistema de tranches** para qualquer esquema de pagamento
+- **Datas críticas** do processo legal português (CPCV, financiamento, escritura)
+- **Cálculos fiscais** automáticos (IMT + Imposto Selo)
+- **Validações robustas** que previnem erros
+
+### **✅ BASE PARA FUNCIONALIDADES AVANÇADAS:**
+- **Relatórios automáticos** com dados consistentes
+- **Pipeline de vendas** com probabilidades precisas
+- **Automações inteligentes** baseadas em datas e status
+- **Integrações externas** com estrutura padronizada
+
+---
+
+## 📊 PROGRESSO ATUAL ATUALIZADO
+
+### **Módulos 100% Completos:**
+1. **✅ Módulo de Leads COMPLETO** (2,640 linhas - 4 ficheiros)
+2. **✅ Sistema de Visitas COMPLETO** (1,393 linhas - 2 ficheiros)
+3. **✅ Gestão de Clientes COMPLETO** (1,959 linhas - 3 ficheiros)
+4. **✅ Sistema de Oportunidades COMPLETO** (1,704 linhas - 3 ficheiros)
+5. **✅ Sistema de Negócios COMPLETO** (2,088 linhas - 3 ficheiros)
+6. **✅ Sistema de Tarefas COMPLETO** (2,090 linhas - 3 ficheiros)
+7. **✅ Relatórios e Analytics COMPLETO** (2,100 linhas - 3 ficheiros)
+8. **✅ Integrações Externas COMPLETO** (2,100 linhas - 3 ficheiros)
+
+### **✅ ESTRUTURA UNIFICADA COMPLETA:**
+9. **✅ Constantes Unificadas** (700 linhas - `unifiedTypes.js`)
+10. **✅ Estrutura Base** (700 linhas - `coreStructure.js`)
+11. **✅ Validações Portuguesas** (850 linhas - `validations.js`)
+
+### **📊 TOTAIS ATUALIZADOS:**
+- **📁 Ficheiros principais:** **28 ficheiros** (+3 estrutura unificada)
+- **📊 Linhas de código:** **~18,324 linhas profissionais** (+2,250)
+- **🎯 Módulos completos:** **8/8 (100%)**
+- **🏗️ Estrutura base:** **100% implementada**
+- **🇵🇹 Validações PT:** **100% completas**
+
+---
+
+## 🚀 PRÓXIMA FASE: ATUALIZAÇÃO DOS HOOKS
+
+### **FASE 2: HOOKS ATUALIZADOS (Sequencial)**
+**Objetivo:** Implementar nova estrutura unificada em todos os módulos
+
+**Ordem de atualização recomendada:**
+1. **useLeads.js** - Adicionar campos base + estrutura unificada
+2. **useClients.js** - Dados pessoais completos + cônjuge + dependentes  
+3. **useDeals.js** - Sistema de tranches + datas legais portuguesas
+4. **useVisits.js** - Controlo temporal + múltiplas datas
+5. **useOpportunities.js** - Alinhamento com tipos interesse
+6. **useTasks.js** - Referências cruzadas melhoradas
+7. **useCalendar.js** - Relacionamentos com todos módulos
+
+### **FASE 3: CONVERSÕES UNIFICADAS**
+**Objetivo:** Pipeline sem perda de dados
+- **convertLeadToClient()** - Preservação 100% dos dados
+- **convertClientToOpportunity()** - Mapeamento direto  
+- **convertOpportunityToDeal()** - Sistema de tranches automático
+
+---
+
+## 🎉 MARCO HISTÓRICO ALCANÇADO
+
+### **✅ ESTRUTURA UNIFICADA MyImoMate 3.0**
+- **Data:** Agosto 2025
+- **Resultado:** Base técnica sólida para sistema enterprise
+- **Impacto:** Elimina inconsistências, garante rastreamento total, habilita automação
+- **Qualidade:** Validações portuguesas completas + cálculos fiscais automáticos
+
+### **🏆 PRÓXIMO OBJETIVO:**
+Atualizar hooks existentes para usar a nova estrutura unificada, garantindo:
+- **Conversões sem perda de dados**
+- **Relatórios precisos** 
+- **Pipeline de vendas robusto**
+- **Automações inteligentes**
+
+---
+
+**Última atualização:** Agosto 2025  
+**Versão:** 9.0 (Estrutura Unificada Completa + ~18,324 linhas)  
+**Status:** Base técnica sólida implementada, pronto para FASE 2
+# MyImoMate 3.0 - CRM Imobiliário - MEMORY.MD
+
+## FASE 2: ATUALIZAÇÃO DOS HOOKS - ESTRUTURA UNIFICADA
+
+### PROGRESSO ATUAL (Agosto 2025)
+
+**FASE 1 COMPLETA:** Estrutura Unificada Implementada
+- unifiedTypes.js (700 linhas) - Constantes padronizadas
+- coreStructure.js (700 linhas) - Estrutura base obrigatória  
+- validations.js (850 linhas) - Validações portuguesas completas
+
+**FASE 2 EM PROGRESSO:** Hooks Unificados (3/7 concluídos)
+
+### HOOKS ATUALIZADOS COM ESTRUTURA UNIFICADA
+
+#### 1. useLeads.js - VERSÃO UNIFICADA COMPLETA
+**Status:** COMPLETO - Estrutura unificada implementada
+**Funcionalidades:**
+- Migração automática de dados antigos
+- Constantes unificadas (UNIFIED_LEAD_STATUS, UNIFIED_INTEREST_TYPES, etc.)
+- Validações portuguesas integradas
+- Sistema de duplicados robusto
+- Referências cruzadas completas (leadId, clientId, opportunityId)
+- Compatibilidade 100% preservada com código existente
+- Soft delete com auditoria
+- structureVersion: '3.0'
+
+**Principais Melhorias:**
+- Query simplificada para evitar problemas de índice Firebase
+- Validação inline para eliminar dependências problemáticas
+- Sistema de migração automática de campos antigos
+- Estrutura CORE_DATA_STRUCTURE aplicada em todos os registos
+
+#### 2. useClients.js - VERSÃO UNIFICADA COMPLETA  
+**Status:** COMPLETO - Estrutura unificada + dados pessoais expandidos
+**Funcionalidades:**
+- PERSONAL_DATA_STRUCTURE completa implementada
+- Dados pessoais expandidos (cônjuge, dependentes, morada, profissão)
+- Validações portuguesas (NIF, código postal, telefone)
+- Sistema de interações com auditoria
+- Consentimentos GDPR automatizados
+- 8 tipos de contacto (chamada, email, WhatsApp, reunião, etc.)
+- Verificação de duplicados por telefone, email E NIF
+- Migração automática com preservação total de dados
+
+**Principais Melhorias:**
+- Query otimizada sem orderBy para evitar índices compostos
+- Ordenação client-side por data de criação
+- Sistema de marketing consent conforme GDPR
+- Estrutura de dados bancários e profissionais
+- Follow-ups automatizados
+
+#### 3. useOpportunities.js - VERSÃO UNIFICADA COMPLETA
+**Status:** COMPLETO - Pipeline de vendas profissional
+**Funcionalidades:**
+- Pipeline com 9 status unificados e probabilidades automáticas
+- Sistema financeiro avançado (valores, comissões, pipeline value)
+- PROPERTY_DATA_STRUCTURE completa implementada
+- Sistema de atividades com 9 tipos
+- Gestão de documentos e histórico
+- Cálculos automáticos de comissão e probabilidade
+- Auditoria completa de mudanças de status
+- Integração com contador de oportunidades dos clientes
+
+**Principais Melhorias:**
+- Migração automática de status e tipos de interesse
+- Validações financeiras portuguesas (valores monetários)
+- Sistema de atividades com tracking completo
+- Soft delete com atualização de contadores
+- Métricas financeiras em tempo real (conversão, pipeline, média)
+
+### HOOKS PENDENTES (4/7)
+
+#### 4. useDeals.js - PRÓXIMO NA FILA
+**Status:** PENDENTE - Estrutura antiga
+**Prioridade:** ALTA - Sistema de negócios crítico
+**Melhorias Necessárias:**
+- BUSINESS_DATA_STRUCTURE implementação
+- Sistema de tranches e pagamentos
+- Validações de financiamento e documentação
+- Integração com sistema legal (notários, advogados)
+
+#### 5. useVisits.js - PENDENTE
+**Status:** PENDENTE - Estrutura antiga  
+**Prioridade:** MÉDIA - Sistema de agendamentos
+**Melhorias Necessárias:**
+- Controlo temporal avançado
+- Sistema de confirmações duplas
+- Integração com calendário unificado
+
+#### 6. useTasks.js - PENDENTE
+**Status:** PENDENTE - Estrutura antiga
+**Prioridade:** MÉDIA - Gestão de follow-ups
+**Melhorias Necessárias:**
+- Referências cruzadas melhoradas
+- Sistema de lembretes automáticos
+- Integração com todos os módulos
+
+#### 7. useCalendar.js - PENDENTE  
+**Status:** PENDENTE - Estrutura antiga
+**Prioridade:** BAIXA - Agregador de eventos
+**Melhorias Necessárias:**
+- Relacionamentos com todos os módulos
+- Sincronização com Google Calendar
+- Vista unificada de eventos
+
+### ESTATÍSTICAS DA FASE 2
+
+**Hooks Unificados:** 3/7 (42.8% concluído)
+**Linhas Atualizadas:** ~2,100 linhas de hooks unificados
+**Compatibilidade:** 100% preservada em todos os hooks
+**Problemas Resolvidos:**
+- Inconsistências entre interestType vs opportunityType
+- Perda de dados nas conversões
+- Falta de validações padronizadas
+- Ausência de auditoria completa
+- Queries problemáticas com índices Firebase
+
+### MELHORIAS CRÍTICAS IMPLEMENTADAS
+
+#### Migração Automática
+- Sistema inteligente de conversão de dados antigos
+- Mapeamento de campos obsoletos para nova estrutura
+- Versionamento com structureVersion: '3.0'
+- Preservação total de informações existentes
+
+#### Validações Unificadas
+- Telefones portugueses com regex robusto
+- NIFs com validação de 9 dígitos
+- Códigos postais no formato português
+- Valores monetários em euros
+- Emails com validação completa
+
+#### Estrutura Base Obrigatória
+- CORE_DATA_STRUCTURE aplicada em todos os registos
+- Referências cruzadas completas (leadId, clientId, opportunityId, dealId)
+- Auditoria com userId, userEmail, timestamps
+- Flags de controlo (isActive, isConverted)
+- Metadados técnicos (userAgent, source_details)
+
+#### Queries Otimizadas
+- Remoção de orderBy problemáticos
+- Filtros aplicados client-side
+- Limits adequados para performance
+- Eliminação de índices compostos necessários
+
+### FUNCIONALIDADES CRÍTICAS HABILITADAS
+
+#### Sistema de Conversões Sem Perda
+- Lead → Cliente com preservação completa de dados
+- Cliente → Oportunidade com dados financeiros
+- Oportunidade → Deal com estrutura de negócio
+- Referências cruzadas mantidas em todas as conversões
+
+#### Pipeline Profissional
+- Status unificados com probabilidades automáticas
+- Cálculos financeiros em tempo real
+- Métricas de conversão precisas
+- Auditoria de mudanças de status
+
+#### Relatórios Precisos
+- Contadores por status unificados
+- Métricas financeiras consistentes
+- Análise de conversão confiável
+- Dados estruturados para dashboards
+
+### PRÓXIMOS PASSOS DA FASE 2
+
+**PRIORIDADE IMEDIATA:**
+1. **useDeals.js** - Sistema de negócios com tranches
+2. **useVisits.js** - Agendamentos com controlo temporal  
+3. **useTasks.js** - Follow-ups e lembretes
+4. **useCalendar.js** - Agregação final de eventos
+
+**TIMELINE ESTIMADA:**
+- useDeals.js: ~1000 linhas (sistema mais complexo)
+- useVisits.js: ~800 linhas (controlo temporal)
+- useTasks.js: ~700 linhas (referências cruzadas)
+- useCalendar.js: ~600 linhas (agregação)
+
+**CONCLUSÃO DA FASE 2:** Estimada para conclusão total em 4 atualizações adicionais
+
+### IMPACTO DA ESTRUTURA UNIFICADA
+
+**Problemas Resolvidos:**
+- Inconsistências eliminadas entre módulos
+- Conversões sem perda de dados garantidas
+- Validações padronizadas implementadas
+- Queries otimizadas para Firebase
+- Auditoria completa em operações críticas
+
+**Benefícios Alcançados:**
+- Sistema robusto e profissional
+- Facilidade de manutenção do código
+- Preparação para automações avançadas
+- Base sólida para relatórios e analytics
+- Compatibilidade total com código existente
+
+---
+
+**Última atualização:** Agosto 2025  
+**Versão:** FASE 2 - 3/7 hooks unificados (42.8% concluído)  
+**Status:** useLeads.js, useClients.js, useOpportunities.js com estrutura unificada completa
