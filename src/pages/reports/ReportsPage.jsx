@@ -15,8 +15,8 @@ import {
   CurrencyEuroIcon,
   UserGroupIcon,
   CalendarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon, // 🔥 CORRIGIDO: TrendingUpIcon → ArrowTrendingUpIcon
+  ArrowTrendingDownIcon, // 🔥 CORRIGIDO: TrendingDownIcon → ArrowTrendingDownIcon
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
@@ -45,9 +45,9 @@ const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick, ch
             {change && (
               <span className={`flex items-center text-xs ${change >= 0 ? 'text-green-100' : 'text-red-100'}`}>
                 {change >= 0 ? (
-                  <TrendingUpIcon className="h-3 w-3 mr-1" />
+                  <ArrowTrendingUpIcon className="h-3 w-3 mr-1" />
                 ) : (
-                  <TrendingDownIcon className="h-3 w-3 mr-1" />
+                  <ArrowTrendingDownIcon className="h-3 w-3 mr-1" />
                 )}
                 {Math.abs(change)}%
               </span>
@@ -152,7 +152,7 @@ const ReportsPage = () => {
     { id: 'overview', label: 'Visão Geral', icon: ChartBarIcon },
     { id: 'sales', label: 'Vendas', icon: CurrencyEuroIcon },
     { id: 'leads', label: 'Leads', icon: UserGroupIcon },
-    { id: 'performance', label: 'Performance', icon: TrendingUpIcon }
+    { id: 'performance', label: 'Performance', icon: ArrowTrendingUpIcon }
   ];
 
   return (
@@ -255,7 +255,7 @@ const ReportsPage = () => {
               title="Receita Total"
               value={`€${(reportData.revenue.total / 1000).toFixed(0)}k`}
               trend={`${reportData.revenue.achievement}% da meta`}
-              icon={TrendingUpIcon}
+              icon={ArrowTrendingUpIcon}
               color="yellow"
               change={reportData.revenue.change}
               onClick={() => setActiveTab('sales')}
@@ -265,7 +265,7 @@ const ReportsPage = () => {
               title="Taxa Conversão"
               value={`${reportData.leads.conversionRate}%`}
               trend="Lead → Cliente"
-              icon={TrendingUpIcon}
+              icon={ArrowTrendingUpIcon}
               color="red"
               change={reportData.leads.change}
               onClick={() => setActiveTab('overview')}

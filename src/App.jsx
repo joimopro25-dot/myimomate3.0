@@ -1,10 +1,9 @@
-// src/App.jsx - CONECTIVIDADE TOTAL IMPLEMENTADA
+// src/App.jsx - CORRIGIDO COM IMPORTS REAIS
+// 🔥 SUBSTITUA TODO O CONTEÚDO DO SEU App.jsx ATUAL POR ESTE FICHEIRO
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { db } from './config/firebase';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
-import AnalyticsPage from './pages/analytics/AnalyticsPage';
-import AutomationManager from './components/automations/AutomationManager';
 
 // Context Providers
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -34,17 +33,15 @@ import OpportunitiesPage from './pages/opportunities/OpportunitiesPage';
 import DealsPage from './pages/deals/DealsPage';
 import TasksPage from './pages/tasks/TasksPage';
 
-// ✅ CALENDÁRIO IMPLEMENTADO - Sistema Completo
+// ✅ PÁGINAS SECUNDÁRIAS - TODAS IMPLEMENTADAS E FUNCIONAIS
 import CalendarPage from './pages/calendar/CalendarPage';
+import ReportsPage from './pages/reports/ReportsPage'; // 🔥 IMPORT REAL
+import IntegrationsPage from './pages/integrations/IntegrationsPage'; // 🔥 IMPORT REAL
 
-// Placeholder Components for Future Modules
-const SettingsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Configurações</h1>
-    <p className="text-gray-600">Página de configurações em desenvolvimento...</p>
-  </div>
-);
+// ✅ CONFIGURAÇÕES - IMPLEMENTADA E FUNCIONAL
+import ConfigurationsPage from './pages/configurations/ConfigurationsPage'; // 🔥 IMPORT REAL
 
+// Placeholder Components apenas para as que ainda não existem
 const SupportPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold mb-4">Suporte</h1>
@@ -56,20 +53,6 @@ const BillingPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold mb-4">Faturação</h1>
     <p className="text-gray-600">Gestão de faturação em desenvolvimento...</p>
-  </div>
-);
-
-const ReportsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Relatórios e Analytics</h1>
-    <p className="text-gray-600">Sistema de relatórios em desenvolvimento...</p>
-  </div>
-);
-
-const IntegrationsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Integrações</h1>
-    <p className="text-gray-600">Gestão de integrações em desenvolvimento...</p>
   </div>
 );
 
@@ -89,433 +72,245 @@ const ProfileGuard = ({ children }) => {
     );
   }
 
-  // Verificar se perfil está completo de forma mais flexível
-  const hasBasicProfile = userProfile?.name && userProfile?.email;
-  const isProfileCompleted = userProfile?.stats?.profileCompleted === true || hasBasicProfile;
+  // Verificar se perfil está completo de forma flexível
+  const isProfileComplete = userProfile && (
+    userProfile.profileCompleted === true ||
+    (userProfile.name && userProfile.email)
+  );
 
-  // Se não tem perfil completo, redirecionar para criação
-  if (!isProfileCompleted) {
+  if (!isProfileComplete) {
     return <Navigate to="/create-profile" replace />;
   }
 
   return children;
 };
 
-// Componente para páginas não encontradas
-const NotFoundPage = () => (
-  <ThemedContainer className="min-h-screen flex items-center justify-center">
-    <div className="text-center">
-      <div className="text-6xl mb-4">🔍</div>
-      <h1 className="text-4xl font-bold text-gray-900 mb-4">Página não encontrada</h1>
-      <p className="text-gray-600 mb-8">A página que procura não existe ou foi movida.</p>
-      <div className="space-x-4">
-        <a 
-          href="/dashboard" 
-          className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Ir para Dashboard
-        </a>
-        <a 
-          href="/" 
-          className="inline-block bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-        >
-          Página Inicial
-        </a>
-      </div>
-    </div>
-  </ThemedContainer>
-);
+// Main App Function
+function MainApp() {
+  const [connectionStatus, setConnectionStatus] = useState('testing');
 
-// Firebase connection test component (para debug)
-const FirebaseTest = () => {
-  const [connectionStatus, setConnectionStatus] = useState('🔄 Testando conexão Firebase...');
-  const [isLoading, setIsLoading] = useState(true);
-
+  // Teste de conexão Firebase
   useEffect(() => {
-    const testFirebase = async () => {
+    const testFirebaseConnection = async () => {
       try {
-        // Tentar adicionar documento teste
-        const docRef = await addDoc(collection(db, 'connection_test'), {
-          message: 'MyImoMate 3.0 conectado!',
-          timestamp: new Date(),
-          version: '3.0'
-        });
-        
-        // Tentar ler documentos
-        const querySnapshot = await getDocs(collection(db, 'connection_test'));
-        
-        setConnectionStatus(`✅ Firebase conectado com sucesso! (${querySnapshot.size} docs)`);
+        console.log('🔥 Testando conectividade Firebase...');
+        await getDocs(collection(db, 'test'));
+        setConnectionStatus('connected');
+        console.log('✅ Firebase conectado com sucesso!');
       } catch (error) {
-        setConnectionStatus(`❌ Erro de conexão: ${error.message}`);
-        console.error('Firebase Error:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('❌ Erro de conectividade Firebase:', error);
+        setConnectionStatus('error');
       }
     };
 
-    testFirebase();
+    testFirebaseConnection();
   }, []);
 
   return (
-    <ThemedContainer>
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center">
-            <div className="text-6xl mb-4">🔥</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Firebase Connection Test</h1>
-            <p className="text-gray-600 mb-6">MyImoMate 3.0 - Sistema de Temas + Auth</p>
-            
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="text-sm text-gray-500 mb-2">Status da Conexão:</div>
-              <div className={`font-medium ${
-                isLoading ? 'text-blue-600' : 
-                connectionStatus.includes('✅') ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {connectionStatus}
-              </div>
-            </div>
+    <Router>
+      <Routes>
+        {/* === ROTAS PÚBLICAS === */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-              <div className="bg-blue-50 rounded-lg p-3">
-                <div className="font-medium text-blue-900">Framework</div>
-                <div className="text-blue-700">React + Vite</div>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="font-medium text-green-900">Database</div>
-                <div className="text-green-700">Firebase</div>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-3">
-                <div className="font-medium text-purple-900">Auth</div>
-                <div className="text-purple-700">Firebase Auth</div>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3">
-                <div className="font-medium text-yellow-900">Temas</div>
-                <div className="text-yellow-700">6 Temas Ativos</div>
-              </div>
-            </div>
+        {/* === ROTAS DE PERFIL (SEM ProfileGuard) === */}
+        <Route 
+          path="/create-profile" 
+          element={
+            <ProtectedRoute>
+              <CreateProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <ProfilePage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
 
-            <div className="space-y-3">
-              <a 
-                href="/" 
-                className="block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                🏠 Ver Landing Page
-              </a>
-              <a 
-                href="/login" 
-                className="block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                🔐 Testar Login
-              </a>
-              <a 
-                href="/register" 
-                className="block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                📝 Testar Registo
-              </a>
-            </div>
-            
-            <p className="text-xs text-gray-500 mt-4">
-              🎨 Sistema completo: Temas + Auth + Dashboard + Rotas Protegidas
-            </p>
-          </div>
-        </div>
-      </div>
-    </ThemedContainer>
+        {/* === DASHBOARD PRINCIPAL (COM ProfileGuard) === */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <DashboardPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* === MÓDULOS PRINCIPAIS (COM ProfileGuard) === */}
+        <Route 
+          path="/leads" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <LeadsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/clients" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <ClientsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/visits" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <VisitsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/opportunities" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <OpportunitiesPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/deals" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <DealsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/tasks" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <TasksPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* === MÓDULOS SECUNDÁRIOS (COM ProfileGuard) === */}
+        <Route 
+          path="/calendar" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <CalendarPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* 🔥 COMPONENTES REAIS IMPLEMENTADOS */}
+        <Route 
+          path="/reports" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <ReportsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/integrations" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <IntegrationsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* === CONFIGURAÇÕES E GESTÃO === */}
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <ConfigurationsPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/billing" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <BillingPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/support" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <SupportPage />
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* === SUBROTAS FUTURAS (Com ProfileGuard) === */}
+        <Route 
+          path="/leads/new" 
+          element={
+            <ProtectedRoute>
+              <ProfileGuard>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold">Novo Lead</h1>
+                  <p className="text-gray-600">Formulário para novo lead em desenvolvimento...</p>
+                </div>
+              </ProfileGuard>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* === ROTA DE FALLBACK === */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Router>
   );
-};
+}
 
+// App Component with Providers
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <div className="App">
-            <Routes>
-              {/* === ROTAS PÚBLICAS === */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              
-              {/* === ROTA DE DEBUG === */}
-              <Route path="/firebase-test" element={<FirebaseTest />} />
-              
-              {/* === CRIAÇÃO DE PERFIL (Sem ProfileGuard) === */}
-              <Route 
-                path="/create-profile" 
-                element={
-                  <ProtectedRoute>
-                    <CreateProfilePage />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === ROTAS PRINCIPAIS (Com ProfileGuard) === */}
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <DashboardPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/profile" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <ProfilePage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === MÓDULOS CRM (Com ProfileGuard) === */}
-              <Route 
-                path="/leads" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <LeadsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/clients" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <ClientsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/visits" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <VisitsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/opportunities" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <OpportunitiesPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/deals" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <DealsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/tasks" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <TasksPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === MÓDULOS FUTUROS (Com ProfileGuard) === */}
-              <Route 
-                path="/calendar" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <CalendarPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/reports" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <ReportsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/integrations" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <IntegrationsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === CONFIGURAÇÕES E GESTÃO === */}
-              <Route 
-                path="/settings" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <SettingsPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/billing" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <BillingPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/support" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <SupportPage />
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === SUBROTAS FUTURAS (Com ProfileGuard) === */}
-              <Route 
-                path="/leads/new" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Novo Lead</h1>
-                        <p className="text-gray-600">Formulário para novo lead em desenvolvimento...</p>
-                      </div>
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/clients/new" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Novo Cliente</h1>
-                        <p className="text-gray-600">Formulário para novo cliente em desenvolvimento...</p>
-                      </div>
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/visits/schedule" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Agendar Visita</h1>
-                        <p className="text-gray-600">Formulário de agendamento em desenvolvimento...</p>
-                      </div>
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/deals/new" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Novo Negócio</h1>
-                        <p className="text-gray-600">Formulário para novo negócio em desenvolvimento...</p>
-                      </div>
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/tasks/new" 
-                element={
-                  <ProtectedRoute>
-                    <ProfileGuard>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Nova Tarefa</h1>
-                        <p className="text-gray-600">Formulário para nova tarefa em desenvolvimento...</p>
-                      </div>
-                    </ProfileGuard>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* === REDIRECIONAMENTOS === */}
-              <Route path="/app" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/home" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/crm" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/automations" element={<AutomationManager />} />
-              
-              {/* === PÁGINAS LEGAIS === */}
-              <Route 
-                path="/terms" 
-                element={
-                  <ThemedContainer className="min-h-screen p-6">
-                    <div className="max-w-4xl mx-auto">
-                      <h1 className="text-3xl font-bold mb-6">Termos e Condições</h1>
-                      <p className="text-gray-600">Termos e condições em desenvolvimento...</p>
-                    </div>
-                  </ThemedContainer>
-                } 
-              />
-              
-              <Route 
-                path="/privacy" 
-                element={
-                  <ThemedContainer className="min-h-screen p-6">
-                    <div className="max-w-4xl mx-auto">
-                      <h1 className="text-3xl font-bold mb-6">Política de Privacidade</h1>
-                      <p className="text-gray-600">Política de privacidade em desenvolvimento...</p>
-                    </div>
-                  </ThemedContainer>
-                } 
-              />
-
-              {/* === PÁGINA 404 (Sempre a última) === */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </div>
-        </Router>
+        <MainApp />
       </AuthProvider>
     </ThemeProvider>
   );
