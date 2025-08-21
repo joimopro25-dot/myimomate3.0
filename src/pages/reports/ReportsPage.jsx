@@ -895,7 +895,11 @@ const ReportsPage = () => {
           })}
         </nav>
       </div>
-
+      <AnalyticsNavigation 
+        activeReport={activeReport}
+        onReportChange={setActiveReport}
+        reportTypes={REPORT_TYPES}
+      />
       {/* Conteúdo do Relatório */}
       {error ? (
         <ThemedCard className="p-6">

@@ -50,6 +50,7 @@ const WidgetSidebar = ({ className = '' }) => {
         }`}>
           Analytics & Widgets
         </h3>
+        
       </div>
       
       <div className="flex-1 p-4 space-y-4 overflow-auto">
