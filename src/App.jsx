@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useEffect, useState } from 'react';
 import { db } from './config/firebase';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
+import AutomationManager from './components/automations/AutomationManager';
 
 // Context Providers
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -481,7 +483,8 @@ function App() {
               <Route path="/app" element={<Navigate to="/dashboard" replace />} />
               <Route path="/home" element={<Navigate to="/dashboard" replace />} />
               <Route path="/crm" element={<Navigate to="/dashboard" replace />} />
-              
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/automations" element={<AutomationManager />} />
               {/* === PÁGINAS LEGAIS === */}
               <Route 
                 path="/terms" 

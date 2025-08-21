@@ -7,7 +7,7 @@ import {
   CogIcon,
   EyeIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
+  ArrowArrowDownIcon,
   LightBulbIcon,
   CalendarDaysIcon,
   FunnelIcon,
@@ -24,7 +24,7 @@ import {
   InformationCircleIcon,
   BoltIcon,
   TrophyIcon,
-  TargetIcon
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedCard, ThemedButton, ThemedBadge } from '../common/ThemedComponents';
@@ -105,7 +105,7 @@ const AnalyticsManager = ({
       id: 'goals',
       title: 'Metas e Objetivos',
       description: 'Tracking de metas e performance vs objetivos',
-      icon: TargetIcon,
+      icon: UserIcon,
       color: 'red'
     },
     alerts: {
@@ -361,7 +361,7 @@ const AnalyticsManager = ({
                   {data.trend === 'up' ? (
                     <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
                   ) : data.trend === 'down' ? (
-                    <ArrowTrendingDownIcon className="h-4 w-4 mr-1" />
+                    <ArrowArrowDownIcon className="h-4 w-4 mr-1" />
                   ) : null}
                   {data.change !== 0 && `${data.change > 0 ? '+' : ''}${data.change}%`}
                 </div>
@@ -531,7 +531,7 @@ const AnalyticsManager = ({
                     {isPositive ? (
                       <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
                     ) : change < 0 ? (
-                      <ArrowTrendingDownIcon className="h-4 w-4 mr-1" />
+                      <ArrowArrowDownIcon className="h-4 w-4 mr-1" />
                     ) : null}
                     {change !== 0 && `${change > 0 ? '+' : ''}${change.toFixed(1)}%`}
                   </div>
@@ -632,7 +632,7 @@ const AnalyticsManager = ({
       <ThemedCard className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-            <TargetIcon className="h-5 w-5 mr-2 text-red-500" />
+            <UserIcon className="h-5 w-5 mr-2 text-red-500" />
             Metas e Objetivos
           </h3>
           <ThemedButton variant="outline" size="sm">

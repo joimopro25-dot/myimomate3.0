@@ -3,16 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChartBarIcon, 
   CurrencyEuroIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon,
+  ArrowTrendingUpIcon, 
+  ArrowDownIcon,
   LightBulbIcon,
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
   ArrowDownTrayIcon,
   PresentationChartLineIcon,
-  TargetIcon,
+  UserIcon,
   BoltIcon,
-  ArrowTrendingUpIcon,
   FunnelIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -178,7 +177,7 @@ const AnalyticsPage = () => {
               </div>
               {index < conversionData.length - 1 && (
                 <div className="flex justify-center mt-2">
-                  <TrendingDownIcon className="w-4 h-4 text-gray-400" />
+                  <ArrowDownIcon className="w-4 h-4 text-gray-400" />
                 </div>
               )}
             </div>
@@ -296,7 +295,7 @@ const AnalyticsPage = () => {
         {predictiveAnalysis?.trends && (
           <div className="mt-4 p-3 bg-indigo-50 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUpIcon className="w-4 h-4 text-indigo-500" />
+              <ArrowTrendingUpIcon className="w-4 h-4 text-indigo-500" />
               <span className="font-medium text-indigo-800">Tendências Detectadas</span>
             </div>
             <div className="text-sm text-indigo-700">
@@ -316,7 +315,7 @@ const AnalyticsPage = () => {
     <ThemedCard className="p-6" theme={currentTheme}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <TargetIcon className="w-5 h-5 text-orange-500" />
+          <UserIcon className="w-5 h-5 text-orange-500" />
           Lead Scoring
         </h3>
       </div>
@@ -377,7 +376,7 @@ const AnalyticsPage = () => {
         </div>
       ) : (
         <div className="text-center py-6 text-gray-500">
-          <TargetIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <UserIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
           <p>Calculando scoring de leads...</p>
           <p className="text-sm">Aguarde enquanto processamos os dados</p>
         </div>
@@ -640,7 +639,7 @@ const AnalyticsPage = () => {
 
           {leadScoring?.averageScore && (
             <div className="flex items-center gap-2">
-              <TargetIcon className="w-4 h-4 text-orange-500" />
+              <UserIcon className="w-4 h-4 text-orange-500" />
               <span className="text-sm text-gray-600">
                 Score médio: {leadScoring.averageScore.toFixed(1)}/100
               </span>

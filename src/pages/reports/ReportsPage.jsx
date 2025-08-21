@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChartBarIcon, 
   CurrencyEuroIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon,
+  ArrowTrendingUpIcon, 
+  ArrowDownIcon,
   UserGroupIcon,
   CalendarIcon,
   DocumentChartBarIcon,
@@ -168,9 +168,9 @@ const ReportsPage = () => {
             trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-500'
           }`}>
             {trend === 'up' ? (
-              <TrendingUpIcon className="h-4 w-4" />
+              <ArrowTrendingUpIcon className="h-4 w-4" />
             ) : trend === 'down' ? (
-              <TrendingDownIcon className="h-4 w-4" />
+              <ArrowDownIcon className="h-4 w-4" />
             ) : null}
             <span className="text-sm font-medium">{trendValue}</span>
           </div>
@@ -557,7 +557,7 @@ const ReportsPage = () => {
           <KPICard
             title="Receita Esperada"
             value={`€${pipeline.weighted?.toLocaleString('pt-PT') || '0'}`}
-            icon={TrendingUpIcon}
+            icon={ArrowTrendingUpIcon}
             color="purple"
             loading={loading}
           />
@@ -765,7 +765,7 @@ const ReportsPage = () => {
         {/* Métricas de Eficiência */}
         <ThemedCard className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <TrendingUpIcon className="h-5 w-5 mr-2 text-green-500" />
+            <ArrowTrendingUpIcon className="h-5 w-5 mr-2 text-green-500" />
             Métricas de Eficiência
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
