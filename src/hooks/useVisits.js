@@ -1,108 +1,132 @@
 // src/hooks/useVisits.js
+// 🎯 HOOK UNIFICADO PARA GESTÃO DE VISITAS - MyImoMate 3.0
+// =======================================================
+// VERSÃO UNIFICADA com estrutura padronizada
+// Funcionalidades: Agendamento, Confirmações, Feedback, Partilhas, Controlo Temporal
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   collection, 
   addDoc, 
+  updateDoc, 
+  deleteDoc, 
   getDocs, 
+  getDoc, 
+  doc, 
   query, 
-  orderBy, 
   where, 
-  updateDoc,
-  doc,
-  deleteDoc,
+  orderBy, 
   limit,
-  serverTimestamp,
-  getDoc,
-  and,
-  or
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// 🎯 HOOK PERSONALIZADO PARA GESTÃO DE VISITAS
-// =============================================
-// MyImoMate 3.0 - Módulo Core de Visitas (CORE DO NEGÓCIO)
-// Funcionalidades: Agendamento, Confirmações, Feedback, Partilhas, Lembretes, Firebase
+// 📚 IMPORTS DA ESTRUTURA UNIFICADA
+// =================================
+import {
+  UNIFIED_VISIT_STATUS,
+  UNIFIED_PRIORITIES,
+  UNIFIED_PROPERTY_TYPES,
+  UNIFIED_INTEREST_TYPES,
+  formatCurrency
+} from '../constants/unifiedTypes.js';
 
-// 📊 STATUS DAS VISITAS (fluxo do negócio)
-export const VISIT_STATUS = {
-  AGENDADA: 'agendada',
-  CONFIRMADA_CLIENTE: 'confirmada_cliente',
-  CONFIRMADA_CONSULTOR: 'confirmada_consultor', 
-  CONFIRMADA_AMBOS: 'confirmada_ambos',
-  EM_CURSO: 'em_curso',
-  REALIZADA: 'realizada',
-  NAO_COMPARECEU: 'nao_compareceu',
-  CANCELADA: 'cancelada',
-  REAGENDADA: 'reagendada'
-};
+import {
+  CORE_DATA_STRUCTURE,
+  PROPERTY_DATA_STRUCTURE,
+  applyCoreStructure,
+  validateCoreStructure
+} from '../constants/coreStructure.js';
 
-// 🎨 CORES POR STATUS (para UI)
-export const VISIT_STATUS_COLORS = {
-  [VISIT_STATUS.AGENDADA]: 'bg-blue-100 text-blue-800',
-  [VISIT_STATUS.CONFIRMADA_CLIENTE]: 'bg-yellow-100 text-yellow-800',
-  [VISIT_STATUS.CONFIRMADA_CONSULTOR]: 'bg-orange-100 text-orange-800',
-  [VISIT_STATUS.CONFIRMADA_AMBOS]: 'bg-green-100 text-green-800',
-  [VISIT_STATUS.EM_CURSO]: 'bg-purple-100 text-purple-800',
-  [VISIT_STATUS.REALIZADA]: 'bg-emerald-100 text-emerald-800',
-  [VISIT_STATUS.NAO_COMPARECEU]: 'bg-red-100 text-red-800',
-  [VISIT_STATUS.CANCELADA]: 'bg-gray-100 text-gray-800',
-  [VISIT_STATUS.REAGENDADA]: 'bg-indigo-100 text-indigo-800'
-};
+import {
+  validatePortuguesePhone,
+  validateEmail,
+  validatePostalCode
+} from '../constants/validations.js';
 
-// 🏠 TIPOS DE VISITA
+// 🔧 CONFIGURAÇÕES DO HOOK
+// ========================
+const VISITS_COLLECTION = 'visits';
+const CLIENTS_COLLECTION = 'clients';
+const OPPORTUNITIES_COLLECTION = 'opportunities';
+const FETCH_LIMIT = 100;
+
+// 🎯 TIPOS DE VISITA ESPECÍFICOS
 export const VISIT_TYPES = {
   PRESENCIAL: 'presencial',
   VIRTUAL: 'virtual',
   AVALIACAO: 'avaliacao',
+  APRESENTACAO: 'apresentacao',
   SEGUNDA_VISITA: 'segunda_visita',
   VISITA_TECNICA: 'visita_tecnica'
 };
 
-// 🏡 TIPOS DE PROPRIEDADE
-export const PROPERTY_TYPES = {
-  CASA: 'casa',
-  APARTAMENTO: 'apartamento',
-  TERRENO: 'terreno',
-  COMERCIAL: 'comercial',
-  ESCRITORIO: 'escritorio',
-  ARMAZEM: 'armazem',
-  QUINTAS: 'quintas',
-  OUTROS: 'outros'
+export const VISIT_TYPE_LABELS = {
+  [VISIT_TYPES.PRESENCIAL]: 'Visita Presencial',
+  [VISIT_TYPES.VIRTUAL]: 'Visita Virtual',
+  [VISIT_TYPES.AVALIACAO]: 'Avaliação de Imóvel',
+  [VISIT_TYPES.APRESENTACAO]: 'Apresentação de Proposta',
+  [VISIT_TYPES.SEGUNDA_VISITA]: 'Segunda Visita',
+  [VISIT_TYPES.VISITA_TECNICA]: 'Visita Técnica'
 };
 
-// 💼 TIPOS DE OPERAÇÃO
+// 📊 TIPOS DE OPERAÇÃO
 export const OPERATION_TYPES = {
   VENDA: 'venda',
   ARRENDAMENTO: 'arrendamento',
-  INVESTIMENTO: 'investimento',
+  COMPRA: 'compra',
   AVALIACAO: 'avaliacao'
 };
 
-// 📊 RESULTADOS DAS VISITAS
-export const VISIT_OUTCOMES = {
-  INTERESSADO: 'interessado',
-  NAO_INTERESSADO: 'nao_interessado',
-  PROPOSTA: 'proposta',
-  SEGUNDA_VISITA: 'segunda_visita',
-  NECESSITA_FINANCIAMENTO: 'necessita_financiamento',
-  PRECO_ELEVADO: 'preco_elevado',
-  NAO_COMPARECEU: 'nao_compareceu',
-  CANCELOU: 'cancelou'
+export const OPERATION_TYPE_LABELS = {
+  [OPERATION_TYPES.VENDA]: 'Venda',
+  [OPERATION_TYPES.ARRENDAMENTO]: 'Arrendamento',
+  [OPERATION_TYPES.COMPRA]: 'Compra',
+  [OPERATION_TYPES.AVALIACAO]: 'Avaliação'
 };
 
-// 🔧 CONFIGURAÇÕES DO HOOK
-const VISITS_COLLECTION = 'visits';
-const CLIENTS_COLLECTION = 'clients';
-const VISIT_FEEDBACK_COLLECTION = 'visit_feedback';
-const FETCH_LIMIT = 50;
+// 🎯 RESULTADOS DE VISITA
+export const VISIT_OUTCOMES = {
+  MUITO_INTERESSADO: 'muito_interessado',
+  INTERESSADO: 'interessado',
+  POUCO_INTERESSADO: 'pouco_interessado',
+  NAO_INTERESSADO: 'nao_interessado',
+  QUER_PENSAR: 'quer_pensar',
+  PRECO_ALTO: 'preco_alto',
+  NAO_ADEQUADO: 'nao_adequado',
+  FARA_PROPOSTA: 'fara_proposta',
+  NAO_COMPARECEU: 'nao_compareceu'
+};
 
-// 📱 REGEX PARA VALIDAÇÕES PORTUGUESAS
-const PORTUGUESE_PHONE_REGEX = /^(\+351|351|00351)?[ -]?9[1236][0-9][ -]?[0-9]{3}[ -]?[0-9]{3}$/;
-const POSTAL_CODE_REGEX = /^[0-9]{4}-[0-9]{3}$/;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const VISIT_OUTCOME_LABELS = {
+  [VISIT_OUTCOMES.MUITO_INTERESSADO]: 'Muito Interessado',
+  [VISIT_OUTCOMES.INTERESSADO]: 'Interessado',
+  [VISIT_OUTCOMES.POUCO_INTERESSADO]: 'Pouco Interessado',
+  [VISIT_OUTCOMES.NAO_INTERESSADO]: 'Não Interessado',
+  [VISIT_OUTCOMES.QUER_PENSAR]: 'Quer Pensar',
+  [VISIT_OUTCOMES.PRECO_ALTO]: 'Preço Alto',
+  [VISIT_OUTCOMES.NAO_ADEQUADO]: 'Não Adequado',
+  [VISIT_OUTCOMES.FARA_PROPOSTA]: 'Fará Proposta',
+  [VISIT_OUTCOMES.NAO_COMPARECEU]: 'Não Compareceu'
+};
 
-// 🎯 HOOK PRINCIPAL
+// 🎨 CORES PARA STATUS (usando constantes unificadas)
+export const VISIT_STATUS_COLORS = {
+  [UNIFIED_VISIT_STATUS.AGENDADA]: 'bg-blue-100 text-blue-800 border-blue-200',
+  [UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE]: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  [UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR]: 'bg-orange-100 text-orange-800 border-orange-200',
+  [UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA]: 'bg-green-100 text-green-800 border-green-200',
+  [UNIFIED_VISIT_STATUS.EM_CURSO]: 'bg-purple-100 text-purple-800 border-purple-200',
+  [UNIFIED_VISIT_STATUS.REALIZADA]: 'bg-green-100 text-green-800 border-green-200',
+  [UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE]: 'bg-red-100 text-red-800 border-red-200',
+  [UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CONSULTOR]: 'bg-red-100 text-red-800 border-red-200',
+  [UNIFIED_VISIT_STATUS.CANCELADA]: 'bg-gray-100 text-gray-800 border-gray-200',
+  [UNIFIED_VISIT_STATUS.REMARCADA]: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+};
+
+// 🎯 HOOK PRINCIPAL UNIFICADO
+// ===========================
 const useVisits = () => {
   // Estados principais
   const [visits, setVisits] = useState([]);
@@ -112,54 +136,75 @@ const useVisits = () => {
   const [updating, setUpdating] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  // Estados de filtros
+  // Estados de filtros expandidos
   const [filters, setFilters] = useState({
     status: '',
     visitType: '',
-    dateRange: 'upcoming',
+    operationType: '',
+    propertyType: '',
+    priority: '',
+    outcome: '',
     clientName: '',
-    propertyType: ''
+    dateRange: 'all',
+    searchTerm: ''
   });
 
   // Context de autenticação
   const { user } = useAuth();
+  const isUserReady = !!user;
 
-  // 📥 BUSCAR TODAS AS VISITAS
+  // 📥 BUSCAR TODAS AS VISITAS COM ESTRUTURA UNIFICADA
+  // =================================================
   const fetchVisits = useCallback(async () => {
-    if (!user) return;
+    if (!isUserReady) return;
     
     setLoading(true);
     setError(null);
     
     try {
+      // Query simplificada para evitar problemas de índice
       let visitQuery = query(
         collection(db, VISITS_COLLECTION),
         where('userId', '==', user.uid),
-        orderBy('scheduledDate', 'desc'),
         limit(FETCH_LIMIT)
       );
 
-      // Aplicar filtros se existirem
-      if (filters.status) {
-        visitQuery = query(visitQuery, where('status', '==', filters.status));
+      const querySnapshot = await getDocs(visitQuery);
+      const visitsData = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          
+          // Aplicar migração automática se necessário
+          const migratedData = migrateVisitData(data);
+          
+          return {
+            id: doc.id,
+            ...migratedData,
+            scheduledDate: data.scheduledDate?.toDate(),
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
+            confirmedAt: data.confirmedAt?.toDate(),
+            completedAt: data.completedAt?.toDate()
+          };
+        })
+        .filter(visit => visit.isActive !== false) // Filtrar inativos
+        .sort((a, b) => (b.scheduledDate || 0) - (a.scheduledDate || 0)); // Ordenar por data de visita
+
+      // Aplicar filtros client-side
+      let filteredVisits = visitsData;
+      
+      if (filters.status && Object.values(UNIFIED_VISIT_STATUS).includes(filters.status)) {
+        filteredVisits = filteredVisits.filter(visit => visit.status === filters.status);
       }
       
       if (filters.visitType) {
-        visitQuery = query(visitQuery, where('visitType', '==', filters.visitType));
+        filteredVisits = filteredVisits.filter(visit => visit.visitType === filters.visitType);
       }
-
-      const querySnapshot = await getDocs(visitQuery);
-      const visitsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        scheduledDate: doc.data().scheduledDate?.toDate(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate()
-      }));
-
-      // Aplicar filtros locais (para campos que não podem ser filtrados no Firebase)
-      let filteredVisits = visitsData;
-
+      
+      if (filters.propertyType && Object.values(UNIFIED_PROPERTY_TYPES).includes(filters.propertyType)) {
+        filteredVisits = filteredVisits.filter(visit => visit.property?.type === filters.propertyType);
+      }
+      
       if (filters.clientName) {
         filteredVisits = filteredVisits.filter(visit => 
           visit.clientName?.toLowerCase().includes(filters.clientName.toLowerCase())
@@ -191,21 +236,112 @@ const useVisits = () => {
           }
         });
       }
+      
+      if (filters.searchTerm) {
+        const term = filters.searchTerm.toLowerCase();
+        filteredVisits = filteredVisits.filter(visit => 
+          visit.clientName?.toLowerCase().includes(term) ||
+          visit.property?.address?.street?.toLowerCase().includes(term) ||
+          visit.property?.address?.city?.toLowerCase().includes(term) ||
+          visit.property?.description?.toLowerCase().includes(term)
+        );
+      }
 
       setVisits(filteredVisits);
-      console.log(`✅ ${filteredVisits.length} visitas carregadas`);
-
+      console.log(`Carregadas ${filteredVisits.length} visitas com estrutura unificada`);
+      
     } catch (err) {
-      console.error('❌ Erro ao buscar visitas:', err);
+      console.error('Erro ao buscar visitas:', err);
       setError(`Erro ao carregar visitas: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [user, filters]);
+  }, [isUserReady, user, filters]);
 
-  // 📝 CRIAR NOVA VISITA
+  // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
+  // =======================================
+  const migrateVisitData = useCallback((oldData) => {
+    // Se já tem estrutura nova, retornar como está
+    if (oldData.structureVersion === '3.0') {
+      return oldData;
+    }
+
+    // Mapear campos antigos para novos
+    const migrated = {
+      ...oldData,
+      
+      // Garantir estrutura base obrigatória
+      isActive: oldData.isActive !== undefined ? oldData.isActive : true,
+      priority: oldData.priority || UNIFIED_PRIORITIES.NORMAL,
+      
+      // Migrar status de visita
+      status: migrateVisitStatus(oldData.status),
+      
+      // Migrar tipo de propriedade
+      property: {
+        ...oldData.property,
+        type: migratePropertyType(oldData.property?.type),
+        operation: oldData.property?.operation || OPERATION_TYPES.VENDA
+      },
+      
+      // Garantir campos obrigatórios
+      visitType: oldData.visitType || VISIT_TYPES.PRESENCIAL,
+      duration: oldData.duration || 60,
+      
+      // Adicionar campos novos
+      structureVersion: '3.0',
+      migratedAt: new Date().toISOString(),
+      
+      // Garantir referências cruzadas
+      leadId: oldData.leadId || null,
+      clientId: oldData.clientId || null,
+      opportunityId: oldData.opportunityId || null,
+      dealId: oldData.dealId || null,
+      
+      // Dados de controlo temporal
+      scheduledFor: oldData.scheduledDate,
+      confirmedBy: oldData.confirmedBy || null,
+      completedBy: oldData.completedBy || null
+    };
+
+    return migrated;
+  }, []);
+
+  // 🔄 FUNÇÕES DE MIGRAÇÃO ESPECÍFICAS
+  // ==================================
+  const migrateVisitStatus = (oldStatus) => {
+    const statusMap = {
+      'agendada': UNIFIED_VISIT_STATUS.AGENDADA,
+      'confirmada': UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA,
+      'confirmada_cliente': UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE,
+      'confirmada_consultor': UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR,
+      'em_curso': UNIFIED_VISIT_STATUS.EM_CURSO,
+      'realizada': UNIFIED_VISIT_STATUS.REALIZADA,
+      'nao_compareceu': UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE,
+      'cancelada': UNIFIED_VISIT_STATUS.CANCELADA,
+      'remarcada': UNIFIED_VISIT_STATUS.REMARCADA
+    };
+    return statusMap[oldStatus] || UNIFIED_VISIT_STATUS.AGENDADA;
+  };
+
+  const migratePropertyType = (oldType) => {
+    const typeMap = {
+      'apartamento': UNIFIED_PROPERTY_TYPES.APARTAMENTO,
+      'moradia': UNIFIED_PROPERTY_TYPES.MORADIA,
+      'terreno': UNIFIED_PROPERTY_TYPES.TERRENO,
+      'comercial': UNIFIED_PROPERTY_TYPES.COMERCIAL,
+      'quinta': UNIFIED_PROPERTY_TYPES.QUINTA_HERDADE,
+      'escritorio': UNIFIED_PROPERTY_TYPES.ESCRITORIO,
+      'armazem': UNIFIED_PROPERTY_TYPES.ARMAZEM,
+      'garagem': UNIFIED_PROPERTY_TYPES.GARAGEM
+    };
+    return typeMap[oldType] || UNIFIED_PROPERTY_TYPES.APARTAMENTO;
+  };
+
+  // ➕ CRIAR NOVA VISITA COM ESTRUTURA UNIFICADA
+  // ===========================================
   const createVisit = useCallback(async (visitData) => {
-    if (!user) {
+    if (!isUserReady) {
       throw new Error('Utilizador não autenticado');
     }
 
@@ -213,7 +349,7 @@ const useVisits = () => {
     setError(null);
 
     try {
-      // Validações básicas
+      // 1. VALIDAÇÃO BÁSICA
       if (!visitData.clientId || !visitData.clientName) {
         throw new Error('Cliente é obrigatório');
       }
@@ -233,19 +369,25 @@ const useVisits = () => {
         throw new Error('Não é possível agendar visita no passado');
       }
 
-      // Preparar dados para inserção
+      // 2. PREPARAR DADOS COM ESTRUTURA UNIFICADA
       const newVisit = {
-        // Dados básicos da visita
+        // Dados básicos obrigatórios
         clientId: visitData.clientId,
         clientName: visitData.clientName.trim(),
         scheduledDate: visitData.scheduledDate,
         duration: visitData.duration || 60,
         visitType: visitData.visitType || VISIT_TYPES.PRESENCIAL,
         
-        // Dados do imóvel
+        // Status e prioridade
+        status: UNIFIED_VISIT_STATUS.AGENDADA,
+        priority: visitData.priority || UNIFIED_PRIORITIES.NORMAL,
+        
+        // Dados da propriedade (PROPERTY_DATA_STRUCTURE expandida)
+        propertyReference: visitData.propertyReference?.trim() || '',
+        propertyType: visitData.property?.type || UNIFIED_PROPERTY_TYPES.APARTAMENTO,
         property: {
-          type: visitData.property.type || PROPERTY_TYPES.APARTAMENTO,
-          operation: visitData.property.operation || OPERATION_TYPES.VENDA,
+          type: visitData.property?.type || UNIFIED_PROPERTY_TYPES.APARTAMENTO,
+          operation: visitData.property?.operation || OPERATION_TYPES.VENDA,
           address: {
             street: visitData.property.address.street.trim(),
             number: visitData.property.address.number?.trim() || '',
@@ -253,67 +395,81 @@ const useVisits = () => {
             postalCode: visitData.property.address.postalCode?.trim() || '',
             city: visitData.property.address.city?.trim() || '',
             district: visitData.property.address.district?.trim() || '',
-            country: visitData.property.address.country || 'Portugal'
+            country: visitData.property.address.country || 'Portugal',
+            coordinates: visitData.property.address.coordinates || null
           },
-          area: visitData.property.area || '',
-          rooms: visitData.property.rooms || '',
-          bathrooms: visitData.property.bathrooms || '',
-          price: visitData.property.price || '',
+          features: {
+            area: visitData.property.area || null,
+            bedrooms: visitData.property.rooms || null,
+            bathrooms: visitData.property.bathrooms || null,
+            parkingSpaces: visitData.property.parking || null,
+            buildYear: visitData.property.buildYear || null,
+            condition: visitData.property.condition || 'good',
+            energyRating: visitData.property.energyRating || ''
+          },
+          financials: {
+            askingPrice: visitData.property.price || null,
+            pricePerSqm: visitData.property.price && visitData.property.area ? 
+              (visitData.property.price / visitData.property.area) : null
+          },
           description: visitData.property.description?.trim() || '',
-          condition: visitData.property.condition || 'good',
           internal_ref: visitData.property.internal_ref?.trim() || '',
           external_ref: visitData.property.external_ref?.trim() || ''
         },
         
-        // Notas
+        // Notas e observações
         notes: visitData.notes?.trim() || '',
         internal_notes: visitData.internal_notes?.trim() || '',
         
-        // Status e controle
-        status: VISIT_STATUS.AGENDADA,
+        // Dados de controlo temporal
+        scheduledFor: visitData.scheduledDate,
+        confirmedBy: null,
+        confirmedAt: null,
+        completedBy: null,
+        completedAt: null,
         
-        // Confirmações
-        confirmedByClient: false,
-        confirmedByConsultor: false,
-        clientConfirmedAt: null,
-        consultorConfirmedAt: null,
+        // Sistema de partilhas
+        sharedWith: visitData.sharedWith || [],
+        isShared: false,
         
-        // Resultado da visita (preenchido depois)
+        // Feedback pós-visita
+        feedback: null,
         outcome: null,
-        feedback: '',
-        client_feedback: '',
-        next_steps: '',
-        follow_up_date: null,
+        nextSteps: null,
+        followUpDate: null,
         
-        // Partilhas
-        is_shared: false,
-        shared_with: [],
-        shared_notes: '',
-        
-        // Dados de auditoria
+        // Dados de auditoria obrigatórios
         userId: user.uid,
         userEmail: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         
-        // Flags
+        // Flags de controlo
         isActive: true,
-        isCompleted: false,
+        isConverted: false,
+        
+        // Referências cruzadas
+        leadId: visitData.leadId || null,
+        clientId: visitData.clientId,
+        opportunityId: visitData.opportunityId || null,
+        dealId: visitData.dealId || null,
+        
+        // Versão da estrutura
+        structureVersion: '3.0',
         
         // Metadados técnicos
         userAgent: navigator.userAgent,
-        ipAddress: 'N/A',
         source_details: {
           created_via: 'web_form',
-          form_version: '1.0',
+          form_version: '3.0',
           timestamp: new Date().toISOString()
         }
       };
 
-      // Inserir no Firebase
+      // 3. INSERIR NO FIREBASE
       const docRef = await addDoc(collection(db, VISITS_COLLECTION), newVisit);
       
-      // Criar objeto completo para retorno
+      // 4. CRIAR OBJETO COMPLETO PARA RETORNO
       const createdVisit = {
         id: docRef.id,
         ...newVisit,
@@ -322,10 +478,10 @@ const useVisits = () => {
         updatedAt: new Date()
       };
 
-      // Atualizar lista local
+      // 5. ATUALIZAR LISTA LOCAL
       setVisits(prev => [createdVisit, ...prev]);
 
-      console.log('✅ Visita criada com sucesso:', docRef.id);
+      console.log('Visita criada com estrutura unificada:', docRef.id);
       
       return {
         success: true,
@@ -334,373 +490,345 @@ const useVisits = () => {
       };
 
     } catch (err) {
-      console.error('❌ Erro ao criar visita:', err);
-      const errorMessage = err.message || 'Erro inesperado ao agendar visita';
-      setError(errorMessage);
+      console.error('Erro ao criar visita:', err);
+      setError(err.message);
       
       return {
         success: false,
-        error: errorMessage
+        error: err.message,
+        message: `Erro ao agendar visita: ${err.message}`
       };
     } finally {
       setCreating(false);
     }
-  }, [user]);
+  }, [isUserReady, user]);
 
-  // ✅ CONFIRMAR VISITA (dupla confirmação)
-  const confirmVisit = useCallback(async (visitId, confirmerType = 'consultor') => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
+  // 🔄 CONFIRMAR VISITA (DUPLA CONFIRMAÇÃO)
+  // =======================================
+  const confirmVisit = useCallback(async (visitId, confirmationType = 'cliente', notes = '') => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     setConfirming(true);
     setError(null);
-
+    
     try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      const visitSnap = await getDoc(visitRef);
-      
-      if (!visitSnap.exists()) {
+      const visit = visits.find(v => v.id === visitId);
+      if (!visit) {
         throw new Error('Visita não encontrada');
       }
 
-      const visitData = visitSnap.data();
+      let newStatus;
+      const currentStatus = visit.status;
       
-      // Preparar dados de confirmação
-      const now = serverTimestamp();
-      let updates = {
-        updatedAt: now
-      };
-
-      if (confirmerType === 'consultor') {
-        updates.confirmedByConsultor = true;
-        updates.consultorConfirmedAt = now;
-        
-        // Se cliente já confirmou, marcar como confirmada por ambos
-        if (visitData.confirmedByClient) {
-          updates.status = VISIT_STATUS.CONFIRMADA_AMBOS;
+      // Lógica de confirmação dupla
+      if (confirmationType === 'cliente') {
+        if (currentStatus === UNIFIED_VISIT_STATUS.AGENDADA) {
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE;
+        } else if (currentStatus === UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR) {
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA;
         } else {
-          updates.status = VISIT_STATUS.CONFIRMADA_CONSULTOR;
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE;
         }
-      } else if (confirmerType === 'cliente') {
-        updates.confirmedByClient = true;
-        updates.clientConfirmedAt = now;
-        
-        // Se consultor já confirmou, marcar como confirmada por ambos
-        if (visitData.confirmedByConsultor) {
-          updates.status = VISIT_STATUS.CONFIRMADA_AMBOS;
+      } else if (confirmationType === 'consultor') {
+        if (currentStatus === UNIFIED_VISIT_STATUS.AGENDADA) {
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR;
+        } else if (currentStatus === UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE) {
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA;
         } else {
-          updates.status = VISIT_STATUS.CONFIRMADA_CLIENTE;
+          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR;
         }
       }
 
-      // Atualizar no Firebase
-      await updateDoc(visitRef, updates);
+      const updateData = {
+        status: newStatus,
+        confirmedBy: confirmationType,
+        confirmedAt: serverTimestamp(),
+        confirmationNotes: notes.trim(),
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        
+        // Auditoria de confirmação
+        [`confirmationHistory.${confirmationType}_${Date.now()}`]: {
+          type: confirmationType,
+          confirmedBy: user.uid,
+          confirmedAt: new Date().toISOString(),
+          notes: notes.trim(),
+          userAgent: navigator.userAgent
+        }
+      };
 
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      await updateDoc(visitRef, updateData);
+      
       // Atualizar lista local
-      setVisits(prev => 
-        prev.map(visit => 
-          visit.id === visitId 
-            ? { 
-                ...visit, 
-                ...updates,
-                updatedAt: new Date()
-              }
-            : visit
-        )
-      );
+      setVisits(prev => prev.map(v => 
+        v.id === visitId 
+          ? { ...v, ...updateData, confirmedAt: new Date(), updatedAt: new Date() }
+          : v
+      ));
 
-      const statusMessage = updates.status === VISIT_STATUS.CONFIRMADA_AMBOS 
-        ? 'Visita confirmada por ambas as partes!'
-        : `Visita confirmada pelo ${confirmerType}`;
-
-      console.log(`✅ Visita ${visitId} confirmada por ${confirmerType}`);
+      console.log(`Visita ${visitId} confirmada por ${confirmationType}`);
       
       return { 
         success: true, 
-        message: statusMessage 
+        message: `Visita confirmada pelo ${confirmationType}!`,
+        status: newStatus
       };
-
+      
     } catch (err) {
-      console.error('❌ Erro ao confirmar visita:', err);
-      return { 
-        success: false, 
-        error: err.message 
-      };
+      console.error('Erro ao confirmar visita:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
     } finally {
       setConfirming(false);
     }
-  }, [user]);
-
-  // 📝 ADICIONAR FEEDBACK DA VISITA
-  const addVisitFeedback = useCallback(async (visitId, feedbackData) => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
-    setUpdating(true);
-    setError(null);
-
-    try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      
-      const updates = {
-        outcome: feedbackData.outcome || VISIT_OUTCOMES.INTERESSADO,
-        feedback: feedbackData.feedback?.trim() || '',
-        client_feedback: feedbackData.client_feedback?.trim() || '',
-        next_steps: feedbackData.next_steps?.trim() || '',
-        follow_up_date: feedbackData.follow_up_date || null,
-        status: VISIT_STATUS.REALIZADA,
-        isCompleted: true,
-        completedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      // Atualizar no Firebase
-      await updateDoc(visitRef, updates);
-
-      // Atualizar lista local
-      setVisits(prev => 
-        prev.map(visit => 
-          visit.id === visitId 
-            ? { 
-                ...visit, 
-                ...updates,
-                updatedAt: new Date()
-              }
-            : visit
-        )
-      );
-
-      console.log(`✅ Feedback adicionado à visita ${visitId}`);
-      
-      return { 
-        success: true, 
-        message: 'Feedback registado com sucesso!' 
-      };
-
-    } catch (err) {
-      console.error('❌ Erro ao adicionar feedback:', err);
-      return { 
-        success: false, 
-        error: err.message 
-      };
-    } finally {
-      setUpdating(false);
-    }
-  }, [user]);
+  }, [isUserReady, user, visits]);
 
   // 🔄 ATUALIZAR STATUS DA VISITA
-  const updateVisitStatus = useCallback(async (visitId, newStatus) => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
-    setUpdating(true);
-    setError(null);
+  // =============================
+  const updateVisitStatus = useCallback(async (visitId, newStatus, notes = '') => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
 
     try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      
-      const updates = {
-        status: newStatus,
-        updatedAt: serverTimestamp()
-      };
-
-      // Adicionar timestamps específicos baseados no status
-      if (newStatus === VISIT_STATUS.EM_CURSO) {
-        updates.startedAt = serverTimestamp();
-      } else if (newStatus === VISIT_STATUS.REALIZADA) {
-        updates.completedAt = serverTimestamp();
-        updates.isCompleted = true;
-      } else if (newStatus === VISIT_STATUS.CANCELADA) {
-        updates.cancelledAt = serverTimestamp();
+      // Validar se o status é válido
+      if (!Object.values(UNIFIED_VISIT_STATUS).includes(newStatus)) {
+        throw new Error(`Status inválido: ${newStatus}`);
       }
 
-      // Atualizar no Firebase
-      await updateDoc(visitRef, updates);
+      const updateData = {
+        status: newStatus,
+        statusChangeReason: notes.trim(),
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        
+        // Auditoria de mudança de status
+        [`statusHistory.change_${Date.now()}`]: {
+          to: newStatus,
+          changedBy: user.uid,
+          changedAt: new Date().toISOString(),
+          reason: notes.trim(),
+          userAgent: navigator.userAgent
+        }
+      };
 
+      // Lógica específica por status
+      if (newStatus === UNIFIED_VISIT_STATUS.EM_CURSO) {
+        updateData.startedAt = serverTimestamp();
+      }
+      
+      if (newStatus === UNIFIED_VISIT_STATUS.REALIZADA) {
+        updateData.completedAt = serverTimestamp();
+        updateData.completedBy = user.uid;
+      }
+
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      await updateDoc(visitRef, updateData);
+      
       // Atualizar lista local
-      setVisits(prev => 
-        prev.map(visit => 
-          visit.id === visitId 
-            ? { 
-                ...visit, 
-                status: newStatus, 
-                updatedAt: new Date() 
-              }
-            : visit
-        )
-      );
+      setVisits(prev => prev.map(visit => 
+        visit.id === visitId 
+          ? { ...visit, ...updateData, updatedAt: new Date() }
+          : visit
+      ));
 
-      console.log(`✅ Status da visita ${visitId} atualizado para: ${newStatus}`);
+      console.log(`Status da visita ${visitId} atualizado para: ${newStatus}`);
       
       return { 
         success: true, 
-        message: 'Status atualizado com sucesso!' 
+        message: `Status atualizado para ${getStatusLabel(newStatus)}!` 
       };
 
     } catch (err) {
-      console.error('❌ Erro ao atualizar status:', err);
-      return { 
-        success: false, 
-        error: err.message 
-      };
-    } finally {
-      setUpdating(false);
+      console.error('Erro ao atualizar status:', err);
+      return { success: false, error: err.message };
     }
-  }, [user]);
+  }, [isUserReady, user]);
 
-  // 🤝 PARTILHAR VISITA COM OUTROS CONSULTORES
-  const shareVisit = useCallback(async (visitId, consultorIds, notes = '') => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
-    setUpdating(true);
-    setError(null);
-
+  // 💬 ADICIONAR FEEDBACK PÓS-VISITA
+  // ================================
+  const addVisitFeedback = useCallback(async (visitId, feedbackData) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      
-      const updates = {
-        is_shared: true,
-        shared_with: consultorIds,
-        shared_notes: notes.trim(),
-        sharedAt: serverTimestamp(),
-        sharedBy: user.uid,
+      const feedback = {
+        outcome: feedbackData.outcome || VISIT_OUTCOMES.INTERESSADO,
+        rating: feedbackData.rating || null,
+        clientFeedback: feedbackData.clientFeedback?.trim() || '',
+        consultorFeedback: feedbackData.consultorFeedback?.trim() || '',
+        nextSteps: feedbackData.nextSteps?.trim() || '',
+        followUpDate: feedbackData.followUpDate || null,
+        willMakeOffer: feedbackData.willMakeOffer || false,
+        offerAmount: feedbackData.offerAmount || null,
+        additionalVisits: feedbackData.additionalVisits || false,
+        
+        // Auditoria
+        createdBy: user.uid,
+        createdAt: new Date().toISOString(),
+        structureVersion: '3.0'
+      };
+
+      const updateData = {
+        feedback: feedback,
+        outcome: feedbackData.outcome,
+        nextSteps: feedbackData.nextSteps?.trim() || '',
+        followUpDate: feedbackData.followUpDate,
+        status: UNIFIED_VISIT_STATUS.REALIZADA,
+        completedAt: serverTimestamp(),
+        completedBy: user.uid,
         updatedAt: serverTimestamp()
       };
 
-      // Atualizar no Firebase
-      await updateDoc(visitRef, updates);
-
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      await updateDoc(visitRef, updateData);
+      
       // Atualizar lista local
-      setVisits(prev => 
-        prev.map(visit => 
-          visit.id === visitId 
-            ? { 
-                ...visit, 
-                ...updates,
-                updatedAt: new Date()
-              }
-            : visit
-        )
-      );
+      setVisits(prev => prev.map(visit => 
+        visit.id === visitId 
+          ? { ...visit, ...updateData, completedAt: new Date(), updatedAt: new Date() }
+          : visit
+      ));
 
-      console.log(`✅ Visita ${visitId} partilhada com consultores`);
+      console.log(`Feedback adicionado à visita ${visitId}`);
       
       return { 
         success: true, 
-        message: 'Visita partilhada com sucesso!' 
+        feedback,
+        message: 'Feedback registado com sucesso!' 
+      };
+      
+    } catch (err) {
+      console.error('Erro ao adicionar feedback:', err);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, user]);
+
+  // 🔗 PARTILHAR VISITA COM OUTROS CONSULTORES
+  // ==========================================
+  const shareVisit = useCallback(async (visitId, consultorIds, notes = '') => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
+    try {
+      const shareData = {
+        sharedWith: consultorIds,
+        isShared: consultorIds.length > 0,
+        shareNotes: notes.trim(),
+        sharedBy: user.uid,
+        sharedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
-    } catch (err) {
-      console.error('❌ Erro ao partilhar visita:', err);
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      await updateDoc(visitRef, shareData);
+      
+      // Atualizar lista local
+      setVisits(prev => prev.map(visit => 
+        visit.id === visitId 
+          ? { ...visit, ...shareData, sharedAt: new Date(), updatedAt: new Date() }
+          : visit
+      ));
+
+      console.log(`Visita ${visitId} partilhada com ${consultorIds.length} consultores`);
+      
       return { 
-        success: false, 
-        error: err.message 
+        success: true, 
+        message: `Visita partilhada com ${consultorIds.length} consultor(es)!` 
       };
-    } finally {
-      setUpdating(false);
+      
+    } catch (err) {
+      console.error('Erro ao partilhar visita:', err);
+      return { success: false, error: err.message };
     }
-  }, [user]);
+  }, [isUserReady, user]);
 
   // ❌ CANCELAR VISITA
+  // ==================
   const cancelVisit = useCallback(async (visitId, reason = '') => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
-    setUpdating(true);
-    setError(null);
-
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      
-      const updates = {
-        status: VISIT_STATUS.CANCELADA,
-        cancelReason: reason.trim(),
-        cancelledAt: serverTimestamp(),
+      const updateData = {
+        status: UNIFIED_VISIT_STATUS.CANCELADA,
+        cancellationReason: reason.trim(),
         cancelledBy: user.uid,
+        cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
 
-      // Atualizar no Firebase
-      await updateDoc(visitRef, updates);
-
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      await updateDoc(visitRef, updateData);
+      
       // Atualizar lista local
-      setVisits(prev => 
-        prev.map(visit => 
-          visit.id === visitId 
-            ? { 
-                ...visit, 
-                ...updates,
-                updatedAt: new Date()
-              }
-            : visit
-        )
-      );
+      setVisits(prev => prev.map(visit => 
+        visit.id === visitId 
+          ? { ...visit, ...updateData, cancelledAt: new Date(), updatedAt: new Date() }
+          : visit
+      ));
 
-      console.log(`✅ Visita ${visitId} cancelada`);
+      console.log(`Visita ${visitId} cancelada`);
       
       return { 
         success: true, 
         message: 'Visita cancelada com sucesso!' 
       };
-
+      
     } catch (err) {
-      console.error('❌ Erro ao cancelar visita:', err);
-      return { 
-        success: false, 
-        error: err.message 
-      };
-    } finally {
-      setUpdating(false);
+      console.error('Erro ao cancelar visita:', err);
+      return { success: false, error: err.message };
     }
-  }, [user]);
+  }, [isUserReady, user]);
 
-  // 🗑️ ELIMINAR VISITA
-  const deleteVisit = useCallback(async (visitId) => {
-    if (!user) {
-      throw new Error('Utilizador não autenticado');
-    }
-
-    setUpdating(true);
-    setError(null);
-
+  // 🗑️ ELIMINAR VISITA (SOFT DELETE)
+  // ================================
+  const deleteVisit = useCallback(async (visitId, hardDelete = false) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     try {
-      // Eliminar do Firebase
-      await deleteDoc(doc(db, VISITS_COLLECTION, visitId));
-
+      const visitRef = doc(db, VISITS_COLLECTION, visitId);
+      
+      if (hardDelete) {
+        // Eliminação definitiva
+        await deleteDoc(visitRef);
+        console.log(`Visita ${visitId} eliminada permanentemente`);
+      } else {
+        // Soft delete (recomendado)
+        await updateDoc(visitRef, {
+          isActive: false,
+          status: UNIFIED_VISIT_STATUS.CANCELADA,
+          deletedAt: serverTimestamp(),
+          deletedBy: user.uid,
+          updatedAt: serverTimestamp()
+        });
+        console.log(`Visita ${visitId} marcada como inativa`);
+      }
+      
       // Remover da lista local
       setVisits(prev => prev.filter(visit => visit.id !== visitId));
-
-      console.log(`✅ Visita ${visitId} eliminada`);
       
       return { 
         success: true, 
-        message: 'Visita eliminada com sucesso!' 
+        message: hardDelete ? 'Visita eliminada permanentemente!' : 'Visita removida da lista!' 
       };
-
+      
     } catch (err) {
-      console.error('❌ Erro ao eliminar visita:', err);
-      return { 
-        success: false, 
-        error: err.message 
-      };
-    } finally {
-      setUpdating(false);
+      console.error('Erro ao eliminar visita:', err);
+      return { success: false, error: err.message };
     }
-  }, [user]);
+  }, [isUserReady, user]);
 
-  // 📊 OBTER ESTATÍSTICAS DAS VISITAS
-    const visitStats = useMemo(() => {
+  // 🔍 PESQUISAR VISITAS
+  // ====================
+  const searchVisits = useCallback((searchTerm) => {
+    setFilters(prev => ({ ...prev, searchTerm }));
+  }, []);
+
+  // 📊 ESTATÍSTICAS UNIFICADAS
+  // ==========================
+  const visitStats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-
+    
     const stats = {
       total: visits.length,
       today: 0,
@@ -708,9 +836,34 @@ const useVisits = () => {
       confirmed: 0,
       completed: 0,
       cancelled: 0,
-      conversion_rate: 0
+      conversionRate: 0,
+      byStatus: {},
+      byVisitType: {},
+      byOutcome: {},
+      byPropertyType: {}
     };
 
+    // Contar por status unificado
+    Object.values(UNIFIED_VISIT_STATUS).forEach(status => {
+      stats.byStatus[status] = visits.filter(visit => visit.status === status).length;
+    });
+
+    // Contar por tipo de visita
+    Object.values(VISIT_TYPES).forEach(type => {
+      stats.byVisitType[type] = visits.filter(visit => visit.visitType === type).length;
+    });
+
+    // Contar por resultado
+    Object.values(VISIT_OUTCOMES).forEach(outcome => {
+      stats.byOutcome[outcome] = visits.filter(visit => visit.outcome === outcome).length;
+    });
+
+    // Contar por tipo de propriedade
+    Object.values(UNIFIED_PROPERTY_TYPES).forEach(type => {
+      stats.byPropertyType[type] = visits.filter(visit => visit.property?.type === type).length;
+    });
+
+    // Calcular métricas específicas
     visits.forEach(visit => {
       const visitDate = visit.scheduledDate;
       
@@ -724,58 +877,64 @@ const useVisits = () => {
         stats.upcoming++;
       }
       
-      // Por status
-      if (visit.status === VISIT_STATUS.CONFIRMADA_AMBOS || 
-          visit.status === VISIT_STATUS.CONFIRMADA_CLIENTE ||
-          visit.status === VISIT_STATUS.CONFIRMADA_CONSULTOR) {
+      // Visitas confirmadas
+      if (visit.status === UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA || 
+          visit.status === UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE ||
+          visit.status === UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR) {
         stats.confirmed++;
       }
       
-      if (visit.status === VISIT_STATUS.REALIZADA) {
+      // Visitas realizadas
+      if (visit.status === UNIFIED_VISIT_STATUS.REALIZADA) {
         stats.completed++;
       }
       
-      if (visit.status === VISIT_STATUS.CANCELADA) {
+      // Visitas canceladas
+      if (visit.status === UNIFIED_VISIT_STATUS.CANCELADA ||
+          visit.status === UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE ||
+          visit.status === UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CONSULTOR) {
         stats.cancelled++;
       }
     });
 
-    // Taxa de conversão (visitas realizadas vs total agendado)
-    const totalScheduled = stats.total - stats.cancelled;
-    stats.conversion_rate = totalScheduled > 0 
-      ? Math.round((stats.completed / totalScheduled) * 100) 
-      : 0;
+    // Taxa de conversão (visitas realizadas vs agendadas)
+    const totalScheduled = stats.completed + stats.cancelled;
+    stats.conversionRate = totalScheduled > 0 ? 
+      Math.round((stats.completed / totalScheduled) * 100) : 0;
 
     return stats;
   }, [visits]);
 
-  // Função para obter stats (para compatibilidade)
+  // 🔧 FUNÇÕES AUXILIARES
+  // =====================
+  const getStatusLabel = (status) => {
+    const labels = {
+      [UNIFIED_VISIT_STATUS.AGENDADA]: 'Agendada',
+      [UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE]: 'Confirmada pelo Cliente',
+      [UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR]: 'Confirmada pelo Consultor',
+      [UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA]: 'Confirmada (Ambos)',
+      [UNIFIED_VISIT_STATUS.EM_CURSO]: 'Em Curso',
+      [UNIFIED_VISIT_STATUS.REALIZADA]: 'Realizada',
+      [UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE]: 'Cliente Não Compareceu',
+      [UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CONSULTOR]: 'Consultor Não Compareceu',
+      [UNIFIED_VISIT_STATUS.CANCELADA]: 'Cancelada',
+      [UNIFIED_VISIT_STATUS.REMARCADA]: 'Remarcada'
+    };
+    return labels[status] || status;
+  };
+
+  // Função para compatibilidade
   const getVisitStats = useCallback(() => visitStats, [visitStats]);
 
-  // 🔍 BUSCAR VISITAS (por nome do cliente ou morada)
-  const searchVisits = useCallback((searchTerm) => {
-    if (!searchTerm.trim()) {
-      fetchVisits();
-      return;
-    }
-
-    const filtered = visits.filter(visit => 
-      visit.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.property?.address?.street?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.property?.address?.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    setVisits(filtered);
-  }, [visits, fetchVisits]);
-
-  // 🔄 Carregar visitas quando user ou filtros mudarem
+  // 🔄 EFFECTS
+  // ==========
   useEffect(() => {
-    if (user) {
+    if (isUserReady) {
+      console.log('useVisits: Utilizador pronto, carregando visitas...');
       fetchVisits();
     }
-  }, [user, fetchVisits]);
+  }, [isUserReady, fetchVisits]);
 
-  // 🧹 Limpar erro após 5 segundos
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 5000);
@@ -783,7 +942,8 @@ const useVisits = () => {
     }
   }, [error]);
 
-  // 📤 RETORNO DO HOOK
+  // 📤 RETORNO DO HOOK UNIFICADO
+  // ============================
   return {
     // Estados
     visits,
@@ -812,22 +972,37 @@ const useVisits = () => {
     visitStats,
     getVisitStats,
     
-    // Constantes úteis
-    VISIT_STATUS,
+    // Constantes unificadas (compatibilidade)
+    VISIT_STATUS: UNIFIED_VISIT_STATUS,
     VISIT_TYPES,
-    PROPERTY_TYPES,
+    PROPERTY_TYPES: UNIFIED_PROPERTY_TYPES,
     OPERATION_TYPES,
     VISIT_OUTCOMES,
     VISIT_STATUS_COLORS,
     
-    // Helpers de validação
-    isValidEmail: (email) => EMAIL_REGEX.test(email),
-    isValidPhone: (phone) => PORTUGUESE_PHONE_REGEX.test(phone),
-    isValidPostalCode: (code) => POSTAL_CODE_REGEX.test(code),
+    // Novos: constantes unificadas
+    UNIFIED_VISIT_STATUS,
+    UNIFIED_PROPERTY_TYPES,
+    UNIFIED_PRIORITIES,
+    VISIT_TYPE_LABELS,
+    OPERATION_TYPE_LABELS,
+    VISIT_OUTCOME_LABELS,
+    
+    // Helpers unificados
+    validatePortuguesePhone,
+    validateEmail,
+    validatePostalCode,
+    formatCurrency,
+    getStatusLabel,
     normalizePhone: (phone) => phone?.replace(/\s|-/g, '') || '',
     
     // Estado de conectividade
-    isConnected: !!user && !error
+    isConnected: isUserReady && !error,
+    isUserReady,
+    
+    // Informações da estrutura
+    structureVersion: '3.0',
+    isUnified: true
   };
 };
 

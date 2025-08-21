@@ -676,6 +676,166 @@ const useClients = () => {
     }
   }, [isUserReady, activeUser]);
 
+  // Adicionar esta função ao useClients.js existente, após updateClientStatus e antes de deleteClient
+
+// 🔄 CONVERTER CLIENTE PARA OPORTUNIDADE (FASE 3)
+// ===============================================
+const convertClientToOpportunity = useCallback(async (clientId, opportunityData = {}) => {
+  if (!isUserReady || !activeUser?.uid || !clientId) {
+    setError('Dados inválidos para conversão');
+    return { success: false, message: 'Dados inválidos' };
+  }
+
+  setConverting(true);
+  setError(null);
+
+  try {
+    // 1. BUSCAR DADOS DO CLIENTE
+    const clientRef = doc(db, CLIENTS_COLLECTION, clientId);
+    const clientSnap = await getDoc(clientRef);
+    
+    if (!clientSnap.exists()) {
+      throw new Error('Cliente não encontrado');
+    }
+
+    const clientData = clientSnap.data();
+
+    // 2. VALIDAR DADOS MÍNIMOS PARA OPORTUNIDADE
+    if (!opportunityData.interestType) {
+      throw new Error('Tipo de interesse é obrigatório para criar oportunidade');
+    }
+
+    if (!opportunityData.budgetRange) {
+      throw new Error('Faixa de orçamento é obrigatória para criar oportunidade');
+    }
+
+    // 3. PREPARAR DADOS DA OPORTUNIDADE
+    const baseOpportunityData = {
+      // Dados do cliente
+      clientId: clientId,
+      clientName: clientData.name,
+      clientPhone: clientData.primaryPhone || clientData.phone,
+      clientEmail: clientData.primaryEmail || clientData.email,
+      
+      // Dados da oportunidade
+      title: opportunityData.title || `Oportunidade ${opportunityData.interestType} - ${clientData.name}`,
+      description: opportunityData.description || `Oportunidade criada para cliente ${clientData.name}`,
+      
+      // Classificação da oportunidade
+      interestType: opportunityData.interestType,
+      budgetRange: opportunityData.budgetRange,
+      priority: opportunityData.priority || clientData.priority || 'normal',
+      status: opportunityData.status || 'identificacao', // 10% inicial
+      
+      // Dados financeiros
+      estimatedValue: opportunityData.estimatedValue || getBudgetRangeMiddleValue(opportunityData.budgetRange),
+      probability: opportunityData.probability || 10, // 10% inicial
+      commissionPercentage: opportunityData.commissionPercentage || 2.5,
+      
+      // Datas
+      expectedCloseDate: opportunityData.expectedCloseDate || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 dias
+      
+      // Localização e preferências
+      location: opportunityData.location || clientData.address?.city || '',
+      propertyType: opportunityData.propertyType || '',
+      
+      // Notas e observações
+      notes: opportunityData.notes || `Oportunidade criada a partir do cliente ${clientData.name}`,
+      
+      // Rastreamento
+      source: `converted_from_client_${clientId}`,
+      originalClientId: clientId,
+      convertedAt: serverTimestamp(),
+      
+      // Estrutura base
+      userId: activeUser.uid,
+      userEmail: activeUser.email,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdBy: activeUser.uid,
+      lastModifiedBy: activeUser.uid,
+      
+      // Metadados
+      structureVersion: '3.0',
+      metadata: {
+        convertedFromClient: true,
+        conversionDate: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      }
+    };
+
+    // 4. CRIAR OPORTUNIDADE NO FIREBASE
+    const opportunityDocRef = await addDoc(collection(db, 'opportunities'), baseOpportunityData);
+
+    // 5. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE
+    await updateDoc(clientRef, {
+      hasOpportunities: true,
+      lastOpportunityId: opportunityDocRef.id,
+      lastOpportunityCreated: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastModifiedBy: activeUser.uid,
+      
+      // Array de oportunidades (se não existir, criar)
+      opportunityIds: arrayUnion(opportunityDocRef.id)
+    });
+
+    // 6. ATUALIZAR LISTA LOCAL DE CLIENTES
+    setClients(prev => 
+      prev.map(client => 
+        client.id === clientId 
+          ? { 
+              ...client, 
+              hasOpportunities: true,
+              lastOpportunityId: opportunityDocRef.id,
+              lastOpportunityCreated: new Date(),
+              updatedAt: new Date()
+            }
+          : client
+      )
+    );
+
+    setConverting(false);
+    
+    console.log(`Cliente ${clientId} convertido para oportunidade ${opportunityDocRef.id}`);
+    
+    return {
+      success: true,
+      clientId: clientId,
+      opportunityId: opportunityDocRef.id,
+      message: `Cliente convertido para oportunidade com sucesso!`
+    };
+
+  } catch (err) {
+    console.error('Erro ao converter cliente para oportunidade:', err);
+    setError(err.message || 'Erro ao converter cliente');
+    setConverting(false);
+    
+    return {
+      success: false,
+      message: err.message || 'Erro ao converter cliente para oportunidade'
+    };
+  }
+}, [isUserReady, activeUser?.uid, activeUser?.email]);
+
+// FUNÇÃO AUXILIAR: Obter valor médio da faixa de orçamento
+const getBudgetRangeMiddleValue = (range) => {
+  const values = {
+    'ate_50k': 35000,
+    'de_50k_100k': 75000,
+    'de_100k_200k': 150000,
+    'de_200k_300k': 250000,
+    'de_300k_500k': 400000,
+    'de_500k_750k': 625000,
+    'de_750k_1m': 875000,
+    'acima_1m': 1250000,
+    'indefinido': 200000
+  };
+  return values[range] || 200000;
+};
+
+// ADICIONAR AO FINAL DO RETURN DO HOOK:
+// Adicionar 'convertClientToOpportunity' na lista de ações principais
+
   // 🗑️ ELIMINAR CLIENTE (SOFT DELETE)
   // =================================
   const deleteClient = useCallback(async (clientId, hardDelete = false) => {

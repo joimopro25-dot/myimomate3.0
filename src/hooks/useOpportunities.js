@@ -575,6 +575,310 @@ const useOpportunities = () => {
     }
   }, [isUserReady, user, updateOpportunity]);
 
+// 🔄 CONVERTER OPORTUNIDADE PARA DEAL/NEGÓCIO (FASE 3)
+// ====================================================
+const convertOpportunityToDeal = useCallback(async (opportunityId, dealData = {}) => {
+  if (!isUserReady || !user?.uid || !opportunityId) {
+    setError('Dados inválidos para conversão');
+    return { success: false, message: 'Dados inválidos' };
+  }
+
+  setUpdating(true); // Usar setUpdating em vez de setConverting
+  setError(null);
+
+  try {
+    // 1. BUSCAR DADOS DA OPORTUNIDADE
+    const opportunityRef = doc(db, OPPORTUNITIES_COLLECTION, opportunityId);
+    const opportunitySnap = await getDoc(opportunityRef);
+    
+    if (!opportunitySnap.exists()) {
+      throw new Error('Oportunidade não encontrada');
+    }
+
+    const opportunityData = opportunitySnap.data();
+
+    // 2. VERIFICAR SE JÁ FOI CONVERTIDA
+    if (opportunityData.isConverted) {
+      throw new Error('Oportunidade já foi convertida para negócio');
+    }
+
+    // 3. VALIDAR DADOS MÍNIMOS PARA DEAL
+    if (!dealData.propertyAddress && !dealData.propertyId) {
+      throw new Error('Endereço ou ID da propriedade é obrigatório para criar negócio');
+    }
+
+    if (!dealData.dealValue && !opportunityData.estimatedValue) {
+      throw new Error('Valor do negócio é obrigatório');
+    }
+
+    // 4. PREPARAR DADOS DO DEAL/NEGÓCIO
+    const baseDealData = {
+      // Referências da oportunidade
+      opportunityId: opportunityId,
+      clientId: opportunityData.clientId,
+      clientName: opportunityData.clientName,
+      clientPhone: opportunityData.clientPhone,
+      clientEmail: opportunityData.clientEmail,
+      
+      // Dados do negócio
+      title: dealData.title || `Negócio ${opportunityData.interestType} - ${opportunityData.clientName}`,
+      description: dealData.description || `Negócio criado a partir da oportunidade: ${opportunityData.title}`,
+      
+      // Tipo e categoria
+      dealType: dealData.dealType || getDealTypeFromInterest(opportunityData.interestType),
+      interestType: opportunityData.interestType,
+      category: dealData.category || 'residencial',
+      
+      // Status e pipeline
+      status: dealData.status || 'proposta', // Status inicial do deal
+      priority: dealData.priority || opportunityData.priority || 'normal',
+      
+      // Dados financeiros
+      dealValue: dealData.dealValue || opportunityData.estimatedValue,
+      commissionPercentage: dealData.commissionPercentage || opportunityData.commissionPercentage || 2.5,
+      commissionValue: 0, // Calculado automaticamente
+      expectedCommission: 0, // Calculado automaticamente
+      
+      // Dados da propriedade
+      propertyId: dealData.propertyId || '',
+      propertyAddress: dealData.propertyAddress || '',
+      propertyType: dealData.propertyType || opportunityData.propertyType || '',
+      propertySize: dealData.propertySize || '',
+      propertyCondition: dealData.propertyCondition || 'bom',
+      
+      // Datas importantes
+      proposalDate: dealData.proposalDate || new Date(),
+      expectedClosingDate: dealData.expectedClosingDate || opportunityData.expectedCloseDate || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 dias
+      
+      // Financiamento (se aplicável)
+      financing: {
+        required: dealData.financingRequired || false,
+        bank: dealData.financingBank || '',
+        amount: dealData.financingAmount || 0,
+        status: dealData.financingStatus || 'pendente',
+        preApproved: dealData.preApproved || false
+      },
+      
+      // Partes envolvidas
+      buyerName: dealData.buyerName || (opportunityData.interestType && opportunityData.interestType.includes('compra') ? opportunityData.clientName : ''),
+      sellerName: dealData.sellerName || (opportunityData.interestType && opportunityData.interestType.includes('venda') ? opportunityData.clientName : ''),
+      
+      // Documentação
+      documentsRequired: dealData.documentsRequired || getRequiredDocuments(opportunityData.interestType),
+      documentsStatus: 'pendente',
+      
+      // Notas e observações
+      notes: dealData.notes || `Negócio criado a partir da oportunidade: ${opportunityData.title}`,
+      internalNotes: dealData.internalNotes || '',
+      
+      // Rastreamento
+      source: `converted_from_opportunity_${opportunityId}`,
+      originalOpportunityId: opportunityId,
+      convertedAt: serverTimestamp(),
+      
+      // Campos de auditoria
+      userId: user.uid,
+      userEmail: user.email,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdBy: user.uid,
+      lastModifiedBy: user.uid,
+      
+      // Estrutura e metadados
+      structureVersion: '3.0',
+      metadata: {
+        convertedFromOpportunity: true,
+        conversionDate: new Date().toISOString(),
+        opportunityTitle: opportunityData.title,
+        opportunityValue: opportunityData.estimatedValue,
+        userAgent: navigator.userAgent
+      }
+    };
+
+    // 5. CALCULAR COMISSÕES AUTOMATICAMENTE
+    if (baseDealData.dealValue && baseDealData.commissionPercentage) {
+      baseDealData.commissionValue = (baseDealData.dealValue * baseDealData.commissionPercentage) / 100;
+      baseDealData.expectedCommission = baseDealData.commissionValue;
+    }
+
+    // 6. CRIAR DEAL/NEGÓCIO NO FIREBASE
+    const dealDocRef = await addDoc(collection(db, DEALS_COLLECTION), baseDealData);
+
+    // 7. ATUALIZAR OPORTUNIDADE COMO CONVERTIDA
+    await updateDoc(opportunityRef, {
+      status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO, // Oportunidade fechada com sucesso
+      isConverted: true,
+      convertedAt: serverTimestamp(),
+      convertedToDealId: dealDocRef.id,
+      updatedAt: serverTimestamp(),
+      lastModifiedBy: user.uid,
+      
+      // Auditoria da conversão
+      conversionAudit: {
+        convertedBy: user.uid,
+        convertedAt: new Date().toISOString(),
+        dealId: dealDocRef.id,
+        dealValue: baseDealData.dealValue,
+        userAgent: navigator.userAgent
+      }
+    });
+
+    // 8. CRIAR TAREFAS AUTOMÁTICAS INICIAIS PARA O DEAL
+    const initialTasks = await createInitialDealTasks(dealDocRef.id, baseDealData);
+
+    // 9. ATUALIZAR LISTA LOCAL DE OPORTUNIDADES
+    setOpportunities(prev => 
+      prev.map(opp => 
+        opp.id === opportunityId 
+          ? { 
+              ...opp, 
+              status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
+              isConverted: true,
+              convertedAt: new Date(),
+              convertedToDealId: dealDocRef.id,
+              updatedAt: new Date()
+            }
+          : opp
+      )
+    );
+
+    setUpdating(false); // Usar setUpdating
+    
+    console.log(`Oportunidade ${opportunityId} convertida para deal ${dealDocRef.id}`);
+    
+    return {
+      success: true,
+      opportunityId: opportunityId,
+      dealId: dealDocRef.id,
+      tasksCreated: initialTasks.length,
+      message: `Oportunidade convertida para negócio com sucesso! ${initialTasks.length} tarefas iniciais criadas.`
+    };
+
+  } catch (err) {
+    console.error('Erro ao converter oportunidade para deal:', err);
+    setError(err.message || 'Erro ao converter oportunidade');
+    setUpdating(false); // Usar setUpdating
+    
+    return {
+      success: false,
+      message: err.message || 'Erro ao converter oportunidade para negócio'
+    };
+  }
+}, [isUserReady, user?.uid, user?.email]);
+
+// FUNÇÕES AUXILIARES PARA CONVERSÃO (inalteradas)
+
+// Determinar tipo de deal baseado no interesse
+const getDealTypeFromInterest = (interestType) => {
+  if (interestType && interestType.includes('venda')) return 'venda';
+  if (interestType && interestType.includes('compra')) return 'compra';
+  if (interestType && interestType.includes('arrendamento')) return 'arrendamento';
+  if (interestType && interestType.includes('aluguer')) return 'aluguer';
+  return 'venda'; // padrão
+};
+
+// Obter documentos obrigatórios por tipo de interesse
+const getRequiredDocuments = (interestType) => {
+  const baseDocuments = ['documento_identidade', 'nif'];
+  
+  if (interestType && interestType.includes('venda')) {
+    return [...baseDocuments, 'certidao_predial', 'licenca_habitacao', 'certidao_energetica'];
+  }
+  
+  if (interestType && interestType.includes('compra')) {
+    return [...baseDocuments, 'comprovativo_rendimentos', 'declaracao_financeira'];
+  }
+  
+  if (interestType && interestType.includes('arrendamento')) {
+    return [...baseDocuments, 'contrato_arrendamento', 'comprovativo_seguros'];
+  }
+  
+  return baseDocuments;
+};
+
+// Criar tarefas iniciais para o deal
+const createInitialDealTasks = async (dealId, dealData) => {
+  const tasks = [];
+  
+  try {
+    // Tarefa 1: Preparar documentação
+    const docTask = {
+      title: 'Preparar documentação do negócio',
+      description: 'Recolher e validar toda a documentação necessária',
+      type: 'documentos',
+      priority: 'alta',
+      status: 'pendente',
+      dueDate: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), // 3 dias
+      associatedTo: 'negocio',
+      associatedId: dealId,
+      associatedName: dealData.title,
+      dealId: dealId,
+      clientId: dealData.clientId,
+      userId: dealData.userId,
+      userEmail: dealData.userEmail,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const docTaskRef = await addDoc(collection(db, 'tasks'), docTask);
+    tasks.push({ id: docTaskRef.id, ...docTask });
+
+    // Tarefa 2: Agendar visita (se necessário)
+    if (dealData.propertyAddress) {
+      const visitTask = {
+        title: 'Agendar visita à propriedade',
+        description: `Agendar visita para ${dealData.propertyAddress}`,
+        type: 'visita',
+        priority: 'alta',
+        status: 'pendente',
+        dueDate: Timestamp.fromDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)), // 5 dias
+        associatedTo: 'negocio',
+        associatedId: dealId,
+        associatedName: dealData.title,
+        dealId: dealId,
+        clientId: dealData.clientId,
+        userId: dealData.userId,
+        userEmail: dealData.userEmail,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      
+      const visitTaskRef = await addDoc(collection(db, 'tasks'), visitTask);
+      tasks.push({ id: visitTaskRef.id, ...visitTask });
+    }
+
+    // Tarefa 3: Follow-up com cliente
+    const followUpTask = {
+      title: 'Follow-up - Confirmação de interesse',
+      description: `Contactar ${dealData.clientName} para confirmar interesse no negócio`,
+      type: 'follow_up',
+      priority: 'media',
+      status: 'pendente',
+      dueDate: Timestamp.fromDate(new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)), // 1 dia
+      associatedTo: 'negocio',
+      associatedId: dealId,
+      associatedName: dealData.title,
+      dealId: dealId,
+      clientId: dealData.clientId,
+      userId: dealData.userId,
+      userEmail: dealData.userEmail,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const followUpTaskRef = await addDoc(collection(db, 'tasks'), followUpTask);
+    tasks.push({ id: followUpTaskRef.id, ...followUpTask });
+
+    console.log(`${tasks.length} tarefas iniciais criadas para deal ${dealId}`);
+    
+  } catch (err) {
+    console.warn('Erro ao criar tarefas iniciais:', err);
+  }
+  
+  return tasks;
+};
+
+
   // 🗑️ ELIMINAR OPORTUNIDADE (SOFT DELETE)
   // ======================================
   const deleteOpportunity = useCallback(async (opportunityId, hardDelete = false) => {
