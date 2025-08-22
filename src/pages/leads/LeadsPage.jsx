@@ -1,17 +1,14 @@
-// src/pages/leads/LeadsPage.jsx - VERSÃO SIMPLES FUNCIONAL
-// 🔄 LEADSPAGE QUE FUNCIONA COM ESTRUTURA EXISTENTE
-// =================================================
-// MyImoMate 3.0 - Versão simplificada que usa apenas imports existentes
-// ✅ Remove imports problemáticos
-// ✅ Usa apenas componentes já implementados
-// ✅ Mantém funcionalidade básica
-// ✅ Preparado para futuras integrações
+// src/pages/leads/LeadsPage.jsx - VERSÃO COM FORMULÁRIO EXPANDIDO
+// ✅ Sidebar reutilizável aplicado
+// ✅ LeadsList componente integrado para edição
+// ✅ Formulário de criação expandido com novos campos
+// ✅ Código limpo e funcional
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/layout/Sidebar';
 import LeadsList from '../../components/leads/LeadsList';
-import { ThemedButton } from '../../components/common/ThemedComponents';
+import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useLeads from '../../hooks/useLeads';
 import { 
@@ -20,9 +17,15 @@ import {
   EyeIcon,
   CheckCircleIcon,
   ClockIcon,
-  UserPlusIcon,
+  EllipsisVerticalIcon,
+  Squares2X2Icon,
+  ListBulletIcon,
   PhoneIcon,
-  ExclamationTriangleIcon
+  EnvelopeIcon,
+  MapPinIcon,
+  PencilIcon,
+  TrashIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
 
 // Componente de Métrica Compacta
@@ -88,17 +91,18 @@ const LeadsPage = () => {
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
     LEAD_STATUS_COLORS,
-    CLIENT_TYPES,
-    PROPERTY_STATUS
+    CLIENT_TYPES, // ✅ NOVA CONSTANTE
+    PROPERTY_STATUS // ✅ NOVA CONSTANTE
   } = useLeads();
 
-  // Estados para modais e feedback
+  // Estados para modais
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState('');
 
-  // Estados do formulário de criação
+  // ✅ ESTADOS DO FORMULÁRIO EXPANDIDO
   const [formData, setFormData] = useState({
+    // Campos básicos
     name: '',
     phone: '',
     email: '',
@@ -109,6 +113,8 @@ const LeadsPage = () => {
     notes: '',
     source: 'manual',
     priority: 'normal',
+    
+    // ✅ NOVOS CAMPOS
     propertyStatus: PROPERTY_STATUS?.NAO_IDENTIFICADO || 'nao_identificado',
     propertyReference: '',
     propertyLink: '',
@@ -118,8 +124,8 @@ const LeadsPage = () => {
     managerNotes: ''
   });
 
-  // Funções básicas
-  const stats = getLeadStats() || {};
+  // Funções
+  const stats = getLeadStats();
   
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -153,13 +159,13 @@ const LeadsPage = () => {
     try {
       const result = await createLead(formData);
       
-      if (result && result.success) {
+      if (result.success) {
         setFeedbackMessage('Lead criado com sucesso!');
         setFeedbackType('success');
         setShowCreateForm(false);
         resetForm();
       } else {
-        setFeedbackMessage(result?.error || 'Erro ao criar lead');
+        setFeedbackMessage(result.error || 'Erro ao criar lead');
         setFeedbackType('error');
       }
     } catch (error) {
@@ -170,90 +176,64 @@ const LeadsPage = () => {
 
   // Funções para integração com LeadsList
   const handleLeadUpdate = () => {
-    if (fetchLeads) fetchLeads();
+    fetchLeads();
   };
 
   const handleLeadDelete = () => {
-    if (fetchLeads) fetchLeads();
+    fetchLeads();
   };
 
-  // ✅ CONVERSÃO SIMPLES (função existente)
   const handleLeadConvert = async (leadId) => {
     try {
-      console.log('Convertendo lead:', leadId);
-      
-      if (!convertLeadToClient) {
-        setFeedbackMessage('Função de conversão não disponível');
-        setFeedbackType('error');
-        return;
-      }
-
       const result = await convertLeadToClient(leadId);
       
-      if (result && result.success) {
+      if (result.success) {
         setFeedbackMessage(result.message || 'Lead convertido para cliente com sucesso!');
         setFeedbackType('success');
-        
-        // Recarregar lista
-        if (fetchLeads) fetchLeads();
-        
-        // Opcional: navegar para clientes
-        setTimeout(() => {
-          navigate('/clients', {
-            state: { fromConversion: true, leadId: leadId }
-          });
-        }, 2000);
-        
       } else {
-        setFeedbackMessage(result?.error || 'Erro ao converter lead');
+        setFeedbackMessage(result.error || 'Erro ao converter lead');
         setFeedbackType('error');
       }
     } catch (error) {
-      console.error('Erro na conversão:', error);
       setFeedbackMessage('Erro inesperado ao converter lead');
       setFeedbackType('error');
     }
   };
 
   const handleSearch = (searchTerm) => {
-    if (searchLeads) {
-      searchLeads(searchTerm);
-    }
+    searchLeads(searchTerm);
   };
 
   const handleMetricClick = (filterType, filterValue) => {
-    if (setFilters) {
-      setFilters(prev => ({ 
-        ...prev, 
-        [filterType]: prev[filterType] === filterValue ? '' : filterValue 
-      }));
-    }
+    setFilters(prev => ({ 
+      ...prev, 
+      [filterType]: prev[filterType] === filterValue ? '' : filterValue 
+    }));
   };
 
-  // Helper functions para labels
+  // ✅ HELPER FUNCTIONS PARA LABELS
   const getClientTypeLabel = (type) => {
     const labels = {
-      'comprador': 'Comprador',
-      'arrendatario': 'Arrendatário',
-      'inquilino': 'Inquilino',
-      'vendedor': 'Vendedor',
-      'senhorio': 'Senhorio'
+      [CLIENT_TYPES.COMPRADOR]: 'Comprador',
+      [CLIENT_TYPES.ARRENDATARIO]: 'Arrendatário',
+      [CLIENT_TYPES.INQUILINO]: 'Inquilino',
+      [CLIENT_TYPES.VENDEDOR]: 'Vendedor',
+      [CLIENT_TYPES.SENHORIO]: 'Senhorio'
     };
     return labels[type] || type;
   };
 
   const getPropertyStatusLabel = (status) => {
     const labels = {
-      'nao_identificado': 'Não Identificado',
-      'identificado': 'Identificado',
-      'visitado': 'Visitado',
-      'rejeitado': 'Rejeitado',
-      'aprovado': 'Aprovado'
+      [PROPERTY_STATUS.NAO_IDENTIFICADO]: 'Não Identificado',
+      [PROPERTY_STATUS.IDENTIFICADO]: 'Identificado',
+      [PROPERTY_STATUS.VISITADO]: 'Visitado',
+      [PROPERTY_STATUS.REJEITADO]: 'Rejeitado',
+      [PROPERTY_STATUS.APROVADO]: 'Aprovado'
     };
     return labels[status] || status;
   };
 
-  // Limpar mensagens de feedback
   useEffect(() => {
     if (feedbackMessage) {
       const timer = setTimeout(() => {
@@ -292,139 +272,116 @@ const LeadsPage = () => {
               </ThemedButton>
             </div>
 
-            {/* ✅ FEEDBACK MESSAGES */}
+            {/* Feedback Messages */}
             {feedbackMessage && (
-              <div className={`p-3 rounded-lg mb-4 flex items-start space-x-3 ${
+              <div className={`p-3 rounded-lg mb-4 ${
                 feedbackType === 'success' 
                   ? 'bg-green-50 text-green-700 border border-green-200' 
                   : feedbackType === 'error'
                   ? 'bg-red-50 text-red-700 border border-red-200'
-                  : feedbackType === 'warning'
-                  ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
                   : 'bg-blue-50 text-blue-700 border border-blue-200'
               }`}>
-                <div className="flex-shrink-0">
-                  {feedbackType === 'success' && <CheckCircleIcon className="h-5 w-5" />}
-                  {feedbackType === 'error' && <ExclamationTriangleIcon className="h-5 w-5" />}
-                  {feedbackType === 'warning' && <ClockIcon className="h-5 w-5" />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{feedbackMessage}</p>
-                </div>
+                {feedbackMessage}
               </div>
             )}
+
+            {/* Métricas Compactas */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              <CompactMetricCard
+                title="Total de Leads"
+                value={stats?.total || 0}
+                trend={`${leads?.length || 0} ativos`}
+                icon={UserGroupIcon}
+                color="blue"
+                onClick={() => handleMetricClick('status', '')}
+              />
+              
+              <CompactMetricCard
+                title="Novos"
+                value={stats?.byStatus?.novo || 0}
+                trend="Aguardam contacto"
+                icon={ClockIcon}
+                color="yellow"
+                onClick={() => handleMetricClick('status', LEAD_STATUS?.NOVO)}
+              />
+              
+              <CompactMetricCard
+                title="Qualificados"
+                value={stats?.byStatus?.qualificado || 0}
+                trend="Potencial confirmado"
+                icon={CheckCircleIcon}
+                color="green"
+                onClick={() => handleMetricClick('status', LEAD_STATUS?.QUALIFICADO)}
+              />
+              
+              <CompactMetricCard
+                title="Convertidos"
+                value={stats?.byStatus?.convertido || 0}
+                trend={`${stats?.conversionRate || 0}% taxa`}
+                icon={CheckCircleIcon}
+                color="purple"
+                onClick={() => handleMetricClick('status', LEAD_STATUS?.CONVERTIDO)}
+              />
+              
+              <CompactMetricCard
+                title="Em Seguimento"
+                value={stats?.byStatus?.contactado || 0}
+                trend="Processo ativo"
+                icon={EyeIcon}
+                color="blue"
+                onClick={() => handleMetricClick('status', LEAD_STATUS?.CONTACTADO)}
+              />
+            </div>
           </div>
 
-          {/* MÉTRICAS PRINCIPAIS */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-            <CompactMetricCard
-              title="Total Leads"
-              value={stats.total || leads?.length || 0}
-              trend="Todos"
-              icon={UserGroupIcon}
-              color="blue"
-              onClick={() => handleMetricClick('status', '')}
-            />
-            <CompactMetricCard
-              title="Novos"
-              value={stats.new || 0}
-              trend="Recentes"
-              icon={PlusIcon}
-              color="green"
-              onClick={() => handleMetricClick('status', 'novo')}
-            />
-            <CompactMetricCard
-              title="Em Contacto"
-              value={stats.contacted || 0}
-              trend="Em progresso"
-              icon={PhoneIcon}
-              color="yellow"
-              onClick={() => handleMetricClick('status', 'contactado')}
-            />
-            <CompactMetricCard
-              title="Qualificados"
-              value={stats.qualified || 0}
-              trend="Prontos"
-              icon={CheckCircleIcon}
-              color="purple"
-              onClick={() => handleMetricClick('status', 'qualificado')}
-            />
-            <CompactMetricCard
-              title="Convertidos"
-              value={stats.converted || 0}
-              trend="Sucesso"
-              icon={UserPlusIcon}
-              color="green"
-              onClick={() => handleMetricClick('status', 'convertido')}
-            />
-          </div>
+          {/* Filtros e Pesquisa */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+            <div className="p-3">
+              <div className="flex flex-col md:flex-row gap-3">
+                
+                {/* Campo de Pesquisa */}
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Pesquisar por nome, telefone, email, gestor ou referência..."
+                    value={filters?.searchTerm || ''}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-          {/* FILTROS PRINCIPAIS */}
-          <div className="mb-4">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
+                {/* Filtros */}
+                <div className="flex flex-col md:flex-row gap-2">
                   <select
                     value={filters?.status || ''}
-                    onChange={(e) => handleMetricClick('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Todos os Status</option>
-                    {LEAD_STATUS && Object.values(LEAD_STATUS).map(status => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                    {LEAD_STATUS && Object.entries(LEAD_STATUS).map(([key, value]) => (
+                      <option key={key} value={value}>
+                        {key.charAt(0) + key.slice(1).toLowerCase().replace('_', ' ')}
                       </option>
                     ))}
                   </select>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de Cliente
-                  </label>
                   <select
                     value={filters?.clientType || ''}
-                    onChange={(e) => handleMetricClick('clientType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setFilters(prev => ({ ...prev, clientType: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Todos os Tipos</option>
-                    {CLIENT_TYPES && Object.values(CLIENT_TYPES).map(type => (
-                      <option key={type} value={type}>
-                        {getClientTypeLabel(type)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Orçamento
-                  </label>
-                  <select
-                    value={filters?.budgetRange || ''}
-                    onChange={(e) => handleMetricClick('budgetRange', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todos os Orçamentos</option>
-                    {BUDGET_RANGES && Object.entries(BUDGET_RANGES).map(([key, value]) => (
+                    {CLIENT_TYPES && Object.entries(CLIENT_TYPES).map(([key, value]) => (
                       <option key={key} value={value}>
-                        {key.replace('_', ' ').charAt(0).toUpperCase() + key.replace('_', ' ').slice(1)}
+                        {getClientTypeLabel(value)}
                       </option>
                     ))}
                   </select>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Interesse
-                  </label>
                   <select
                     value={filters?.interestType || ''}
-                    onChange={(e) => handleMetricClick('interestType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setFilters(prev => ({ ...prev, interestType: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Todos os Interesses</option>
                     {LEAD_INTEREST_TYPES && Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
@@ -438,9 +395,9 @@ const LeadsPage = () => {
             </div>
           </div>
 
-          {/* ✅ LEADLIST COM CONVERSÃO SIMPLES */}
+          {/* LeadsList Componente */}
           <LeadsList
-            leads={leads || []}
+            leads={leads}
             loading={loading}
             error={error}
             onLeadUpdate={handleLeadUpdate}
@@ -452,25 +409,11 @@ const LeadsPage = () => {
             maxHeight="calc(100vh - 300px)"
           />
 
-          {/* MODAL DE CRIAÇÃO DE LEAD */}
+          {/* ✅ MODAL DE CRIAÇÃO EXPANDIDO */}
           {showCreateForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Criar Novo Lead</h3>
-                  <button
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      resetForm();
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <span className="sr-only">Fechar</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                <h3 className="text-lg font-semibold mb-4">Criar Novo Lead</h3>
                 
                 <form onSubmit={handleCreateSubmit} className="space-y-6">
                   
@@ -495,6 +438,23 @@ const LeadsPage = () => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tipo de Cliente
+                        </label>
+                        <select
+                          value={formData.clientType}
+                          onChange={(e) => handleFormChange('clientType', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {CLIENT_TYPES && Object.entries(CLIENT_TYPES).map(([key, value]) => (
+                            <option key={key} value={value}>
+                              {getClientTypeLabel(value)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           Telefone *
                         </label>
                         <input
@@ -502,7 +462,6 @@ const LeadsPage = () => {
                           required
                           value={formData.phone}
                           onChange={(e) => handleFormChange('phone', e.target.value)}
-                          placeholder="+351 900 000 000"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -515,45 +474,197 @@ const LeadsPage = () => {
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleFormChange('email', e.target.value)}
-                          placeholder="exemplo@email.com"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Tipo de Cliente
+                          Tipo de Interesse
                         </label>
                         <select
-                          value={formData.clientType}
-                          onChange={(e) => handleFormChange('clientType', e.target.value)}
+                          value={formData.interestType}
+                          onChange={(e) => handleFormChange('interestType', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          {CLIENT_TYPES && Object.values(CLIENT_TYPES).map(type => (
-                            <option key={type} value={type}>
-                              {getClientTypeLabel(type)}
+                          {LEAD_INTEREST_TYPES && Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+                            <option key={key} value={value}>
+                              {key.charAt(0) + key.slice(1).toLowerCase().replace('_', ' ')}
                             </option>
                           ))}
                         </select>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Orçamento
+                        </label>
+                        <select
+                          value={formData.budgetRange}
+                          onChange={(e) => handleFormChange('budgetRange', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="undefined">Não definido</option>
+                          {BUDGET_RANGES && Object.entries(BUDGET_RANGES).map(([key, value]) => (
+                            <option key={key} value={key}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Localização Preferida
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.location}
+                          onChange={(e) => handleFormChange('location', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Cidade, distrito..."
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-end space-x-3 pt-4 border-t">
-                    <button
+                  {/* ✅ SECÇÃO: INFORMAÇÕES DO IMÓVEL */}
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
+                      Informações do Imóvel
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Status do Imóvel
+                        </label>
+                        <select
+                          value={formData.propertyStatus}
+                          onChange={(e) => handleFormChange('propertyStatus', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {PROPERTY_STATUS && Object.entries(PROPERTY_STATUS).map(([key, value]) => (
+                            <option key={key} value={value}>
+                              {getPropertyStatusLabel(value)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Referência do Imóvel
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.propertyReference}
+                          onChange={(e) => handleFormChange('propertyReference', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex: IMO001, REF123..."
+                        />
+                      </div>
+                      
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Link do Imóvel
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.propertyLink}
+                          onChange={(e) => handleFormChange('propertyLink', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ✅ SECÇÃO: INFORMAÇÕES DO GESTOR */}
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
+                      Informações do Gestor do Imóvel
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Nome do Gestor
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.managerName}
+                          onChange={(e) => handleFormChange('managerName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Telefone do Gestor
+                        </label>
+                        <input
+                          type="tel"
+                          value={formData.managerPhone}
+                          onChange={(e) => handleFormChange('managerPhone', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email do Gestor
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.managerEmail}
+                          onChange={(e) => handleFormChange('managerEmail', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Notas sobre o Gestor
+                        </label>
+                        <textarea
+                          value={formData.managerNotes}
+                          onChange={(e) => handleFormChange('managerNotes', e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Informações sobre contactos com o gestor..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECÇÃO: NOTAS GERAIS */}
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
+                      Notas e Observações
+                    </h4>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => handleFormChange('notes', e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Informações adicionais sobre o lead..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <ThemedButton
                       type="button"
+                      variant="outline"
                       onClick={() => {
                         setShowCreateForm(false);
                         resetForm();
                       }}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
                       Cancelar
-                    </button>
-                    <button
+                    </ThemedButton>
+                    <ThemedButton
                       type="submit"
                       disabled={creating}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                      className="flex items-center space-x-2"
                     >
                       {creating ? (
                         <>
@@ -566,7 +677,7 @@ const LeadsPage = () => {
                           <span>Criar Lead</span>
                         </>
                       )}
-                    </button>
+                    </ThemedButton>
                   </div>
                 </form>
               </div>

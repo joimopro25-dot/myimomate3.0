@@ -621,11 +621,6 @@ const useLeads = () => {
     }
   }, [user]);
 
-  // 🔄 RESTO DAS FUNÇÕES (mantidas da versão anterior)
-  // ==================================================
-  // updateLeadStatus, convertLeadToClient, deleteLead, searchLeads, getLeadStats...
-  // [Manter todas as funções existentes sem alteração]
-
   const updateLeadStatus = useCallback(async (leadId, newStatus, notes = '') => {
     if (!user) return;
 
@@ -680,10 +675,280 @@ const useLeads = () => {
     }
   }, [user]);
 
+  // 🔄 FUNÇÃO convertLeadToClient MELHORADA
+  // =======================================
   const convertLeadToClient = useCallback(async (leadId, additionalClientData = {}) => {
-    // [Manter função existente]
-    return { success: false, error: 'Função mantida da versão anterior' };
-  }, [user]);
+    if (!user) {
+      return { success: false, error: 'Utilizador não autenticado' };
+    }
+
+    setConverting(true);
+    setError(null);
+
+    try {
+      // 1. BUSCAR DADOS DO LEAD
+      console.log('📋 Buscando dados do lead:', leadId);
+      const leadRef = doc(db, LEADS_COLLECTION, leadId);
+      const leadSnap = await getDoc(leadRef);
+      
+      if (!leadSnap.exists()) {
+        throw new Error('Lead não encontrado');
+      }
+
+      const leadData = { id: leadSnap.id, ...leadSnap.data() };
+      
+      // Verificar se já foi convertido
+      if (leadData.isConverted || leadData.status === UNIFIED_LEAD_STATUS.CONVERTIDO) {
+        return { 
+          success: false, 
+          error: 'Este lead já foi convertido anteriormente' 
+        };
+      }
+
+      // 2. PREPARAR DADOS DO CLIENTE
+      console.log('👤 Preparando dados do cliente...');
+      const clientData = {
+        // Dados básicos do lead
+        name: leadData.name,
+        email: leadData.email || '',
+        phone: leadData.phone,
+        
+        // Tipos e categorias
+        clientType: leadData.clientType || 'comprador',
+        interestType: leadData.interestType,
+        budgetRange: leadData.budgetRange || 'indefinido',
+        
+        // Localização e preferências
+        location: leadData.location || '',
+        preferredLocations: leadData.location ? [leadData.location] : [],
+        
+        // Informações do imóvel (se disponíveis)
+        propertyStatus: leadData.propertyStatus || 'nao_identificado',
+        propertyReference: leadData.propertyReference || '',
+        propertyLink: leadData.propertyLink || '',
+        
+        // Informações do gestor (se disponíveis)
+        managerName: leadData.managerName || '',
+        managerPhone: leadData.managerPhone || '',
+        managerEmail: leadData.managerEmail || '',
+        managerNotes: leadData.managerNotes || '',
+        
+        // Histórico e origem
+        source: leadData.source || 'lead_conversion',
+        originalLeadId: leadId,
+        convertedFromLead: true,
+        leadConvertedAt: new Date().toISOString(),
+        
+        // Observações consolidadas
+        notes: `${leadData.notes || ''}\n\nConvertido do lead em ${new Date().toLocaleDateString('pt-PT')}\nOrigem: ${leadData.source || 'Manual'}`,
+        
+        // Status e prioridade
+        status: 'ativo',
+        priority: leadData.priority || 'normal',
+        
+        // Dados adicionais fornecidos
+        ...additionalClientData,
+        
+        // Metadados
+        isActive: true,
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        structureVersion: '3.1'
+      };
+
+      // 3. CRIAR CLIENTE NO FIRESTORE
+      console.log('💾 Criando cliente no Firestore...');
+      const clientRef = await addDoc(collection(db, CLIENTS_COLLECTION), clientData);
+      const clientId = clientRef.id;
+      
+      console.log('✅ Cliente criado com ID:', clientId);
+
+      // 4. PREPARAR DADOS DA OPORTUNIDADE
+      console.log('🎯 Preparando dados da oportunidade...');
+      
+      // Determinar tipo de oportunidade baseado no interesse
+      const getOpportunityType = (interestType) => {
+        if (interestType?.includes('compra')) return 'compra';
+        if (interestType?.includes('venda')) return 'venda';
+        if (interestType?.includes('arrendamento')) return 'arrendamento';
+        if (interestType?.includes('aluguer')) return 'aluguer';
+        return 'compra'; // padrão
+      };
+
+      // Calcular valor estimado baseado no orçamento
+      const getBudgetValue = (budgetRange) => {
+        const values = {
+          'ate_50k': 35000,
+          'de_50k_100k': 75000,
+          'de_100k_200k': 150000,
+          'de_200k_300k': 250000,
+          'de_300k_500k': 400000,
+          'de_500k_750k': 625000,
+          'de_750k_1m': 875000,
+          'acima_1m': 1250000,
+          'indefinido': 200000
+        };
+        return values[budgetRange] || 200000;
+      };
+
+      const opportunityData = {
+        // Título e descrição
+        title: `${getOpportunityType(leadData.interestType).charAt(0).toUpperCase() + getOpportunityType(leadData.interestType).slice(1)} - ${leadData.name}`,
+        description: `Oportunidade criada automaticamente da conversão do lead ${leadData.name}.\nTipo: ${leadData.interestType || 'Não especificado'}\nLocalização: ${leadData.location || 'Não especificada'}`,
+        
+        // Cliente
+        clientId: clientId,
+        clientName: leadData.name,
+        clientEmail: leadData.email || '',
+        clientPhone: leadData.phone,
+        
+        // Tipo e status
+        opportunityType: getOpportunityType(leadData.interestType),
+        status: 'qualificacao', // Já qualificado por vir de lead
+        priority: leadData.priority || 'normal',
+        
+        // Valores financeiros
+        value: getBudgetValue(leadData.budgetRange),
+        probability: 25, // Probabilidade inicial para qualificação
+        estimatedCloseDate: (() => {
+          const now = new Date();
+          now.setMonth(now.getMonth() + 3); // 3 meses por padrão
+          return now.toISOString().split('T')[0];
+        })(),
+        
+        // Detalhes do imóvel
+        propertyDetails: {
+          type: leadData.interestType || '',
+          location: leadData.location || '',
+          reference: leadData.propertyReference || '',
+          link: leadData.propertyLink || '',
+          budget: getBudgetValue(leadData.budgetRange),
+          status: leadData.propertyStatus || 'nao_identificado'
+        },
+        
+        // Manager info (se disponível)
+        managerInfo: leadData.managerName ? {
+          name: leadData.managerName,
+          phone: leadData.managerPhone || '',
+          email: leadData.managerEmail || '',
+          notes: leadData.managerNotes || ''
+        } : null,
+        
+        // Origem e observações
+        source: leadData.source || 'lead_conversion',
+        leadId: leadId,
+        convertedFromLead: true,
+        notes: `Convertido automaticamente do lead ${leadData.name} em ${new Date().toLocaleDateString('pt-PT')}.\n\nObservações do lead: ${leadData.notes || 'Nenhuma'}`,
+        
+        // Atividades iniciais
+        activities: [
+          {
+            id: Date.now(),
+            type: 'conversao',
+            title: 'Lead convertido para oportunidade',
+            description: `Lead ${leadData.name} convertido para cliente e oportunidade automaticamente.`,
+            date: new Date().toISOString(),
+            createdBy: user.uid,
+            outcome: 'Conversão realizada com sucesso'
+          }
+        ],
+        
+        // Próximas ações sugeridas
+        nextActions: [
+          'Contactar cliente para validar interesse',
+          'Agendar reunião/visita',
+          'Apresentar opções disponíveis',
+          'Qualificar orçamento específico'
+        ],
+        
+        // Metadados
+        isActive: true,
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        structureVersion: '3.1'
+      };
+
+      // 5. CRIAR OPORTUNIDADE NO FIRESTORE
+      console.log('💾 Criando oportunidade no Firestore...');
+      const opportunityRef = await addDoc(collection(db, OPPORTUNITIES_COLLECTION), opportunityData);
+      const opportunityId = opportunityRef.id;
+      
+      console.log('✅ Oportunidade criada com ID:', opportunityId);
+
+      // 6. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE
+      await updateDoc(clientRef, {
+        hasOpportunities: true,
+        lastOpportunityId: opportunityId,
+        lastOpportunityCreated: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // 7. ATUALIZAR LEAD COMO CONVERTIDO
+      console.log('🔄 Atualizando status do lead...');
+      await updateDoc(leadRef, {
+        status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+        isConverted: true,
+        convertedAt: serverTimestamp(),
+        convertedToClientId: clientId,
+        convertedToOpportunityId: opportunityId,
+        conversionDetails: {
+          clientCreated: true,
+          opportunityCreated: true,
+          convertedBy: user.uid,
+          conversionDate: new Date().toISOString(),
+          automatedConversion: true
+        },
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid
+      });
+
+      // 8. ATUALIZAR LISTA LOCAL DE LEADS
+      setLeads(prev => 
+        prev.map(lead => 
+          lead.id === leadId 
+            ? { 
+                ...lead, 
+                status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+                isConverted: true,
+                convertedAt: new Date(),
+                convertedToClientId: clientId,
+                convertedToOpportunityId: opportunityId,
+                updatedAt: new Date()
+              }
+            : lead
+        )
+      );
+
+      setConverting(false);
+      
+      console.log('🎉 Conversão concluída com sucesso!');
+      console.log('Cliente ID:', clientId);
+      console.log('Oportunidade ID:', opportunityId);
+      
+      return {
+        success: true,
+        clientId: clientId,
+        opportunityId: opportunityId,
+        clientData: { id: clientId, ...clientData },
+        opportunityData: { id: opportunityId, ...opportunityData },
+        message: `Lead convertido com sucesso!\n✅ Cliente criado: ${leadData.name}\n✅ Oportunidade criada: ${opportunityData.title}`
+      };
+
+    } catch (err) {
+      console.error('❌ Erro na conversão:', err);
+      setError(err.message || 'Erro ao converter lead');
+      setConverting(false);
+      
+      return {
+        success: false,
+        error: err.message || 'Erro inesperado ao converter lead para cliente'
+      };
+    }
+  }, [user, setConverting, setError, setLeads, UNIFIED_LEAD_STATUS, LEADS_COLLECTION, CLIENTS_COLLECTION, OPPORTUNITIES_COLLECTION]);
 
   const deleteLead = useCallback(async (leadId, hardDelete = false) => {
     if (!user) return;
