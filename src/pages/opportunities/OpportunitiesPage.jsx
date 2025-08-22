@@ -319,7 +319,7 @@ const OpportunitiesPage = () => {
       <Sidebar />
       
       {/* Conteúdo Principal - MANTÉM MARGEM LEFT PARA SIDEBAR */}
-      <div className="ml-64 flex-1 min-h-screen bg-gray-50">
+      <div className="flex-1 min-h-screen bg-gray-50">
         <ThemedContainer className="px-6 py-6">
           
           {/* Header da Página - MANTIDO IDÊNTICO */}
