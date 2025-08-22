@@ -35,6 +35,42 @@ import {
   UNIFIED_LEAD_STATUS
 } from '../constants/unifiedTypes';
 
+// ✅ FALLBACKS PARA CONSTANTES (caso não estejam disponíveis)
+const FALLBACK_CLIENT_STATUS = {
+  ATIVO: 'ativo',
+  INATIVO: 'inativo'
+};
+
+const FALLBACK_OPPORTUNITY_STATUS = {
+  IDENTIFICACAO: 'identificacao',
+  QUALIFICACAO: 'qualificacao',
+  FECHADO_GANHO: 'fechado_ganho'
+};
+
+const FALLBACK_OPPORTUNITY_TYPES = {
+  COMPRA: 'compra',
+  VENDA: 'venda',
+  ARRENDAMENTO: 'arrendamento'
+};
+
+const FALLBACK_OPPORTUNITY_PRIORITIES = {
+  NORMAL: 'normal',
+  ALTA: 'alta',
+  URGENTE: 'urgente'
+};
+
+const FALLBACK_LEAD_STATUS = {
+  NOVO: 'novo',
+  CONVERTIDO: 'convertido'
+};
+
+// Usar as constantes importadas ou fallbacks
+const CLIENT_STATUS = UNIFIED_CLIENT_STATUS || FALLBACK_CLIENT_STATUS;
+const OPPORTUNITY_STATUS = UNIFIED_OPPORTUNITY_STATUS || FALLBACK_OPPORTUNITY_STATUS;
+const OPPORTUNITY_TYPES = UNIFIED_OPPORTUNITY_TYPES || FALLBACK_OPPORTUNITY_TYPES;
+const OPPORTUNITY_PRIORITIES = UNIFIED_OPPORTUNITY_PRIORITIES || FALLBACK_OPPORTUNITY_PRIORITIES;
+const LEAD_STATUS = UNIFIED_LEAD_STATUS || FALLBACK_LEAD_STATUS;
+
 const useLeadConversion = () => {
   const { user } = useAuth();
   const [isConverting, setIsConverting] = useState(false);
@@ -207,7 +243,7 @@ const useLeadConversion = () => {
       fonteProcura: formData.fonteProcura || '',
       
       // Status e metadados
-      status: UNIFIED_CLIENT_STATUS.ATIVO,
+      status: CLIENT_STATUS.ATIVO,
       isActive: true,
       clientType: 'principal',
       hasOpportunities: true, // Será criada automaticamente
@@ -276,7 +312,7 @@ const useLeadConversion = () => {
       temConjuge: true,
       
       // Status
-      status: UNIFIED_CLIENT_STATUS.ATIVO,
+      status: CLIENT_STATUS.ATIVO,
       isActive: true,
       clientType: 'conjuge',
       hasOpportunities: true, // Compartilha oportunidades
@@ -309,10 +345,10 @@ const useLeadConversion = () => {
   const createOpportunity = useCallback(async (clientData, spouseData, leadData, formData, userId) => {
     // Determinar tipo de oportunidade baseado no interesse
     const getOpportunityType = (interestType) => {
-      if (interestType?.includes('compra')) return UNIFIED_OPPORTUNITY_TYPES.COMPRA;
-      if (interestType?.includes('venda')) return UNIFIED_OPPORTUNITY_TYPES.VENDA;
-      if (interestType?.includes('arrendamento')) return UNIFIED_OPPORTUNITY_TYPES.ARRENDAMENTO;
-      return UNIFIED_OPPORTUNITY_TYPES.COMPRA; // padrão
+      if (interestType?.includes('compra')) return OPPORTUNITY_TYPES.COMPRA;
+      if (interestType?.includes('venda')) return OPPORTUNITY_TYPES.VENDA;
+      if (interestType?.includes('arrendamento')) return OPPORTUNITY_TYPES.ARRENDAMENTO;
+      return OPPORTUNITY_TYPES.COMPRA; // padrão
     };
 
     // Calcular valor estimado baseado no orçamento
@@ -349,8 +385,8 @@ const useLeadConversion = () => {
       
       // Tipo e status
       opportunityType: getOpportunityType(leadData.interestType),
-      status: UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO, // Já qualificado
-      priority: formData.prioridadeCliente || UNIFIED_OPPORTUNITY_PRIORITIES.NORMAL,
+      status: OPPORTUNITY_STATUS.QUALIFICACAO, // Já qualificado
+      priority: formData.prioridadeCliente || OPPORTUNITY_PRIORITIES.NORMAL,
       
       // Valores financeiros
       value: estimatedValue,
@@ -539,7 +575,7 @@ const useLeadConversion = () => {
         // 5. ATUALIZAR LEAD COMO CONVERTIDO
         console.log('🔄 Atualizando status do lead...');
         transaction.update(leadRef, {
-          status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+          status: LEAD_STATUS.CONVERTIDO,
           isConverted: true,
           convertedAt: serverTimestamp(),
           convertedToClientId: mainClient.id,
