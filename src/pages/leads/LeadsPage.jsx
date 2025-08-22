@@ -327,7 +327,8 @@ const LeadsPage = () => {
     <div className="flex">
       <Sidebar />
       
-      <div className="ml-64 flex-1 min-h-screen bg-gray-50">
+      {/* ✅ CORREÇÃO: Removido ml-64 aqui - mudança da linha 349 */}
+      <div className="flex-1 min-h-screen bg-gray-50">
         <div className="px-4 py-4">
           
           {/* Header da Página */}
