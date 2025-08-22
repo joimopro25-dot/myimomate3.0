@@ -299,3 +299,46 @@ const Sidebar = ({ className = '' }) => {
 };
 
 export default Sidebar;
+
+/*
+🎯 FUNCIONALIDADES IMPLEMENTADAS:
+
+✅ ELIMINAÇÃO DE DUPLICAÇÃO:
+- Substitui sidebar duplicada em 6-7 ficheiros
+- Componente único reutilizável
+- Manutenção centralizada
+
+✅ NAVEGAÇÃO INTELIGENTE:
+- Estado ativo automático baseado na rota atual
+- Hero Icons consistentes
+- Hover effects profissionais
+- Transições suaves
+
+✅ INTEGRAÇÃO COMPLETA:
+- Sistema de temas (dark/light)
+- Contexto de autenticação
+- Informações do utilizador
+- Status do sistema em tempo real
+
+✅ UX PROFISSIONAL:
+- Seções organizadas (Principal/Ferramentas)
+- Tooltips com descrições
+- Indicador visual de página ativa
+- Footer informativo
+
+✅ RESPONSIVIDADE:
+- Layout flexível
+- Overflow scroll automático
+- Classes Tailwind responsivas
+- Design mobile-friendly
+
+PRÓXIMO PASSO:
+Aplicar este componente em todas as páginas que têm sidebar duplicada:
+1. LeadsPage.jsx
+2. ClientsPage.jsx  
+3. VisitsPage.jsx
+4. OpportunitiesPage.jsx
+5. DealsPage.jsx
+6. TasksPage.jsx
+7. CalendarPage.jsx
+*/
