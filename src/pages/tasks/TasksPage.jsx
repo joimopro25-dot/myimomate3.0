@@ -1,18 +1,17 @@
-// src/pages/tasks/TasksPage.jsx - COM SIDEBAR REUTILIZÁVEL - VERSÃO COMPLETA
-// ✅ Aplicando Sidebar.jsx componente reutilizável
+// src/pages/tasks/TasksPage.jsx - LAYOUT SIDEBAR HARMONIOSO APLICADO
+// ✅ Removido ml-64 e ThemedContainer inconsistente
+// ✅ Aplicado layout direto harmonioso com outras páginas
 // ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES (100%)
-// ✅ Substitui DashboardLayout por layout com Sidebar
-// ✅ Zero funcionalidades perdidas - sistema de tarefas completo
-// 🔥 CORRIGIDO: CheckIcon em vez de CheckSquareIcon (Heroicons v2)
+// ✅ Padronização completa com VisitsPage, OpportunitiesPage, DealsPage
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/layout/Sidebar'; // 🔥 NOVO IMPORT
-import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
+import Sidebar from '../../components/layout/Sidebar';
+import { ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useTasks from '../../hooks/useTasks';
 import { 
-  CheckIcon, // 🔥 CORRIGIDO: CheckSquareIcon NÃO EXISTE em Heroicons v2
+  CheckIcon,
   ClockIcon,
   CheckCircleIcon,
   EyeIcon,
@@ -27,9 +26,9 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
-// Componente de Métrica Compacta
+// Componente de Métrica Compacta (Padrão Estabelecido)
 const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) => {
-  const { theme, isDark } = useTheme();
+  const { isDark } = useTheme();
   
   const colorClasses = {
     blue: isDark() ? 'from-blue-600 to-blue-700' : 'from-blue-500 to-blue-600',
@@ -121,14 +120,14 @@ const TasksPage = () => {
     return true;
   });
 
-  // 📊 MÉTRICAS CALCULADAS
+  // Métricas Calculadas
   const totalTasks = tasks.length;
   const pendingTasks = tasks.filter(t => t.status === 'pendente').length;
   const inProgressTasks = tasks.filter(t => t.status === 'em_progresso').length;
   const completedTasks = tasks.filter(t => t.status === 'completa').length;
   const overdueTasks = tasks.filter(t => isOverdue && isOverdue(t)).length;
 
-  // 🔧 HANDLERS
+  // Handlers
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
@@ -210,7 +209,7 @@ const TasksPage = () => {
     }
   };
 
-  // 🛡️ FUNÇÕES SEGURAS
+  // Funções Seguras
   const safeIsOverdue = (task) => {
     try {
       return isOverdue && typeof isOverdue === 'function' ? isOverdue(task) : false;
@@ -227,7 +226,7 @@ const TasksPage = () => {
     }
   };
 
-  // 🏷️ FUNÇÕES DE LABEL E COR
+  // Funções de Label e Cor
   const getStatusLabel = (status) => {
     const labels = {
       'pendente': 'Pendente',
@@ -293,13 +292,13 @@ const TasksPage = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* 🎨 SIDEBAR REUTILIZÁVEL */}
+      {/* Sidebar Reutilizável */}
       <Sidebar />
 
-      {/* 📱 CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 ml-64"> {/* ml-64 para compensar sidebar fixa */}
-        <ThemedContainer className="p-6">
-          {/* 📊 HEADER COM MÉTRICAS COMPACTAS */}
+      {/* Conteúdo Principal - Layout Harmonioso */}
+      <div className="flex-1">
+        <div className="p-6">
+          {/* Header com Métricas Compactas */}
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Sistema de Tarefas</h1>
@@ -326,7 +325,7 @@ const TasksPage = () => {
             </div>
           </div>
 
-          {/* FEEDBACK MESSAGES */}
+          {/* Feedback Messages */}
           {feedbackMessage && (
             <div className={`p-4 rounded-lg mb-6 ${
               feedbackType === 'success' 
@@ -337,7 +336,7 @@ const TasksPage = () => {
             </div>
           )}
 
-          {/* 📊 CARDS DE MÉTRICAS COMPACTAS */}
+          {/* Cards de Métricas Compactas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <CompactMetricCard
               title="Total de Tarefas"
@@ -385,7 +384,7 @@ const TasksPage = () => {
             />
           </div>
 
-          {/* 🔍 FILTROS E CONTROLES */}
+          {/* Filtros e Controles */}
           <ThemedCard className="mb-6">
             <div className="p-4">
               <div className="flex flex-wrap gap-4 items-center">
@@ -484,7 +483,7 @@ const TasksPage = () => {
             </div>
           </ThemedCard>
 
-          {/* FORMULÁRIO DE CRIAÇÃO */}
+          {/* Formulário de Criação */}
           {showCreateForm && (
             <ThemedCard className="mb-6">
               <div className="p-6">
@@ -635,7 +634,7 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* 📋 CONTEÚDO PRINCIPAL - VISTA LISTA */}
+          {/* Conteúdo Principal - Vista Lista */}
           {view === 'list' && (
             <ThemedCard>
               <div className="p-4">
@@ -776,7 +775,7 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* VISTA KANBAN */}
+          {/* Vista Kanban */}
           {view === 'kanban' && (
             <ThemedCard>
               <div className="p-6">
@@ -800,7 +799,7 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* VISTA CALENDÁRIO */}
+          {/* Vista Calendário */}
           {view === 'calendar' && (
             <ThemedCard>
               <div className="p-6">
@@ -824,7 +823,7 @@ const TasksPage = () => {
             </ThemedCard>
           )}
 
-          {/* MODAL DE TEMPLATES */}
+          {/* Modal de Templates */}
           {showTemplatesModal && TASK_TEMPLATES && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -863,7 +862,7 @@ const TasksPage = () => {
             </div>
           )}
 
-          {/* MODAL DE DETALHES DA TAREFA */}
+          {/* Modal de Detalhes da Tarefa */}
           {showTaskModal && selectedTask && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-lg">
@@ -983,7 +982,7 @@ const TasksPage = () => {
             </div>
           )}
 
-        </ThemedContainer>
+        </div>
       </div>
     </div>
   );
