@@ -413,7 +413,7 @@ const DashboardLayout = ({ children, showWidgets = false }) => {
     },
     {
       name: 'Configurações',
-      href: '/settings',
+      href: '/configurations',
       icon: CogIcon,
       current: location.pathname.startsWith('/settings')
     },

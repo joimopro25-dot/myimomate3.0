@@ -1,7 +1,8 @@
-// src/pages/dashboard/DashboardPage.jsx - LAYOUT ORIGINAL + DADOS REAIS
+// src/pages/dashboard/DashboardPage.jsx - LAYOUT ORIGINAL + DADOS REAIS + USER MENU
 // ✅ Mantém exatamente o layout original que estava funcionando
 // ✅ Apenas conecta dados reais dos hooks
 // ✅ Preserva toda a estrutura visual existente
+// ✅ Adiciona APENAS user menu no canto superior direito
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,12 @@ import {
   PlusIcon,
   ArrowRightIcon,
   BellIcon,
-  CalendarIcon
+  CalendarIcon,
+  UserCircleIcon,
+  ChevronDownIcon,
+  CogIcon,
+  QuestionMarkCircleIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 
 // 🔥 IMPORTAR HOOKS PARA DADOS REAIS
@@ -32,14 +38,15 @@ import useTasks from '../../hooks/useTasks';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  const { userProfile, currentUser, logout } = useAuth();
   const { isDark } = useTheme();
 
-  // 🎯 ESTADOS PARA CONTROLAR MODAIS E EXPANDIR ATIVIDADE
+  // 🎯 ESTADOS PARA CONTROLAR MODAIS E EXPANDIR ATIVIDADE + USER MENU
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [expandedActivity, setExpandedActivity] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false); // NOVO
 
   // 🔄 CONECTAR HOOKS REAIS
   const { leads, loading: leadsLoading } = useLeads();
@@ -48,6 +55,25 @@ const DashboardPage = () => {
   const { deals, loading: dealsLoading } = useDeals();
   const { visits, loading: visitsLoading } = useVisits();
   const { tasks, loading: tasksLoading } = useTasks();
+
+  // FECHAR USER MENU QUANDO CLICAR FORA
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('#user-menu')) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // HANDLER LOGOUT
+  const handleLogout = async () => {
+    const result = await logout();
+    if (result.success) {
+      navigate('/login');
+    }
+  };
 
   // 📊 CALCULAR MÉTRICAS REAIS (mantendo a estrutura do original)
   const metrics = {
@@ -180,6 +206,126 @@ const DashboardPage = () => {
 
       {/* Conteúdo Principal - MANTÉM ESTRUTURA ORIGINAL */}
       <div className="flex-1">
+        
+        {/* NOVO: Header simples com User Menu no canto direito */}
+        <div className={`flex items-center justify-end p-4 ${
+          isDark() ? 'bg-gray-900' : 'bg-white'
+        }`}>
+          {/* User Menu */}
+          <div className="relative" id="user-menu">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className={`flex items-center space-x-2 p-2 rounded-lg transition-colors ${
+                isDark() 
+                  ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <UserCircleIcon className="w-8 h-8" />
+              <ChevronDownIcon className={`w-4 h-4 transition-transform ${
+                userMenuOpen ? 'rotate-180' : ''
+              }`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {userMenuOpen && (
+              <div className={`absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50 ${
+                isDark() 
+                  ? 'bg-gray-800 border-gray-700' 
+                  : 'bg-white border-gray-200'
+              }`}>
+                
+                {/* Informações da conta */}
+                <div className={`px-4 py-3 border-b ${
+                  isDark() ? 'border-gray-700' : 'border-gray-100'
+                }`}>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium">
+                      {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        isDark() ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {userProfile?.name || 'Utilizador'}
+                      </p>
+                      <p className={`text-xs ${
+                        isDark() ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {currentUser?.email}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-2">
+                  <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setUserMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center px-4 py-2 text-sm transition-colors ${
+                      isDark() 
+                        ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <UserCircleIcon className="w-4 h-4 mr-3" />
+                    Perfil
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      navigate('/configurations');
+                      setUserMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center px-4 py-2 text-sm transition-colors ${
+                      isDark() 
+                        ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <CogIcon className="w-4 h-4 mr-3" />
+                    Configurações
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      navigate('/support');
+                      setUserMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center px-4 py-2 text-sm transition-colors ${
+                      isDark() 
+                        ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <QuestionMarkCircleIcon className="w-4 h-4 mr-3" />
+                    Suporte
+                  </button>
+                  
+                  <div className={`border-t my-2 ${
+                    isDark() ? 'border-gray-700' : 'border-gray-100'
+                  }`}></div>
+                  
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                  >
+                    <ArrowRightOnRectangleIcon className="w-4 h-4 mr-3" />
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RESTO DO CONTEÚDO - MANTÉM EXATAMENTE IGUAL */}
         <div className="p-6">
           {/* Header de Boas-vindas - MANTÉM ORIGINAL */}
           <div className="mb-8">
@@ -430,7 +576,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* MODAIS PARA AÇÕES RÁPIDAS */}
+      {/* MODAIS PARA AÇÕES RÁPIDAS - MANTÉM TODOS ORIGINAIS */}
       
       {/* Modal de Novo Lead */}
       {showLeadModal && (

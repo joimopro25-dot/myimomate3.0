@@ -100,7 +100,7 @@ const ResponsiveLayout = ({ children, title, actions }) => {
     },
     { 
       name: 'Configurações', 
-      href: '/settings', 
+      href: '/configurations', 
       icon: CogIcon, 
       current: location.pathname.startsWith('/settings') 
     }
