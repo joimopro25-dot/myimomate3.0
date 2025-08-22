@@ -1,392 +1,308 @@
-// src/pages/dashboard/DashboardPage.jsx - COM SIDEBAR E LAYOUT CONSISTENTE
+// src/pages/dashboard/DashboardPage.jsx - CORRIGIDO
+// ✅ Navegação inteligente + Sidebar reutilizável  
+// ✅ Cards clicáveis com métricas simuladas
+// ✅ Layout harmonioso aplicado
+// ✅ Tags JSX corrigidas
+// ✅ Ícones Heroicons corrigidos
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import Sidebar from '../../components/layout/Sidebar';
+import { ThemedCard, ThemedButton, ThemedText, ThemedHeading } from '../../components/common/ThemedComponents';
 import { 
-  Users, 
-  Calendar, 
-  Target, 
-  Briefcase, 
-  CheckSquare, 
-  BarChart3,
-  TrendingUp,
-  Plus,
-  ArrowRight,
-  Phone,
-  Home,
-  Clock,
-  DollarSign,
-  Settings,
-  Link
-} from 'lucide-react';
-import { 
-  ThemedContainer, 
-  ThemedHeading, 
-  ThemedText,
-  ThemedButton 
-} from '../../components/common/ThemedComponents';
-
-// Sidebar Temporária (até criar componente reutilizável)
-const Sidebar = () => {
-  const navigate = useNavigate();
-  
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
-    { id: 'leads', label: 'Leads', icon: Phone, path: '/leads' },
-    { id: 'clients', label: 'Clientes', icon: Users, path: '/clients' },
-    { id: 'visits', label: 'Visitas', icon: Home, path: '/visits' },
-    { id: 'opportunities', label: 'Oportunidades', icon: Target, path: '/opportunities' },
-    { id: 'deals', label: 'Negócios', icon: Briefcase, path: '/deals' },
-    { id: 'tasks', label: 'Tarefas', icon: CheckSquare, path: '/tasks' },
-    { id: 'calendar', label: 'Calendário', icon: Calendar, path: '/calendar' },
-    { id: 'reports', label: 'Relatórios', icon: BarChart3, path: '/reports' },
-    { id: 'integrations', label: 'Integrações', icon: Link, path: '/integrations' },
-    { id: 'settings', label: 'Configurações', icon: Settings, path: '/settings' },
-  ];
-
-  return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 shadow-sm z-10">
-      <div className="p-6">
-        <div className="flex items-center mb-8">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg mr-3 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">M</span>
-          </div>
-          <div>
-            <div className="font-bold text-gray-900">MyImoMate</div>
-            <div className="text-xs text-gray-500">CRM Imobiliário</div>
-          </div>
-        </div>
-        
-        <nav className="space-y-1">
-          {menuItems.map((item) => {
-            const IconComponent = item.icon;
-            const isActive = window.location.pathname === item.path;
-            
-            return (
-              <button
-                key={item.id}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <IconComponent className="h-5 w-5 mr-3" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-    </div>
-  );
-};
+  UserGroupIcon,
+  UsersIcon,
+  HomeIcon,
+  BriefcaseIcon, // ✅ Substituído TargetIcon por BriefcaseIcon
+  CurrencyEuroIcon,
+  CheckCircleIcon,
+  PlusIcon,
+  ArrowRightIcon,
+  BellIcon,
+  CalendarIcon
+} from '@heroicons/react/24/outline';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  
-  // Estados para dados simulados
-  const [dashboardData, setDashboardData] = useState({
-    leads: { count: 12, recent: 3 },
-    clients: { count: 8, recent: 2 },
-    visits: { count: 15, today: 4 },
-    opportunities: { count: 6, value: 250000 },
-    deals: { count: 3, value: 180000 },
-    tasks: { count: 18, pending: 7 }
-  });
+  const { userProfile } = useAuth();
+  const { isDark } = useTheme();
 
-  // Navegação inteligente - Cards clicáveis
-  const handleCardClick = (module) => {
-    navigate(`/${module}`);
+  // Dados simulados de demonstração
+  const metrics = {
+    leads: { total: 245, new: 38, trend: '+15%' },
+    clients: { total: 89, active: 67, trend: '+12%' },
+    visits: { total: 156, scheduled: 22, trend: '+8%' },
+    opportunities: { total: 45, high: 12, trend: '+25%' },
+    deals: { total: 34, closed: 18, trend: '+18%' },
+    revenue: { total: 245000, monthly: 68000, trend: '+22%' }
   };
 
-  const handleQuickAction = (action) => {
-    switch(action) {
-      case 'new-lead':
-        navigate('/leads');
-        break;
-      case 'schedule-visit':
-        navigate('/visits');
-        break;
-      case 'new-client':
-        navigate('/clients');
-        break;
-      case 'new-task':
-        navigate('/tasks');
-        break;
-      default:
-        console.log('Ação rápida:', action);
-    }
+  // Componente de Card Métrica
+  const MetricCard = ({ title, value, subValue, trend, icon: Icon, color = 'blue', onClick }) => {
+    const colorClasses = {
+      blue: isDark() 
+        ? 'from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600' 
+        : 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
+      green: isDark() 
+        ? 'from-green-600 to-green-700 hover:from-green-500 hover:to-green-600' 
+        : 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
+      purple: isDark() 
+        ? 'from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600' 
+        : 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
+      yellow: isDark() 
+        ? 'from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600' 
+        : 'from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700',
+      red: isDark() 
+        ? 'from-red-600 to-red-700 hover:from-red-500 hover:to-red-600' 
+        : 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
+      teal: isDark() 
+        ? 'from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600' 
+        : 'from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700'
+    };
+
+    return (
+      <div 
+        onClick={onClick}
+        className={`
+          relative overflow-hidden rounded-xl p-6 cursor-pointer
+          bg-gradient-to-br ${colorClasses[color]}
+          text-white shadow-lg hover:shadow-xl 
+          transform hover:scale-105 transition-all duration-200
+          group
+        `}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-white/80 mb-2">{title}</p>
+            <p className="text-3xl font-bold text-white">{value}</p>
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-sm text-white/70">{subValue}</span>
+              <span className="text-sm font-medium text-white bg-white/20 px-2 py-1 rounded-full">
+                {trend}
+              </span>
+            </div>
+          </div>
+          <div className="ml-4">
+            <Icon className="h-12 w-12 text-white/80 group-hover:text-white transition-colors" />
+          </div>
+        </div>
+        
+        {/* Efeito hover */}
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+        
+        {/* Seta indicativa */}
+        <ArrowRightIcon className="absolute bottom-4 right-4 h-5 w-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all duration-200" />
+      </div>
+    );
   };
 
-  // Métricas clicáveis com hover effects
-  const metricsCards = [
+  // Quick Actions
+  const quickActions = [
     {
-      id: 'leads',
-      title: 'Leads',
-      count: dashboardData.leads.count,
-      subtitle: `${dashboardData.leads.recent} novos hoje`,
-      icon: Phone,
-      color: 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 hover:from-blue-100 hover:to-blue-200',
-      textColor: 'text-blue-800',
-      iconColor: 'text-blue-600',
-      action: () => handleCardClick('leads')
+      title: 'Novo Lead',
+      description: 'Adicionar novo contacto',
+      icon: UserGroupIcon,
+      color: 'blue',
+      action: () => navigate('/leads/new')
     },
     {
-      id: 'clients',
-      title: 'Clientes',
-      count: dashboardData.clients.count,
-      subtitle: `${dashboardData.clients.recent} novos esta semana`,
-      icon: Users,
-      color: 'bg-gradient-to-r from-green-50 to-green-100 border-green-200 hover:from-green-100 hover:to-green-200',
-      textColor: 'text-green-800',
-      iconColor: 'text-green-600',
-      action: () => handleCardClick('clients')
+      title: 'Marcar Visita',
+      description: 'Agendar nova visita',
+      icon: CalendarIcon,
+      color: 'green',
+      action: () => navigate('/visits/new')
     },
     {
-      id: 'visits',
-      title: 'Visitas',
-      count: dashboardData.visits.count,
-      subtitle: `${dashboardData.visits.today} agendadas hoje`,
-      icon: Home,
-      color: 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 hover:from-purple-100 hover:to-purple-200',
-      textColor: 'text-purple-800',
-      iconColor: 'text-purple-600',
-      action: () => handleCardClick('visits')
-    },
-    {
-      id: 'opportunities',
-      title: 'Oportunidades',
-      count: dashboardData.opportunities.count,
-      subtitle: `€${(dashboardData.opportunities.value / 1000).toFixed(0)}k em pipeline`,
-      icon: Target,
-      color: 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 hover:from-orange-100 hover:to-orange-200',
-      textColor: 'text-orange-800',
-      iconColor: 'text-orange-600',
-      action: () => handleCardClick('opportunities')
-    },
-    {
-      id: 'deals',
-      title: 'Negócios',
-      count: dashboardData.deals.count,
-      subtitle: `€${(dashboardData.deals.value / 1000).toFixed(0)}k em vendas`,
-      icon: Briefcase,
-      color: 'bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 hover:from-indigo-100 hover:to-indigo-200',
-      textColor: 'text-indigo-800',
-      iconColor: 'text-indigo-600',
-      action: () => handleCardClick('deals')
-    },
-    {
-      id: 'tasks',
-      title: 'Tarefas',
-      count: dashboardData.tasks.count,
-      subtitle: `${dashboardData.tasks.pending} pendentes`,
-      icon: CheckSquare,
-      color: 'bg-gradient-to-r from-teal-50 to-teal-100 border-teal-200 hover:from-teal-100 hover:to-teal-200',
-      textColor: 'text-teal-800',
-      iconColor: 'text-teal-600',
-      action: () => handleCardClick('tasks')
+      title: 'Nova Tarefa',
+      description: 'Criar follow-up',
+      icon: CheckCircleIcon,
+      color: 'purple',
+      action: () => navigate('/tasks/new')
     }
   ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
       <Sidebar />
-      
+
+      {/* Conteúdo Principal */}
       <div className="flex-1">
         <div className="p-6">
-          {/* Header Principal */}
+          {/* Header de Boas-vindas */}
           <div className="mb-8">
-            <ThemedHeading level={1} className="mb-2">
-              Dashboard Principal
+            <ThemedHeading level={1} className="text-3xl font-bold text-gray-900 mb-2">
+              Olá, {userProfile?.name || 'Utilizador'}! 👋
             </ThemedHeading>
-            <ThemedText className="text-gray-600">
-              Visão geral do seu negócio imobiliário
+            <ThemedText className="text-lg text-gray-600">
+              Aqui está o resumo do seu negócio hoje.
             </ThemedText>
           </div>
 
-          {/* Métricas Principais (Clicáveis) */}
+          {/* Cards de Métricas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {metricsCards.map((metric) => {
-              const IconComponent = metric.icon;
-              return (
-                <div
-                  key={metric.id}
-                  className={`${metric.color} border-2 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group`}
-                  onClick={metric.action}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg bg-white ${metric.iconColor}`}>
-                      <IconComponent className="h-6 w-6" />
-                    </div>
-                    <ArrowRight className={`h-5 w-5 ${metric.iconColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <ThemedText className={`text-sm font-medium ${metric.textColor}`}>
-                      {metric.title}
-                    </ThemedText>
-                    <ThemedHeading level={2} className={`${metric.textColor}`}>
-                      {metric.count}
-                    </ThemedHeading>
-                    <ThemedText className={`text-xs ${metric.textColor} opacity-80`}>
-                      {metric.subtitle}
-                    </ThemedText>
-                  </div>
-                  
-                  <div className={`mt-4 text-xs ${metric.textColor} opacity-70 group-hover:opacity-100 transition-opacity`}>
-                    👆 Clique para gerir
-                  </div>
-                </div>
-              );
-            })}
+            <MetricCard
+              title="Leads"
+              value={metrics.leads.total}
+              subValue={`${metrics.leads.new} novos`}
+              trend={metrics.leads.trend}
+              icon={UserGroupIcon}
+              color="blue"
+              onClick={() => navigate('/leads')}
+            />
+            
+            <MetricCard
+              title="Clientes"
+              value={metrics.clients.total}
+              subValue={`${metrics.clients.active} ativos`}
+              trend={metrics.clients.trend}
+              icon={UsersIcon}
+              color="green"
+              onClick={() => navigate('/clients')}
+            />
+            
+            <MetricCard
+              title="Visitas"
+              value={metrics.visits.total}
+              subValue={`${metrics.visits.scheduled} agendadas`}
+              trend={metrics.visits.trend}
+              icon={HomeIcon}
+              color="purple"
+              onClick={() => navigate('/visits')}
+            />
+            
+            <MetricCard
+              title="Oportunidades"
+              value={metrics.opportunities.total}
+              subValue={`${metrics.opportunities.high} alta prioridade`}
+              trend={metrics.opportunities.trend}
+              icon={BriefcaseIcon} // ✅ Corrigido: BriefcaseIcon em vez de TargetIcon
+              color="yellow"
+              onClick={() => navigate('/opportunities')}
+            />
+            
+            <MetricCard
+              title="Negócios"
+              value={metrics.deals.total}
+              subValue={`${metrics.deals.closed} fechados`}
+              trend={metrics.deals.trend}
+              icon={CheckCircleIcon}
+              color="teal"
+              onClick={() => navigate('/deals')}
+            />
+            
+            <MetricCard
+              title="Receita"
+              value={`€${(metrics.revenue.total / 1000).toFixed(0)}k`}
+              subValue={`€${(metrics.revenue.monthly / 1000).toFixed(0)}k este mês`}
+              trend={metrics.revenue.trend}
+              icon={CurrencyEuroIcon}
+              color="red"
+              onClick={() => navigate('/reports')}
+            />
           </div>
 
-          {/* Ações Rápidas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Ações Rápidas - Lado Esquerdo */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center mb-4">
-                <Plus className="h-5 w-5 text-blue-600 mr-2" />
-                <ThemedHeading level={3}>Ações Rápidas</ThemedHeading>
+          {/* Seção de Ações Rápidas e Atividade */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Ações Rápidas */}
+            <ThemedCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <ThemedHeading level={3} className="text-lg font-semibold">
+                    Ações Rápidas
+                  </ThemedHeading>
+                  <PlusIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                
+                <div className="space-y-3">
+                  {quickActions.map((action, index) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={index}
+                        onClick={action.action}
+                        className="w-full flex items-center p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <div className={`p-2 rounded-lg mr-3 ${
+                          action.color === 'blue' ? 'bg-blue-100 text-blue-600' :
+                          action.color === 'green' ? 'bg-green-100 text-green-600' :
+                          'bg-purple-100 text-purple-600'
+                        }`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{action.title}</p>
+                          <p className="text-sm text-gray-500">{action.description}</p>
+                        </div>
+                        <ArrowRightIcon className="h-4 w-4 text-gray-400" />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              
-              <div className="space-y-3">
-                <ThemedButton
-                  variant="outline"
-                  className="w-full justify-start text-left"
-                  onClick={() => handleQuickAction('new-lead')}
-                >
-                  <Phone className="h-4 w-4 mr-2" />
-                  Adicionar Novo Lead
-                </ThemedButton>
-                
-                <ThemedButton
-                  variant="outline"
-                  className="w-full justify-start text-left"
-                  onClick={() => handleQuickAction('schedule-visit')}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Agendar Visita
-                </ThemedButton>
-                
-                <ThemedButton
-                  variant="outline"
-                  className="w-full justify-start text-left"
-                  onClick={() => handleQuickAction('new-client')}
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Registar Cliente
-                </ThemedButton>
-                
-                <ThemedButton
-                  variant="outline"
-                  className="w-full justify-start text-left"
-                  onClick={() => handleQuickAction('new-task')}
-                >
-                  <CheckSquare className="h-4 w-4 mr-2" />
-                  Criar Tarefa
-                </ThemedButton>
-              </div>
-            </div>
+            </ThemedCard>
 
-            {/* Resumo do Pipeline - Lado Direito */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center mb-4">
-                <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
-                <ThemedHeading level={3}>Pipeline de Vendas</ThemedHeading>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <ThemedText className="text-sm">Oportunidades Ativas</ThemedText>
-                  <ThemedText className="font-semibold">
-                    {dashboardData.opportunities.count}
-                  </ThemedText>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <ThemedText className="text-sm">Valor em Pipeline</ThemedText>
-                  <ThemedText className="font-semibold text-blue-600">
-                    €{(dashboardData.opportunities.value / 1000).toFixed(0)}k
-                  </ThemedText>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <ThemedText className="text-sm">Negócios Fechados</ThemedText>
-                  <ThemedText className="font-semibold text-green-600">
-                    €{(dashboardData.deals.value / 1000).toFixed(0)}k
-                  </ThemedText>
-                </div>
-                
-                <div className="pt-3 border-t">
-                  <ThemedButton
-                    className="w-full"
-                    onClick={() => navigate('/reports')}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Ver Relatórios Completos
+            {/* Atividade Recente */}
+            <ThemedCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <ThemedHeading level={3} className="text-lg font-semibold">
+                    Atividade Recente
+                  </ThemedHeading>
+                  <ThemedButton variant="outline" size="sm">
+                    Ver Todas
                   </ThemedButton>
                 </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center p-3 bg-green-50 rounded-lg">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                    <div className="flex-1">
+                      <ThemedText className="text-sm font-medium">
+                        Sistema 100% conectado e funcional
+                      </ThemedText>
+                      <ThemedText className="text-xs text-gray-600">
+                        Todos os módulos principais operacionais
+                      </ThemedText>
+                    </div>
+                    <ThemedText className="text-xs text-gray-500">
+                      Agora
+                    </ThemedText>
+                  </div>
+                  
+                  <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                    <div className="flex-1">
+                      <ThemedText className="text-sm font-medium">
+                        Navegação inteligente implementada
+                      </ThemedText>
+                      <ThemedText className="text-xs text-gray-600">
+                        Cards clicáveis com navegação direta
+                      </ThemedText>
+                    </div>
+                    <ThemedText className="text-xs text-gray-500">
+                      Há poucos segundos
+                    </ThemedText>
+                  </div>
+                  
+                  <div className="text-center py-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
+                    <ThemedText className="text-sm font-medium text-gray-700 mb-1">
+                      Sistema Pronto para Uso
+                    </ThemedText>
+                    <ThemedText className="text-xs text-gray-600">
+                      Clique nos cards coloridos acima para navegar pelos módulos
+                    </ThemedText>
+                  </div>
+                </div>
               </div>
-            </div>
+            </ThemedCard>
+
           </div>
 
-          {/* Atividade Recente */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <Clock className="h-5 w-5 text-gray-600 mr-2" />
-                <ThemedHeading level={3}>Atividade Recente</ThemedHeading>
-              </div>
-              <ThemedButton variant="outline" size="sm">
-                Ver Todas
-              </ThemedButton>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center p-3 bg-green-50 rounded-lg">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                <div className="flex-1">
-                  <ThemedText className="text-sm font-medium">
-                    Sistema 100% conectado e funcional
-                  </ThemedText>
-                  <ThemedText className="text-xs text-gray-600">
-                    Todos os módulos principais operacionais
-                  </ThemedText>
-                </div>
-                <ThemedText className="text-xs text-gray-500">
-                  Agora
-                </ThemedText>
-              </div>
-              
-              <div className="flex items-center p-3 bg-blue-50 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                <div className="flex-1">
-                  <ThemedText className="text-sm font-medium">
-                    Navegação inteligente implementada
-                  </ThemedText>
-                  <ThemedText className="text-xs text-gray-600">
-                    Cards clicáveis com navegação direta
-                  </ThemedText>
-                </div>
-                <ThemedText className="text-xs text-gray-500">
-                  Há poucos segundos
-                </ThemedText>
-              </div>
-              
-              <div className="text-center py-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
-                <ThemedText className="text-sm font-medium text-gray-700 mb-1">
-                  Sistema Pronto para Uso
-                </ThemedText>
-                <ThemedText className="text-xs text-gray-600">
-                  Clique nos cards coloridos acima para navegar pelos módulos
-                </ThemedText>
-              </div>
-            </div>
-          </div>
-
-        </ThemedContainer>
+        </div>
       </div>
     </div>
   );
