@@ -1,18 +1,18 @@
-// src/pages/calendar/CalendarPage.jsx - COM SIDEBAR REUTILIZÁVEL
-// ✅ Aplicando Sidebar.jsx componente reutilizável
+// src/pages/calendar/CalendarPage.jsx - LAYOUT SIDEBAR HARMONIOSO APLICADO
+// ✅ Removido ml-64 e ThemedContainer inconsistente
+// ✅ Aplicado layout direto harmonioso (última página)
 // ✅ MANTÉM TODAS AS FUNCIONALIDADES EXISTENTES (100%)
-// ✅ Substitui DashboardLayout por layout com Sidebar
-// ✅ Zero funcionalidades perdidas - sistema de calendário completo
+// ✅ PADRONIZAÇÃO COMPLETA - 7/7 páginas harmonizadas
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import Sidebar from '../../components/layout/Sidebar'; // 🔥 NOVO IMPORT
-import { ThemedContainer, ThemedCard, ThemedButton, ThemedHeading, ThemedText, ThemedInput } from '../../components/common/ThemedComponents';
+import Sidebar from '../../components/layout/Sidebar';
+import { ThemedCard, ThemedButton, ThemedInput } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
-import useTasks from '../../hooks/useTasks'; // 🔥 IMPORT CORRIGIDO
-import useVisits from '../../hooks/useVisits'; // 🔥 IMPORT CORRIGIDO
+import useTasks from '../../hooks/useTasks';
+import useVisits from '../../hooks/useVisits';
 import { 
   CalendarIcon,
   ClockIcon,
@@ -24,9 +24,9 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
-// Componente de Métrica Compacta
+// Componente de Métrica Compacta (Padrão Estabelecido)
 const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) => {
-  const { theme, isDark } = useTheme();
+  const { isDark } = useTheme();
   
   const colorClasses = {
     blue: isDark() ? 'from-blue-600 to-blue-700' : 'from-blue-500 to-blue-600',
@@ -182,7 +182,7 @@ const CalendarPage = () => {
     );
   };
 
-  // 📊 MÉTRICAS CALCULADAS
+  // Métricas Calculadas
   const totalEvents = calendarEvents.length;
   const todayEvents = getEventsForDate(new Date()).length;
   const weekEvents = calendarEvents.filter(event => {
@@ -206,7 +206,7 @@ const CalendarPage = () => {
   const daysWithEvents = monthDays.filter(day => getEventsForDate(day).length > 0).length;
   const occupationRate = monthDays.length > 0 ? Math.round((daysWithEvents / monthDays.length) * 100) : 0;
 
-  // 🔧 HANDLERS DE NAVEGAÇÃO
+  // Handlers de Navegação
   const navigateMonth = (direction) => {
     if (direction === 'prev') {
       setCurrentDate(subMonths(currentDate, 1));
@@ -282,7 +282,7 @@ const CalendarPage = () => {
     });
   };
 
-  // 🎨 RENDERIZAR HEADER DO CALENDÁRIO
+  // Renderizar Header do Calendário
   const renderCalendarHeader = () => (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center space-x-4">
@@ -351,62 +351,7 @@ const CalendarPage = () => {
     </div>
   );
 
-  // 📊 RENDERIZAR ESTATÍSTICAS DO MÊS
-  const renderMonthStats = () => (
-    <div className="mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <CompactMetricCard
-          title="Total de Eventos"
-          value={totalEvents}
-          icon={CalendarIcon}
-          color="blue"
-          trend="Este mês"
-          onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
-        />
-        
-        <CompactMetricCard
-          title="Hoje"
-          value={todayEvents}
-          icon={ClockIcon}
-          color="green"
-          trend="Eventos hoje"
-          onClick={() => {
-            setSelectedDate(new Date());
-            setCurrentView(CALENDAR_VIEWS.DAY);
-          }}
-        />
-        
-        <CompactMetricCard
-          title="Esta Semana"
-          value={weekEvents}
-          icon={EyeIcon}
-          color="yellow"
-          trend="Próximos 7 dias"
-          onClick={() => setCurrentView(CALENDAR_VIEWS.WEEK)}
-        />
-        
-        <CompactMetricCard
-          title="Próximos"
-          value={upcomingEvents}
-          icon={CheckCircleIcon}
-          color="purple"
-          trend="Eventos futuros"
-          onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
-        />
-        
-        <CompactMetricCard
-          title={`Taxa Ocupação`}
-          value={`${occupationRate}%`}
-          icon={CalendarIcon}
-          color="red"
-          trend={`${daysWithEvents}/${monthDays.length} dias`}
-          onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
-        />
-      </div>
-    </div>
-  );
-
-  // 📅 RENDERIZAR VISTA MENSAL
+  // Renderizar Vista Mensal
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
@@ -501,7 +446,7 @@ const CalendarPage = () => {
     );
   };
 
-  // 🎨 RENDERIZAR LEGENDA
+  // Renderizar Legenda
   const renderEventLegend = () => (
     <ThemedCard className="mb-6">
       <div className="p-4">
@@ -528,13 +473,13 @@ const CalendarPage = () => {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64">
-          <ThemedContainer className="p-6">
+        <div className="flex-1">
+          <div className="p-6">
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Carregando calendário...</p>
             </div>
-          </ThemedContainer>
+          </div>
         </div>
       </div>
     );
@@ -542,19 +487,19 @@ const CalendarPage = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* 🎨 SIDEBAR REUTILIZÁVEL */}
+      {/* Sidebar Reutilizável */}
       <Sidebar />
 
-      {/* 📱 CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 ml-64"> {/* ml-64 para compensar sidebar fixa */}
-        <ThemedContainer className="p-6">
-          {/* 📊 HEADER */}
+      {/* Conteúdo Principal - Layout Harmonioso */}
+      <div className="flex-1">
+        <div className="p-6">
+          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Sistema de Calendário</h1>
             <p className="text-gray-600">Gestão de eventos, tarefas e compromissos</p>
           </div>
 
-          {/* FEEDBACK MESSAGES */}
+          {/* Feedback Messages */}
           {feedbackMessage && (
             <div className={`p-4 rounded-lg mb-6 ${
               feedbackType === 'success' 
@@ -565,16 +510,64 @@ const CalendarPage = () => {
             </div>
           )}
 
-          {/* 📊 MÉTRICAS COMPACTAS */}
-          {renderMonthStats()}
+          {/* Cards de Métricas Compactas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <CompactMetricCard
+              title="Total de Eventos"
+              value={totalEvents}
+              icon={CalendarIcon}
+              color="blue"
+              trend="Este mês"
+              onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
+            />
+            
+            <CompactMetricCard
+              title="Hoje"
+              value={todayEvents}
+              icon={ClockIcon}
+              color="green"
+              trend="Eventos hoje"
+              onClick={() => {
+                setSelectedDate(new Date());
+                setCurrentView(CALENDAR_VIEWS.DAY);
+              }}
+            />
+            
+            <CompactMetricCard
+              title="Esta Semana"
+              value={weekEvents}
+              icon={EyeIcon}
+              color="yellow"
+              trend="Próximos 7 dias"
+              onClick={() => setCurrentView(CALENDAR_VIEWS.WEEK)}
+            />
+            
+            <CompactMetricCard
+              title="Próximos"
+              value={upcomingEvents}
+              icon={CheckCircleIcon}
+              color="purple"
+              trend="Eventos futuros"
+              onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
+            />
+            
+            <CompactMetricCard
+              title="Taxa Ocupação"
+              value={`${occupationRate}%`}
+              icon={CalendarIcon}
+              color="red"
+              trend={`${daysWithEvents}/${monthDays.length} dias`}
+              onClick={() => setCurrentView(CALENDAR_VIEWS.MONTH)}
+            />
+          </div>
 
-          {/* 📊 HEADER DO CALENDÁRIO */}
+          {/* Header do Calendário */}
           {renderCalendarHeader()}
 
-          {/* 🎨 LEGENDA */}
+          {/* Legenda */}
           {renderEventLegend()}
 
-          {/* 📅 VISTA DO CALENDÁRIO */}
+          {/* Vista do Calendário */}
           <div className="flex-1 overflow-hidden">
             {currentView === CALENDAR_VIEWS.MONTH && renderMonthView()}
             
@@ -617,7 +610,7 @@ const CalendarPage = () => {
             )}
           </div>
 
-          {/* MODAL DE DETALHES DO EVENTO */}
+          {/* Modal de Detalhes do Evento */}
           {showEventModal && selectedEvent && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-lg">
@@ -678,7 +671,7 @@ const CalendarPage = () => {
             </div>
           )}
 
-          {/* MODAL DE CRIAÇÃO DE EVENTO */}
+          {/* Modal de Criação de Evento */}
           {showCreateModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-lg">
@@ -770,7 +763,7 @@ const CalendarPage = () => {
             </div>
           )}
 
-        </ThemedContainer>
+        </div>
       </div>
     </div>
   );
