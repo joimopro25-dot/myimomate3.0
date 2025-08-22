@@ -193,8 +193,8 @@ const DashboardPage = () => {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
-        <ThemedContainer className="p-6">
+      <div className="flex-1">
+        <div className="p-6">
           {/* Header Principal */}
           <div className="mb-8">
             <ThemedHeading level={1} className="mb-2">

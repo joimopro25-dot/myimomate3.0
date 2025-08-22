@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/layout/Sidebar'; // 🔥 NOVO IMPORT
-import { ThemedContainer, ThemedCard, ThemedButton, ThemedInput } from '../../components/common/ThemedComponents';
+import { ThemedCard, ThemedButton, ThemedInput } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -258,8 +258,8 @@ const ConfigurationsPage = () => {
       <Sidebar />
 
       {/* 📱 CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 ml-64"> {/* ml-64 para compensar sidebar fixa */}
-        <ThemedContainer className="p-6">
+      <div className="flex-1">
+        <div className="p-6">
           {/* 📊 HEADER */}
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -852,7 +852,7 @@ const ConfigurationsPage = () => {
             </div>
           )}
 
-        </ThemedContainer>
+        </div>
       </div>
     </div>
   );
