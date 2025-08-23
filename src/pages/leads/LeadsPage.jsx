@@ -1,8 +1,7 @@
-// src/pages/leads/LeadsPage.jsx - VERSÃO COM FORMULÁRIO EXPANDIDO
-// ✅ Sidebar reutilizável aplicado
-// ✅ LeadsList componente integrado para edição
-// ✅ Formulário de criação expandido com novos campos
-// ✅ Código limpo e funcional
+// src/pages/leads/LeadsPage.jsx - VERSÃO COM CORREÇÃO DE CONVERSÃO INTEGRADA
+// ✅ Mantém estrutura original completa
+// ✅ Adiciona apenas modal corrigido e funções necessárias
+// ✅ Correção minimalista e eficaz
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +10,10 @@ import LeadsList from '../../components/leads/LeadsList';
 import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useLeads from '../../hooks/useLeads';
+
+// ✅ IMPORTAÇÃO DO MODAL SIMPLES (sem loops)
+import SimpleConversionModal from '../../components/modals/SimpleConversionModal';
+
 import { 
   UserGroupIcon, 
   PlusIcon, 
@@ -28,7 +31,7 @@ import {
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
 
-// Componente de Métrica Compacta
+// Componente de Métrica Compacta (mantido igual)
 const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) => {
   const { isDark } = useTheme();
   
@@ -73,7 +76,7 @@ const LeadsPage = () => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   
-  // Hook personalizado de leads
+  // ✅ ADIÇÃO: Extrair funções de conversão do hook atualizado
   const {
     leads,
     loading,
@@ -91,18 +94,23 @@ const LeadsPage = () => {
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
     LEAD_STATUS_COLORS,
-    CLIENT_TYPES, // ✅ NOVA CONSTANTE
-    PROPERTY_STATUS // ✅ NOVA CONSTANTE
+    CLIENT_TYPES,
+    PROPERTY_STATUS,
+    // ✅ ADIÇÃO: Novas funções para conversão corrigida
+    conversionModal,
+    initiateLeadConversion,
+    processLeadConversion,
+    closeConversionModal,
+    handleDebugLog
   } = useLeads();
 
-  // Estados para modais
+  // Estados para modais (mantidos iguais)
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState('');
 
-  // ✅ ESTADOS DO FORMULÁRIO EXPANDIDO
+  // Estados do formulário expandido (mantidos iguais)
   const [formData, setFormData] = useState({
-    // Campos básicos
     name: '',
     phone: '',
     email: '',
@@ -113,8 +121,6 @@ const LeadsPage = () => {
     notes: '',
     source: 'manual',
     priority: 'normal',
-    
-    // ✅ NOVOS CAMPOS
     propertyStatus: PROPERTY_STATUS?.NAO_IDENTIFICADO || 'nao_identificado',
     propertyReference: '',
     propertyLink: '',
@@ -124,7 +130,7 @@ const LeadsPage = () => {
     managerNotes: ''
   });
 
-  // Funções
+  // Funções (mantidas iguais)
   const stats = getLeadStats();
   
   const handleFormChange = (field, value) => {
@@ -174,7 +180,7 @@ const LeadsPage = () => {
     }
   };
 
-  // Funções para integração com LeadsList
+  // Funções para integração com LeadsList (mantidas iguais)
   const handleLeadUpdate = () => {
     fetchLeads();
   };
@@ -183,13 +189,30 @@ const LeadsPage = () => {
     fetchLeads();
   };
 
+  // ✅ CORREÇÃO: Função de conversão atualizada
   const handleLeadConvert = async (leadId) => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) {
+      setFeedbackMessage('Lead não encontrado');
+      setFeedbackType('error');
+      return;
+    }
+
     try {
-      const result = await convertLeadToClient(leadId);
+      // ✅ Usar nova função que abre modal obrigatório
+      const result = initiateLeadConversion ? 
+        initiateLeadConversion(lead) : 
+        await convertLeadToClient(leadId); // Fallback para versão antiga
       
       if (result.success) {
-        setFeedbackMessage(result.message || 'Lead convertido para cliente com sucesso!');
-        setFeedbackType('success');
+        if (result.modalOpened) {
+          // Modal foi aberto - aguardar conversão
+          console.log('Modal de conversão aberto para lead:', lead.name);
+        } else {
+          // Conversão direta (versão antiga)
+          setFeedbackMessage(result.message || 'Lead convertido para cliente com sucesso!');
+          setFeedbackType('success');
+        }
       } else {
         setFeedbackMessage(result.error || 'Erro ao converter lead');
         setFeedbackType('error');
@@ -197,6 +220,33 @@ const LeadsPage = () => {
     } catch (error) {
       setFeedbackMessage('Erro inesperado ao converter lead');
       setFeedbackType('error');
+    }
+  };
+
+  // ✅ ADIÇÃO: Callback para processar conversão do modal
+  const handleModalConvert = async (conversionData) => {
+    try {
+      const result = processLeadConversion ? 
+        await processLeadConversion(conversionData) :
+        { success: false, error: 'Função de conversão não disponível' };
+      
+      if (result.success) {
+        setFeedbackMessage(result.message || 'Lead convertido com sucesso!');
+        setFeedbackType('success');
+      } else {
+        setFeedbackMessage(result.error || 'Erro na conversão');
+        setFeedbackType('error');
+      }
+    } catch (error) {
+      setFeedbackMessage('Erro inesperado durante a conversão');
+      setFeedbackType('error');
+    }
+  };
+
+  // ✅ ADIÇÃO: Callback para fechar modal
+  const handleModalClose = () => {
+    if (closeConversionModal) {
+      closeConversionModal();
     }
   };
 
@@ -211,7 +261,7 @@ const LeadsPage = () => {
     }));
   };
 
-  // ✅ HELPER FUNCTIONS PARA LABELS
+  // Helper functions para labels (mantidas iguais)
   const getClientTypeLabel = (type) => {
     const labels = {
       [CLIENT_TYPES.COMPRADOR]: 'Comprador',
@@ -251,7 +301,7 @@ const LeadsPage = () => {
       <div className="flex-1 min-h-screen bg-gray-50">
         <div className="px-4 py-4">
           
-          {/* Header da Página */}
+          {/* Header da Página (mantido igual) */}
           <div className="mb-4">
             <div className="flex justify-between items-center mb-3">
               <div>
@@ -272,7 +322,7 @@ const LeadsPage = () => {
               </ThemedButton>
             </div>
 
-            {/* Feedback Messages */}
+            {/* Feedback Messages (mantido igual) */}
             {feedbackMessage && (
               <div className={`p-3 rounded-lg mb-4 ${
                 feedbackType === 'success' 
@@ -285,7 +335,7 @@ const LeadsPage = () => {
               </div>
             )}
 
-            {/* Métricas Compactas */}
+            {/* Métricas Compactas (mantidas iguais) */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <CompactMetricCard
                 title="Total de Leads"
@@ -334,12 +384,11 @@ const LeadsPage = () => {
             </div>
           </div>
 
-          {/* Filtros e Pesquisa */}
+          {/* Filtros e Pesquisa (mantidos iguais) */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
             <div className="p-3">
               <div className="flex flex-col md:flex-row gap-3">
                 
-                {/* Campo de Pesquisa */}
                 <div className="flex-1">
                   <input
                     type="text"
@@ -350,7 +399,6 @@ const LeadsPage = () => {
                   />
                 </div>
 
-                {/* Filtros */}
                 <div className="flex flex-col md:flex-row gap-2">
                   <select
                     value={filters?.status || ''}
@@ -395,21 +443,32 @@ const LeadsPage = () => {
             </div>
           </div>
 
-          {/* LeadsList Componente */}
+          {/* LeadsList Componente (mantido igual) */}
           <LeadsList
             leads={leads}
             loading={loading}
             error={error}
             onLeadUpdate={handleLeadUpdate}
             onLeadDelete={handleLeadDelete}
-            onLeadConvert={handleLeadConvert}
+            onLeadConvert={handleLeadConvert}  // ✅ Usa função corrigida
             showSelection={true}
             showActions={true}
             showFilters={false}
             maxHeight="calc(100vh - 300px)"
           />
 
-          {/* ✅ MODAL DE CRIAÇÃO EXPANDIDO */}
+          {/* ✅ MODAL SIMPLES - sem loops de renderização */}
+          {conversionModal?.isOpen && conversionModal?.leadData && (
+            <SimpleConversionModal
+              isOpen={true}
+              onClose={handleModalClose}
+              leadData={conversionModal.leadData}
+              onConvert={handleModalConvert}
+              isConverting={converting}
+            />
+          )}
+
+          {/* Modal de criação expandido (mantido igual) */}
           {showCreateForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -417,7 +476,6 @@ const LeadsPage = () => {
                 
                 <form onSubmit={handleCreateSubmit} className="space-y-6">
                   
-                  {/* SECÇÃO: INFORMAÇÕES BÁSICAS */}
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
                       Informações Básicas
@@ -528,7 +586,6 @@ const LeadsPage = () => {
                     </div>
                   </div>
 
-                  {/* ✅ SECÇÃO: INFORMAÇÕES DO IMÓVEL */}
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
                       Informações do Imóvel
@@ -579,7 +636,6 @@ const LeadsPage = () => {
                     </div>
                   </div>
 
-                  {/* ✅ SECÇÃO: INFORMAÇÕES DO GESTOR */}
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
                       Informações do Gestor do Imóvel
@@ -636,7 +692,6 @@ const LeadsPage = () => {
                     </div>
                   </div>
 
-                  {/* SECÇÃO: NOTAS GERAIS */}
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
                       Notas e Observações

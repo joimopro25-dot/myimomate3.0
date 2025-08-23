@@ -50,6 +50,10 @@ import {
   validateEmail
 } from '../constants/validations.js';
 
+// ✅ IMPORTAÇÕES ADICIONAIS PARA CORREÇÃO DO MODAL
+import { validateLeadConversion } from '../utils/ConversionValidation';
+import { initializeDebugger, debugLog, debugError } from '../utils/ConversionDebug';
+
 // 🔧 CONFIGURAÇÕES DO HOOK
 // ========================
 const LEADS_COLLECTION = 'leads';
@@ -96,6 +100,13 @@ const useLeads = () => {
   const [converting, setConverting] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState(false);
 
+  // ✅ NOVO ESTADO PARA MODAL DE CONVERSÃO
+  const [conversionModal, setConversionModal] = useState({
+    isOpen: false,
+    leadData: null,
+    debugger: null
+  });
+
   // Estados de filtros
   const [filters, setFilters] = useState({
     status: '',
@@ -110,6 +121,24 @@ const useLeads = () => {
 
   // Context de autenticação
   const { user } = useAuth();
+
+// ✅ useEffect PARA INICIALIZAR DEBUGGER - CORRIGIDO
+useEffect(() => {
+  if (!conversionModal.debugger && user) {
+    const debuggerInstance = initializeDebugger({
+      ENABLED: true,
+      LEVEL: 2,
+      userId: user.uid
+    });
+    
+    setConversionModal(prev => ({
+      ...prev,
+      debugger: debuggerInstance
+    }));
+
+      debugLog('system', 'useLeads hook inicializado com correção de modal', { userId: user.uid });
+    }
+  }, [user]);
 
   // 📥 BUSCAR TODOS OS LEADS COM ESTRUTURA UNIFICADA
   // ===============================================
@@ -675,18 +704,87 @@ const useLeads = () => {
     }
   }, [user]);
 
-  // 🔄 FUNÇÃO convertLeadToClient MELHORADA
+  // 🔄 FUNÇÃO convertLeadToClient CORRIGIDA
   // =======================================
   const convertLeadToClient = useCallback(async (leadId, additionalClientData = {}) => {
     if (!user) {
       return { success: false, error: 'Utilizador não autenticado' };
     }
 
+    // ✅ NOVA LÓGICA: Se for chamada SEM dados adicionais, abrir modal primeiro
+    if (!additionalClientData.fromModal && !additionalClientData.skipModal) {
+      debugLog('conversion', 'Abrindo modal de conversão obrigatório', { leadId });
+
+      // Buscar dados do lead para o modal
+      try {
+        const leadRef = doc(db, LEADS_COLLECTION, leadId);
+        const leadSnap = await getDoc(leadRef);
+        
+        if (!leadSnap.exists()) {
+          return { success: false, error: 'Lead não encontrado' };
+        }
+
+        const leadData = { id: leadSnap.id, ...leadSnap.data() };
+        
+        // Verificar se já foi convertido
+        if (leadData.isConverted || leadData.status === UNIFIED_LEAD_STATUS.CONVERTIDO) {
+          return { 
+            success: false, 
+            error: 'Este lead já foi convertido anteriormente' 
+          };
+        }
+
+        // ✅ ABRIR MODAL OBRIGATÓRIO
+        setConversionModal(prev => ({
+          ...prev,
+          isOpen: true,
+          leadData: leadData
+        }));
+
+        if (conversionModal.debugger) {
+          conversionModal.debugger.logModalOpen(leadData);
+        }
+
+        return { success: true, modalOpened: true, message: 'Modal de conversão aberto' };
+
+      } catch (err) {
+        debugError(err, { action: 'openConversionModal', leadId });
+        return { success: false, error: 'Erro ao abrir modal de conversão' };
+      }
+    }
+
+    // ✅ SE CHEGOU AQUI, É PORQUE VEM DO MODAL - CONTINUAR COM CONVERSÃO ORIGINAL
     setConverting(true);
     setError(null);
 
     try {
-      // 1. BUSCAR DADOS DO LEAD
+      // ✅ VALIDAÇÃO SE VEM DO MODAL
+      if (additionalClientData.fromModal) {
+        debugLog('validation', 'Executando validação de conversão do modal');
+        
+        const validationResult = validateLeadConversion(
+          additionalClientData.leadData,
+          additionalClientData.clientData,
+          { debug: true }
+        );
+
+        if (!validationResult.isValid) {
+          return {
+            success: false,
+            error: 'Dados de conversão inválidos',
+            validationErrors: validationResult.errors
+          };
+        }
+
+        if (!additionalClientData.conversionApproved) {
+          return {
+            success: false,
+            error: 'A conversão deve ser aprovada manualmente'
+          };
+        }
+      }
+
+      // 1. BUSCAR DADOS DO LEAD (código original mantido)
       console.log('📋 Buscando dados do lead:', leadId);
       const leadRef = doc(db, LEADS_COLLECTION, leadId);
       const leadSnap = await getDoc(leadRef);
@@ -705,7 +803,7 @@ const useLeads = () => {
         };
       }
 
-      // 2. PREPARAR DADOS DO CLIENTE
+      // 2. PREPARAR DADOS DO CLIENTE (código original mantido)
       console.log('👤 Preparando dados do cliente...');
       const clientData = {
         // Dados básicos do lead
@@ -733,6 +831,9 @@ const useLeads = () => {
         managerEmail: leadData.managerEmail || '',
         managerNotes: leadData.managerNotes || '',
         
+        // ✅ MESCLAR COM DADOS DO MODAL (se existirem)
+        ...(additionalClientData.clientData || {}),
+        
         // Histórico e origem
         source: leadData.source || 'lead_conversion',
         originalLeadId: leadId,
@@ -758,14 +859,14 @@ const useLeads = () => {
         structureVersion: '3.1'
       };
 
-      // 3. CRIAR CLIENTE NO FIRESTORE
+      // 3. CRIAR CLIENTE NO FIRESTORE (código original mantido)
       console.log('💾 Criando cliente no Firestore...');
       const clientRef = await addDoc(collection(db, CLIENTS_COLLECTION), clientData);
       const clientId = clientRef.id;
       
       console.log('✅ Cliente criado com ID:', clientId);
 
-      // 4. PREPARAR DADOS DA OPORTUNIDADE
+      // 4. PREPARAR DADOS DA OPORTUNIDADE (código original mantido)
       console.log('🎯 Preparando dados da oportunidade...');
       
       // Determinar tipo de oportunidade baseado no interesse
@@ -872,14 +973,14 @@ const useLeads = () => {
         structureVersion: '3.1'
       };
 
-      // 5. CRIAR OPORTUNIDADE NO FIRESTORE
+      // 5. CRIAR OPORTUNIDADE NO FIRESTORE (código original mantido)
       console.log('💾 Criando oportunidade no Firestore...');
       const opportunityRef = await addDoc(collection(db, OPPORTUNITIES_COLLECTION), opportunityData);
       const opportunityId = opportunityRef.id;
       
       console.log('✅ Oportunidade criada com ID:', opportunityId);
 
-      // 6. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE
+      // 6. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE (código original mantido)
       await updateDoc(clientRef, {
         hasOpportunities: true,
         lastOpportunityId: opportunityId,
@@ -887,7 +988,7 @@ const useLeads = () => {
         updatedAt: serverTimestamp()
       });
 
-      // 7. ATUALIZAR LEAD COMO CONVERTIDO
+      // 7. ATUALIZAR LEAD COMO CONVERTIDO (código original mantido)
       console.log('🔄 Atualizando status do lead...');
       await updateDoc(leadRef, {
         status: UNIFIED_LEAD_STATUS.CONVERTIDO,
@@ -900,13 +1001,14 @@ const useLeads = () => {
           opportunityCreated: true,
           convertedBy: user.uid,
           conversionDate: new Date().toISOString(),
-          automatedConversion: true
+          automatedConversion: !additionalClientData.fromModal, // true se conversão direta, false se via modal
+          modalValidation: !!additionalClientData.fromModal
         },
         updatedAt: serverTimestamp(),
         lastModifiedBy: user.uid
       });
 
-      // 8. ATUALIZAR LISTA LOCAL DE LEADS
+      // 8. ATUALIZAR LISTA LOCAL DE LEADS (código original mantido)
       setLeads(prev => 
         prev.map(lead => 
           lead.id === leadId 
@@ -922,6 +1024,15 @@ const useLeads = () => {
             : lead
         )
       );
+
+      // ✅ FECHAR MODAL SE ESTAVA ABERTO
+      if (conversionModal.isOpen) {
+        setConversionModal(prev => ({
+          ...prev,
+          isOpen: false,
+          leadData: null
+        }));
+      }
 
       setConverting(false);
       
@@ -943,12 +1054,47 @@ const useLeads = () => {
       setError(err.message || 'Erro ao converter lead');
       setConverting(false);
       
+      debugError(err, { action: 'convertLeadToClient', leadId });
+      
       return {
         success: false,
         error: err.message || 'Erro inesperado ao converter lead para cliente'
       };
     }
-  }, [user, setConverting, setError, setLeads, UNIFIED_LEAD_STATUS, LEADS_COLLECTION, CLIENTS_COLLECTION, OPPORTUNITIES_COLLECTION]);
+  }, [user, setConverting, setError, setLeads, UNIFIED_LEAD_STATUS, LEADS_COLLECTION, CLIENTS_COLLECTION, OPPORTUNITIES_COLLECTION, conversionModal]);
+
+  // ✅ FUNÇÕES AUXILIARES PARA MODAL
+  // Processar conversão vinda do modal
+  const processLeadConversion = useCallback(async (conversionData) => {
+    return await convertLeadToClient(conversionData.leadId, {
+      fromModal: true,
+      leadData: conversionData.leadData,
+      clientData: conversionData.clientData,
+      createSpouse: conversionData.createSpouse,
+      createOpportunity: conversionData.createOpportunity,
+      conversionApproved: conversionData.conversionApproved
+    });
+  }, [convertLeadToClient]);
+
+  // Fechar modal
+  const closeConversionModal = useCallback(() => {
+    if (conversionModal.debugger && conversionModal.leadData) {
+      conversionModal.debugger.logModalClose('user_cancelled');
+    }
+
+    debugLog('conversion', 'Modal de conversão fechado pelo usuário');
+
+    setConversionModal(prev => ({
+      ...prev,
+      isOpen: false,
+      leadData: null
+    }));
+  }, [conversionModal.debugger, conversionModal.leadData]);
+
+  // Callback para debug
+  const handleDebugLog = useCallback((logEntry) => {
+    debugLog('debug', 'Log do modal de conversão', logEntry);
+  }, []);
 
   const deleteLead = useCallback(async (leadId, hardDelete = false) => {
     if (!user) return;
@@ -1062,6 +1208,12 @@ const useLeads = () => {
     converting,
     duplicateCheck,
     filters,
+
+    // ✅ NOVOS ESTADOS E FUNÇÕES PARA MODAL
+    conversionModal,
+    processLeadConversion,
+    closeConversionModal,
+    handleDebugLog,
 
     // Ações principais
     createLead,
