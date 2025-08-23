@@ -1,9 +1,7 @@
-// src/hooks/useLeads.js
-// 🎯 HOOK UNIFICADO PARA GESTÃO DE LEADS - MyImoMate 3.0
-// ====================================================
-// VERSÃO EXPANDIDA com campos de qualificação avançados
-// Funcionalidades: CRUD, Conversão, Validações, Campos Gestor, Propriedades
+// src/hooks/useLeads.js - VERSÃO CORRIGIDA COMPLETA
+// Substitua todo o conteúdo do arquivo por este código:
 
+import { validateLeadConversionRelaxed } from '../utils/ConversionValidation_Relaxed';
 import { useState, useEffect, useCallback } from 'react';
 import { 
   collection, 
@@ -22,8 +20,6 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// 📚 IMPORTS DA ESTRUTURA UNIFICADA
-// =================================
 import {
   UNIFIED_INTEREST_TYPES,
   UNIFIED_BUDGET_RANGES,
@@ -50,19 +46,14 @@ import {
   validateEmail
 } from '../constants/validations.js';
 
-// ✅ IMPORTAÇÕES ADICIONAIS PARA CORREÇÃO DO MODAL
 import { validateLeadConversion } from '../utils/ConversionValidation';
 import { initializeDebugger, debugLog, debugError } from '../utils/ConversionDebug';
 
-// 🔧 CONFIGURAÇÕES DO HOOK
-// ========================
 const LEADS_COLLECTION = 'leads';
 const CLIENTS_COLLECTION = 'clients';
 const OPPORTUNITIES_COLLECTION = 'opportunities';
 const FETCH_LIMIT = 50;
 
-// 🎯 NOVOS TIPOS E CONSTANTES
-// ===========================
 export const CLIENT_TYPES = {
   COMPRADOR: 'comprador',
   ARRENDATARIO: 'arrendatario',
@@ -79,7 +70,6 @@ export const PROPERTY_STATUS = {
   APROVADO: 'aprovado'
 };
 
-// 🎨 CORES POR STATUS (mantendo compatibilidade)
 export const LEAD_STATUS_COLORS = {
   [UNIFIED_LEAD_STATUS.NOVO]: 'bg-blue-100 text-blue-800',
   [UNIFIED_LEAD_STATUS.CONTACTADO]: 'bg-yellow-100 text-yellow-800',
@@ -89,10 +79,7 @@ export const LEAD_STATUS_COLORS = {
   [UNIFIED_LEAD_STATUS.INATIVO]: 'bg-gray-100 text-gray-800'
 };
 
-// 🎯 HOOK PRINCIPAL UNIFICADO
-// ===========================
 const useLeads = () => {
-  // Estados principais
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -100,14 +87,12 @@ const useLeads = () => {
   const [converting, setConverting] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState(false);
 
-  // ✅ NOVO ESTADO PARA MODAL DE CONVERSÃO
   const [conversionModal, setConversionModal] = useState({
     isOpen: false,
     leadData: null,
     debugger: null
   });
 
-  // Estados de filtros
   const [filters, setFilters] = useState({
     status: '',
     interestType: '',
@@ -115,33 +100,29 @@ const useLeads = () => {
     priority: '',
     source: '',
     searchTerm: '',
-    clientType: '', // ✅ NOVO FILTRO
-    propertyStatus: '' // ✅ NOVO FILTRO
+    clientType: '',
+    propertyStatus: ''
   });
 
-  // Context de autenticação
   const { user } = useAuth();
 
-// ✅ useEffect PARA INICIALIZAR DEBUGGER - CORRIGIDO
-useEffect(() => {
-  if (!conversionModal.debugger && user) {
-    const debuggerInstance = initializeDebugger({
-      ENABLED: true,
-      LEVEL: 2,
-      userId: user.uid
-    });
-    
-    setConversionModal(prev => ({
-      ...prev,
-      debugger: debuggerInstance
-    }));
+  useEffect(() => {
+    if (!conversionModal.debugger && user) {
+      const debuggerInstance = initializeDebugger({
+        ENABLED: true,
+        LEVEL: 2,
+        userId: user.uid
+      });
+      
+      setConversionModal(prev => ({
+        ...prev,
+        debugger: debuggerInstance
+      }));
 
       debugLog('system', 'useLeads hook inicializado com correção de modal', { userId: user.uid });
     }
   }, [user]);
 
-  // 📥 BUSCAR TODOS OS LEADS COM ESTRUTURA UNIFICADA
-  // ===============================================
   const fetchLeads = useCallback(async () => {
     if (!user) return;
     
@@ -149,7 +130,6 @@ useEffect(() => {
     setError(null);
     
     try {
-      // Query simplificada para evitar erro de índice
       let leadQuery = query(
         collection(db, LEADS_COLLECTION),
         where('userId', '==', user.uid),
@@ -157,7 +137,6 @@ useEffect(() => {
         limit(FETCH_LIMIT)
       );
 
-      // Aplicar filtros unificados
       if (filters.status && Object.values(UNIFIED_LEAD_STATUS).includes(filters.status)) {
         leadQuery = query(leadQuery, where('status', '==', filters.status));
       }
@@ -170,18 +149,14 @@ useEffect(() => {
         leadQuery = query(leadQuery, where('priority', '==', filters.priority));
       }
 
-      // ✅ NOVOS FILTROS
       if (filters.clientType && Object.values(CLIENT_TYPES).includes(filters.clientType)) {
         leadQuery = query(leadQuery, where('clientType', '==', filters.clientType));
       }
 
-      // Filtrar por ativo no client-side para evitar índice composto
       const querySnapshot = await getDocs(leadQuery);
       const leadsData = querySnapshot.docs
         .map(doc => {
           const data = doc.data();
-          
-          // Aplicar migração automática se necessário
           const migratedData = migrateLeadData(data);
           
           return {
@@ -191,9 +166,8 @@ useEffect(() => {
             updatedAt: data.updatedAt?.toDate()
           };
         })
-        .filter(lead => lead.isActive !== false); // Filtrar inativos no client-side
+        .filter(lead => lead.isActive !== false);
 
-      // Filtrar por termo de busca (client-side)
       let filteredLeads = leadsData;
       if (filters.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
@@ -218,35 +192,19 @@ useEffect(() => {
     }
   }, [user, filters]);
 
-  // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
-  // =======================================
   const migrateLeadData = useCallback((oldData) => {
-    // Se já tem estrutura nova, retornar como está
     if (oldData.structureVersion === '3.1') {
       return oldData;
     }
 
-    // Mapear campos antigos para novos
     const migrated = {
       ...oldData,
-      
-      // Garantir estrutura base obrigatória
       isActive: oldData.isActive !== undefined ? oldData.isActive : true,
       priority: oldData.priority || UNIFIED_PRIORITIES.NORMAL,
-      
-      // Migrar status antigos
       status: migrateStatus(oldData.status),
-      
-      // Migrar tipos de interesse antigos
       interestType: migrateInterestType(oldData.interestType),
-      
-      // Migrar faixas de orçamento
       budgetRange: migrateBudgetRange(oldData.budgetRange),
-      
-      // Garantir campos obrigatórios
       phoneNormalized: oldData.phoneNormalized || oldData.phone?.replace(/\s|-/g, '') || '',
-      
-      // ✅ NOVOS CAMPOS COM VALORES PADRÃO
       clientType: oldData.clientType || CLIENT_TYPES.COMPRADOR,
       propertyStatus: oldData.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO,
       propertyReference: oldData.propertyReference || '',
@@ -256,18 +214,14 @@ useEffect(() => {
       managerEmail: oldData.managerEmail || '',
       managerContactHistory: oldData.managerContactHistory || [],
       managerNotes: oldData.managerNotes || '',
-      
-      // Adicionar campos novos
       source: oldData.source || UNIFIED_LEAD_SOURCES.MANUAL,
-      structureVersion: '3.1', // ✅ NOVA VERSÃO
+      structureVersion: '3.1',
       migratedAt: new Date().toISOString()
     };
 
     return migrated;
   }, []);
 
-  // 🔄 FUNÇÕES DE MIGRAÇÃO (mantidas)
-  // =================================
   const migrateStatus = (oldStatus) => {
     const statusMap = {
       'novo': UNIFIED_LEAD_STATUS.NOVO,
@@ -306,15 +260,12 @@ useEffect(() => {
     return rangeMap[oldRange] || UNIFIED_BUDGET_RANGES.INDEFINIDO;
   };
 
-  // 🔍 VERIFICAR DUPLICADOS SIMPLIFICADO
-  // ===================================
   const checkForDuplicates = useCallback(async (phone, email) => {
     setDuplicateCheck(true);
     
     try {
       const duplicates = [];
       
-      // Verificar por telefone normalizado
       if (phone) {
         const normalizedPhone = phone.replace(/\s|-/g, '');
         const phoneQuery = query(
@@ -334,7 +285,6 @@ useEffect(() => {
         });
       }
 
-      // Verificar por email (query separada)
       if (email) {
         const emailQuery = query(
           collection(db, LEADS_COLLECTION),
@@ -371,8 +321,6 @@ useEffect(() => {
     }
   }, [user]);
 
-  // ➕ CRIAR NOVO LEAD COM ESTRUTURA EXPANDIDA
-  // ==========================================
   const createLead = useCallback(async (leadData) => {
     if (!user) {
       throw new Error('Utilizador não autenticado');
@@ -382,7 +330,6 @@ useEffect(() => {
     setError(null);
 
     try {
-      // 1. VALIDAÇÃO BÁSICA SIMPLES
       if (!leadData.name?.trim()) {
         throw new Error('Nome é obrigatório');
       }
@@ -391,17 +338,14 @@ useEffect(() => {
         throw new Error('Telefone ou email é obrigatório');
       }
 
-      // Validar formato de telefone se fornecido
       if (leadData.phone && !validatePortuguesePhone(leadData.phone)) {
         throw new Error('Formato de telefone inválido');
       }
 
-      // Validar formato de email se fornecido
       if (leadData.email && !validateEmail(leadData.email)) {
         throw new Error('Formato de email inválido');
       }
 
-      // ✅ VALIDAÇÕES DOS NOVOS CAMPOS
       if (leadData.managerPhone && !validatePortuguesePhone(leadData.managerPhone)) {
         throw new Error('Formato de telefone do gestor inválido');
       }
@@ -410,65 +354,42 @@ useEffect(() => {
         throw new Error('Formato de email do gestor inválido');
       }
 
-      // 3. PREPARAR DADOS BÁSICOS NORMALIZADOS
       const normalizedPhone = leadData.phone?.replace(/\s|-/g, '') || '';
       const normalizedEmail = leadData.email?.toLowerCase().trim() || '';
       
-      // 4. CRIAR OBJETO DO LEAD COM ESTRUTURA EXPANDIDA
       const newLead = {
-        // Dados básicos
         name: leadData.name.trim(),
         phone: leadData.phone?.trim() || '',
         phoneNormalized: normalizedPhone,
         email: normalizedEmail,
-        
-        // Dados de interesse com valores padrão
         interestType: leadData.interestType || UNIFIED_INTEREST_TYPES.COMPRA_CASA,
         budgetRange: leadData.budgetRange || UNIFIED_BUDGET_RANGES.INDEFINIDO,
         notes: leadData.notes?.trim() || '',
-        
-        // ✅ NOVOS CAMPOS DE CLASSIFICAÇÃO
         clientType: leadData.clientType || CLIENT_TYPES.COMPRADOR,
         propertyStatus: leadData.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO,
         propertyReference: leadData.propertyReference?.trim() || '',
         propertyLink: leadData.propertyLink?.trim() || '',
-        
-        // ✅ NOVOS CAMPOS DO GESTOR
         managerName: leadData.managerName?.trim() || '',
         managerPhone: leadData.managerPhone?.trim() || '',
         managerEmail: leadData.managerEmail?.toLowerCase().trim() || '',
         managerContactHistory: leadData.managerContactHistory || [],
         managerNotes: leadData.managerNotes?.trim() || '',
-        
-        // Status e metadados
         status: UNIFIED_LEAD_STATUS.NOVO,
         source: leadData.source || UNIFIED_LEAD_SOURCES.MANUAL,
         priority: leadData.priority || UNIFIED_PRIORITIES.NORMAL,
-        
-        // Dados de auditoria obrigatórios
         userId: user.uid,
         userEmail: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        
-        // Dados adicionais
         location: leadData.location?.trim() || '',
         preferredContactTime: leadData.preferredContactTime || 'qualquer_hora',
-        
-        // Flags de controlo
         isActive: true,
         isConverted: false,
-        
-        // Referências cruzadas (inicialmente vazias)
         leadId: null,
         clientId: null,
         opportunityId: null,
         dealId: null,
-        
-        // Versão da estrutura
-        structureVersion: '3.1', // ✅ NOVA VERSÃO
-        
-        // Metadados técnicos básicos
+        structureVersion: '3.1',
         userAgent: navigator.userAgent,
         ipAddress: 'N/A',
         source_details: {
@@ -478,7 +399,6 @@ useEffect(() => {
         }
       };
 
-      // 5. VERIFICAR DUPLICADOS ANTES DE INSERIR
       const duplicateCheck = await checkForDuplicates(leadData.phone, leadData.email);
       if (duplicateCheck.hasDuplicates) {
         const duplicateInfo = duplicateCheck.duplicates[0];
@@ -489,10 +409,8 @@ useEffect(() => {
         );
       }
 
-      // 6. INSERIR NO FIREBASE
       const docRef = await addDoc(collection(db, LEADS_COLLECTION), newLead);
       
-      // 7. CRIAR OBJETO COMPLETO PARA RETORNO
       const createdLead = {
         id: docRef.id,
         ...newLead,
@@ -500,7 +418,6 @@ useEffect(() => {
         updatedAt: new Date()
       };
 
-      // 8. ATUALIZAR LISTA LOCAL
       setLeads(prev => [createdLead, ...prev]);
 
       console.log('Lead criado com estrutura expandida:', docRef.id);
@@ -525,8 +442,6 @@ useEffect(() => {
     }
   }, [user, checkForDuplicates]);
 
-  // ✏️ ATUALIZAR LEAD COM NOVOS CAMPOS
-  // ==================================
   const updateLead = useCallback(async (leadId, updateData) => {
     if (!user?.uid) {
       return { success: false, error: 'Utilizador não autenticado' };
@@ -539,11 +454,9 @@ useEffect(() => {
     try {
       setError(null);
 
-      // ✅ CAMPOS PERMITIDOS EXPANDIDOS
       const allowedFields = [
         'name', 'phone', 'email', 'interestType', 'budgetRange', 
         'location', 'notes', 'status', 'priority', 'source',
-        // ✅ NOVOS CAMPOS PERMITIDOS
         'clientType', 'propertyStatus', 'propertyReference', 'propertyLink',
         'managerName', 'managerPhone', 'managerEmail', 'managerNotes',
         'managerContactHistory'
@@ -556,7 +469,6 @@ useEffect(() => {
         }
       });
 
-      // Validações específicas
       if (validUpdateData.phone && !validatePortuguesePhone(validUpdateData.phone)) {
         return { success: false, error: 'Formato de telefone inválido' };
       }
@@ -565,7 +477,6 @@ useEffect(() => {
         return { success: false, error: 'Formato de email inválido' };
       }
 
-      // ✅ VALIDAÇÕES DOS NOVOS CAMPOS
       if (validUpdateData.managerPhone && !validatePortuguesePhone(validUpdateData.managerPhone)) {
         return { success: false, error: 'Formato de telefone do gestor inválido' };
       }
@@ -574,7 +485,6 @@ useEffect(() => {
         return { success: false, error: 'Formato de email do gestor inválido' };
       }
 
-      // Atualizar no Firestore
       const leadRef = doc(db, LEADS_COLLECTION, leadId);
       const finalUpdateData = {
         ...validUpdateData,
@@ -585,7 +495,6 @@ useEffect(() => {
 
       console.log('✅ Lead atualizado:', leadId);
 
-      // Atualizar lista local
       setLeads(prev => prev.map(lead => 
         lead.id === leadId 
           ? { ...lead, ...validUpdateData, updatedAt: new Date() }
@@ -600,8 +509,6 @@ useEffect(() => {
     }
   }, [user]);
 
-  // ✅ NOVA FUNÇÃO: ADICIONAR CONTACTO COM GESTOR
-  // =============================================
   const addManagerContact = useCallback(async (leadId, contactData) => {
     if (!user?.uid) {
       return { success: false, error: 'Utilizador não autenticado' };
@@ -621,9 +528,9 @@ useEffect(() => {
       const newContact = {
         id: Date.now().toString(),
         contactDate: contactData.contactDate || new Date().toISOString(),
-        contactType: contactData.contactType || 'phone', // phone, email, whatsapp
+        contactType: contactData.contactType || 'phone',
         notes: contactData.notes || '',
-        outcome: contactData.outcome || '', // contacted, no_answer, callback_requested
+        outcome: contactData.outcome || '',
         addedBy: user.uid,
         addedAt: new Date().toISOString()
       };
@@ -635,7 +542,6 @@ useEffect(() => {
         updatedAt: serverTimestamp()
       });
 
-      // Atualizar lista local
       setLeads(prev => prev.map(lead => 
         lead.id === leadId 
           ? { ...lead, managerContactHistory: updatedHistory, updatedAt: new Date() }
@@ -704,18 +610,15 @@ useEffect(() => {
     }
   }, [user]);
 
-  // 🔄 FUNÇÃO convertLeadToClient CORRIGIDA
-  // =======================================
+  // ✅ FUNÇÃO PRINCIPAL DE CONVERSÃO CORRIGIDA
   const convertLeadToClient = useCallback(async (leadId, additionalClientData = {}) => {
     if (!user) {
       return { success: false, error: 'Utilizador não autenticado' };
     }
 
-    // ✅ NOVA LÓGICA: Se for chamada SEM dados adicionais, abrir modal primeiro
     if (!additionalClientData.fromModal && !additionalClientData.skipModal) {
       debugLog('conversion', 'Abrindo modal de conversão obrigatório', { leadId });
 
-      // Buscar dados do lead para o modal
       try {
         const leadRef = doc(db, LEADS_COLLECTION, leadId);
         const leadSnap = await getDoc(leadRef);
@@ -726,7 +629,6 @@ useEffect(() => {
 
         const leadData = { id: leadSnap.id, ...leadSnap.data() };
         
-        // Verificar se já foi convertido
         if (leadData.isConverted || leadData.status === UNIFIED_LEAD_STATUS.CONVERTIDO) {
           return { 
             success: false, 
@@ -734,7 +636,6 @@ useEffect(() => {
           };
         }
 
-        // ✅ ABRIR MODAL OBRIGATÓRIO
         setConversionModal(prev => ({
           ...prev,
           isOpen: true,
@@ -753,38 +654,57 @@ useEffect(() => {
       }
     }
 
-    // ✅ SE CHEGOU AQUI, É PORQUE VEM DO MODAL - CONTINUAR COM CONVERSÃO ORIGINAL
+    // ✅ VALIDAÇÃO RELAXADA CORRIGIDA
+    if (additionalClientData.fromModal && additionalClientData.clientData) {
+      console.log('🔍 Aplicando validação relaxada para dados do modal...');
+      
+      const validation = validateLeadConversionRelaxed(
+        additionalClientData.leadData, 
+        additionalClientData.clientData, 
+        { allowIncomplete: true }
+      );
+      
+      console.log('📊 Resultado validação relaxada:', validation);
+
+      if (!validation.isValid && validation.errors.some(err => err.type === 'critical')) {
+        console.log('❌ Validação crítica falhou:', validation.errors);
+        return {
+          success: false,
+          error: 'Dados críticos em falta (nome e telefone)',
+          validationErrors: validation.errors
+        };
+      }
+
+      console.log('✅ Validação relaxada passou - continuando conversão...');
+      
+      const improvedClientData = {
+        name: additionalClientData.clientData.nome || additionalClientData.leadData?.name || '',
+        email: additionalClientData.clientData.email || additionalClientData.leadData?.email || '',
+        phone: additionalClientData.clientData.telefone || additionalClientData.leadData?.phone || '',
+        numeroCC: additionalClientData.clientData.numeroCC || '',
+        numeroFiscal: additionalClientData.clientData.numeroFiscal || '',
+        profissao: additionalClientData.clientData.profissao || 'Não especificado',
+        dataNascimento: additionalClientData.clientData.dataNascimento || '',
+        estadoCivil: additionalClientData.clientData.estadoCivil || 'nao_especificado',
+        notes: [
+          additionalClientData.clientData.observacoesConsultor || '',
+          '',
+          `--- CONVERSÃO DE LEAD (${new Date().toLocaleDateString('pt-PT')}) ---`,
+          `Pontuação de qualidade: ${validation.qualityScore}/100`,
+          validation.warnings.length > 0 ? 'AVISOS: Dados incompletos detectados' : '',
+          ...validation.warnings.map(w => `• ${w.message}`)
+        ].filter(Boolean).join('\n')
+      };
+      
+      additionalClientData.clientData = improvedClientData;
+      
+      console.log('👤 Dados do cliente melhorados:', improvedClientData);
+    }
+
     setConverting(true);
     setError(null);
 
     try {
-      // ✅ VALIDAÇÃO SE VEM DO MODAL
-      if (additionalClientData.fromModal) {
-        debugLog('validation', 'Executando validação de conversão do modal');
-        
-        const validationResult = validateLeadConversion(
-          additionalClientData.leadData,
-          additionalClientData.clientData,
-          { debug: true }
-        );
-
-        if (!validationResult.isValid) {
-          return {
-            success: false,
-            error: 'Dados de conversão inválidos',
-            validationErrors: validationResult.errors
-          };
-        }
-
-        if (!additionalClientData.conversionApproved) {
-          return {
-            success: false,
-            error: 'A conversão deve ser aprovada manualmente'
-          };
-        }
-      }
-
-      // 1. BUSCAR DADOS DO LEAD (código original mantido)
       console.log('📋 Buscando dados do lead:', leadId);
       const leadRef = doc(db, LEADS_COLLECTION, leadId);
       const leadSnap = await getDoc(leadRef);
@@ -795,7 +715,6 @@ useEffect(() => {
 
       const leadData = { id: leadSnap.id, ...leadSnap.data() };
       
-      // Verificar se já foi convertido
       if (leadData.isConverted || leadData.status === UNIFIED_LEAD_STATUS.CONVERTIDO) {
         return { 
           success: false, 
@@ -803,54 +722,32 @@ useEffect(() => {
         };
       }
 
-      // 2. PREPARAR DADOS DO CLIENTE (código original mantido)
       console.log('👤 Preparando dados do cliente...');
       const clientData = {
-        // Dados básicos do lead
         name: leadData.name,
         email: leadData.email || '',
         phone: leadData.phone,
-        
-        // Tipos e categorias
         clientType: leadData.clientType || 'comprador',
         interestType: leadData.interestType,
         budgetRange: leadData.budgetRange || 'indefinido',
-        
-        // Localização e preferências
         location: leadData.location || '',
         preferredLocations: leadData.location ? [leadData.location] : [],
-        
-        // Informações do imóvel (se disponíveis)
         propertyStatus: leadData.propertyStatus || 'nao_identificado',
         propertyReference: leadData.propertyReference || '',
         propertyLink: leadData.propertyLink || '',
-        
-        // Informações do gestor (se disponíveis)
         managerName: leadData.managerName || '',
         managerPhone: leadData.managerPhone || '',
         managerEmail: leadData.managerEmail || '',
         managerNotes: leadData.managerNotes || '',
-        
-        // ✅ MESCLAR COM DADOS DO MODAL (se existirem)
         ...(additionalClientData.clientData || {}),
-        
-        // Histórico e origem
         source: leadData.source || 'lead_conversion',
         originalLeadId: leadId,
         convertedFromLead: true,
         leadConvertedAt: new Date().toISOString(),
-        
-        // Observações consolidadas
         notes: `${leadData.notes || ''}\n\nConvertido do lead em ${new Date().toLocaleDateString('pt-PT')}\nOrigem: ${leadData.source || 'Manual'}`,
-        
-        // Status e prioridade
         status: 'ativo',
         priority: leadData.priority || 'normal',
-        
-        // Dados adicionais fornecidos
         ...additionalClientData,
-        
-        // Metadados
         isActive: true,
         createdAt: serverTimestamp(),
         createdBy: user.uid,
@@ -859,26 +756,22 @@ useEffect(() => {
         structureVersion: '3.1'
       };
 
-      // 3. CRIAR CLIENTE NO FIRESTORE (código original mantido)
       console.log('💾 Criando cliente no Firestore...');
       const clientRef = await addDoc(collection(db, CLIENTS_COLLECTION), clientData);
       const clientId = clientRef.id;
       
       console.log('✅ Cliente criado com ID:', clientId);
 
-      // 4. PREPARAR DADOS DA OPORTUNIDADE (código original mantido)
       console.log('🎯 Preparando dados da oportunidade...');
       
-      // Determinar tipo de oportunidade baseado no interesse
       const getOpportunityType = (interestType) => {
         if (interestType?.includes('compra')) return 'compra';
         if (interestType?.includes('venda')) return 'venda';
         if (interestType?.includes('arrendamento')) return 'arrendamento';
         if (interestType?.includes('aluguer')) return 'aluguer';
-        return 'compra'; // padrão
+        return 'compra';
       };
 
-      // Calcular valor estimado baseado no orçamento
       const getBudgetValue = (budgetRange) => {
         const values = {
           'ate_50k': 35000,
@@ -895,31 +788,22 @@ useEffect(() => {
       };
 
       const opportunityData = {
-        // Título e descrição
         title: `${getOpportunityType(leadData.interestType).charAt(0).toUpperCase() + getOpportunityType(leadData.interestType).slice(1)} - ${leadData.name}`,
         description: `Oportunidade criada automaticamente da conversão do lead ${leadData.name}.\nTipo: ${leadData.interestType || 'Não especificado'}\nLocalização: ${leadData.location || 'Não especificada'}`,
-        
-        // Cliente
         clientId: clientId,
         clientName: leadData.name,
         clientEmail: leadData.email || '',
         clientPhone: leadData.phone,
-        
-        // Tipo e status
         opportunityType: getOpportunityType(leadData.interestType),
-        status: 'qualificacao', // Já qualificado por vir de lead
+        status: 'qualificacao',
         priority: leadData.priority || 'normal',
-        
-        // Valores financeiros
         value: getBudgetValue(leadData.budgetRange),
-        probability: 25, // Probabilidade inicial para qualificação
+        probability: 25,
         estimatedCloseDate: (() => {
           const now = new Date();
-          now.setMonth(now.getMonth() + 3); // 3 meses por padrão
+          now.setMonth(now.getMonth() + 3);
           return now.toISOString().split('T')[0];
         })(),
-        
-        // Detalhes do imóvel
         propertyDetails: {
           type: leadData.interestType || '',
           location: leadData.location || '',
@@ -928,22 +812,16 @@ useEffect(() => {
           budget: getBudgetValue(leadData.budgetRange),
           status: leadData.propertyStatus || 'nao_identificado'
         },
-        
-        // Manager info (se disponível)
         managerInfo: leadData.managerName ? {
           name: leadData.managerName,
           phone: leadData.managerPhone || '',
           email: leadData.managerEmail || '',
           notes: leadData.managerNotes || ''
         } : null,
-        
-        // Origem e observações
         source: leadData.source || 'lead_conversion',
         leadId: leadId,
         convertedFromLead: true,
         notes: `Convertido automaticamente do lead ${leadData.name} em ${new Date().toLocaleDateString('pt-PT')}.\n\nObservações do lead: ${leadData.notes || 'Nenhuma'}`,
-        
-        // Atividades iniciais
         activities: [
           {
             id: Date.now(),
@@ -955,16 +833,12 @@ useEffect(() => {
             outcome: 'Conversão realizada com sucesso'
           }
         ],
-        
-        // Próximas ações sugeridas
         nextActions: [
           'Contactar cliente para validar interesse',
           'Agendar reunião/visita',
           'Apresentar opções disponíveis',
           'Qualificar orçamento específico'
         ],
-        
-        // Metadados
         isActive: true,
         createdAt: serverTimestamp(),
         createdBy: user.uid,
@@ -973,14 +847,12 @@ useEffect(() => {
         structureVersion: '3.1'
       };
 
-      // 5. CRIAR OPORTUNIDADE NO FIRESTORE (código original mantido)
       console.log('💾 Criando oportunidade no Firestore...');
       const opportunityRef = await addDoc(collection(db, OPPORTUNITIES_COLLECTION), opportunityData);
       const opportunityId = opportunityRef.id;
       
       console.log('✅ Oportunidade criada com ID:', opportunityId);
 
-      // 6. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE (código original mantido)
       await updateDoc(clientRef, {
         hasOpportunities: true,
         lastOpportunityId: opportunityId,
@@ -988,7 +860,6 @@ useEffect(() => {
         updatedAt: serverTimestamp()
       });
 
-      // 7. ATUALIZAR LEAD COMO CONVERTIDO (código original mantido)
       console.log('🔄 Atualizando status do lead...');
       await updateDoc(leadRef, {
         status: UNIFIED_LEAD_STATUS.CONVERTIDO,
@@ -1001,14 +872,13 @@ useEffect(() => {
           opportunityCreated: true,
           convertedBy: user.uid,
           conversionDate: new Date().toISOString(),
-          automatedConversion: !additionalClientData.fromModal, // true se conversão direta, false se via modal
+          automatedConversion: !additionalClientData.fromModal,
           modalValidation: !!additionalClientData.fromModal
         },
         updatedAt: serverTimestamp(),
         lastModifiedBy: user.uid
       });
 
-      // 8. ATUALIZAR LISTA LOCAL DE LEADS (código original mantido)
       setLeads(prev => 
         prev.map(lead => 
           lead.id === leadId 
@@ -1025,7 +895,6 @@ useEffect(() => {
         )
       );
 
-      // ✅ FECHAR MODAL SE ESTAVA ABERTO
       if (conversionModal.isOpen) {
         setConversionModal(prev => ({
           ...prev,
@@ -1061,22 +930,36 @@ useEffect(() => {
         error: err.message || 'Erro inesperado ao converter lead para cliente'
       };
     }
-  }, [user, setConverting, setError, setLeads, UNIFIED_LEAD_STATUS, LEADS_COLLECTION, CLIENTS_COLLECTION, OPPORTUNITIES_COLLECTION, conversionModal]);
+  }, [user, conversionModal]);
 
-  // ✅ FUNÇÕES AUXILIARES PARA MODAL
-  // Processar conversão vinda do modal
+  // ✅ FUNÇÃO SIMPLIFICADA processLeadConversion
   const processLeadConversion = useCallback(async (conversionData) => {
-    return await convertLeadToClient(conversionData.leadId, {
-      fromModal: true,
-      leadData: conversionData.leadData,
-      clientData: conversionData.clientData,
-      createSpouse: conversionData.createSpouse,
-      createOpportunity: conversionData.createOpportunity,
-      conversionApproved: conversionData.conversionApproved
-    });
+    console.log('🔄 [processLeadConversion] Iniciando...', { leadId: conversionData.leadId });
+    
+    try {
+      const result = await convertLeadToClient(conversionData.leadId, {
+        fromModal: true,
+        skipModal: true,
+        leadData: conversionData.leadData,
+        clientData: conversionData.clientData,
+        createOpportunity: conversionData.createOpportunity !== false,
+        createSpouse: conversionData.createSpouse && conversionData.clientData?.temConjuge,
+        conversionApproved: conversionData.conversionApproved
+      });
+
+      console.log('✅ [processLeadConversion] Resultado:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ [processLeadConversion] Erro:', error);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }, [convertLeadToClient]);
 
-  // Fechar modal
   const closeConversionModal = useCallback(() => {
     if (conversionModal.debugger && conversionModal.leadData) {
       conversionModal.debugger.logModalClose('user_cancelled');
@@ -1091,7 +974,6 @@ useEffect(() => {
     }));
   }, [conversionModal.debugger, conversionModal.leadData]);
 
-  // Callback para debug
   const handleDebugLog = useCallback((logEntry) => {
     debugLog('debug', 'Log do modal de conversão', logEntry);
   }, []);
@@ -1140,28 +1022,24 @@ useEffect(() => {
       byBudgetRange: {},
       byPriority: {},
       bySource: {},
-      byClientType: {}, // ✅ NOVA ESTATÍSTICA
-      byPropertyStatus: {}, // ✅ NOVA ESTATÍSTICA
+      byClientType: {},
+      byPropertyStatus: {},
       conversionRate: 0,
       qualificationRate: 0
     };
 
-    // Contar por status unificado
     Object.values(UNIFIED_LEAD_STATUS).forEach(status => {
       stats.byStatus[status] = leads.filter(lead => lead.status === status).length;
     });
 
-    // ✅ CONTAR POR TIPO DE CLIENTE
     Object.values(CLIENT_TYPES).forEach(type => {
       stats.byClientType[type] = leads.filter(lead => lead.clientType === type).length;
     });
 
-    // ✅ CONTAR POR STATUS DA PROPRIEDADE
     Object.values(PROPERTY_STATUS).forEach(status => {
       stats.byPropertyStatus[status] = leads.filter(lead => lead.propertyStatus === status).length;
     });
 
-    // Calcular taxas
     const convertedCount = stats.byStatus[UNIFIED_LEAD_STATUS.CONVERTIDO] || 0;
     const qualifiedCount = stats.byStatus[UNIFIED_LEAD_STATUS.QUALIFICADO] || 0;
     
@@ -1183,7 +1061,6 @@ useEffect(() => {
     return labels[status] || status;
   };
 
-  // 🔄 EFFECTS
   useEffect(() => {
     if (user) {
       fetchLeads();
@@ -1197,10 +1074,7 @@ useEffect(() => {
     }
   }, [error]);
 
-  // 📤 RETORNO DO HOOK EXPANDIDO
-  // ============================
   return {
-    // Estados
     leads,
     loading,
     error,
@@ -1208,48 +1082,32 @@ useEffect(() => {
     converting,
     duplicateCheck,
     filters,
-
-    // ✅ NOVOS ESTADOS E FUNÇÕES PARA MODAL
     conversionModal,
     processLeadConversion,
     closeConversionModal,
     handleDebugLog,
-
-    // Ações principais
     createLead,
     updateLead,
     convertLeadToClient,
     updateLeadStatus,
     deleteLead,
-    addManagerContact, // ✅ NOVA FUNÇÃO
-    
-    // Busca e filtros
+    addManagerContact,
     fetchLeads,
     searchLeads,
     setFilters,
     checkForDuplicates,
-    
-    // Estatísticas
     getLeadStats,
-    
-    // Constantes unificadas (compatibilidade)
     LEAD_STATUS: UNIFIED_LEAD_STATUS,
     LEAD_INTEREST_TYPES: UNIFIED_INTEREST_TYPES,
     BUDGET_RANGES: UNIFIED_BUDGET_RANGES,
     LEAD_STATUS_COLORS,
-    
-    // ✅ NOVAS CONSTANTES
     CLIENT_TYPES,
     PROPERTY_STATUS,
-    
-    // Novos: constantes unificadas
     UNIFIED_LEAD_STATUS,
     UNIFIED_INTEREST_TYPES,
     UNIFIED_BUDGET_RANGES,
     UNIFIED_PRIORITIES,
     UNIFIED_LEAD_SOURCES,
-    
-    // Helpers unificados
     isValidEmail: validateEmail,
     isValidPhone: validatePortuguesePhone,
     normalizePhone: (phone) => phone?.replace(/\s|-/g, '') || '',
@@ -1257,12 +1115,8 @@ useEffect(() => {
     getBudgetRangeLabel,
     formatCurrency,
     getStatusLabel,
-    
-    // Estado de conectividade
     isConnected: !!user && !error,
-    
-    // Informações da estrutura
-    structureVersion: '3.1', // ✅ NOVA VERSÃO
+    structureVersion: '3.1',
     isUnified: true
   };
 };
