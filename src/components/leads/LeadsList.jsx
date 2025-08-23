@@ -1,13 +1,13 @@
-// src/components/leads/LeadsList.jsx
+// src/components/leads/LeadsList.jsx - VERSÃO COM LEADFORM NA EDIÇÃO
+// ✅ Edição inline mantida
+// ✅ Modal de edição usando LeadForm expandido
+// ✅ Todas as funcionalidades preservadas
+
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedButton } from '../common/ThemedComponents';
+import LeadForm from './LeadForm'; // ✅ IMPORTAÇÃO DO COMPONENTE
 import useLeads from '../../hooks/useLeads';
-
-// 🎯 COMPONENTE DE LISTA AVANÇADA EDITÁVEL PARA LEADS - VERSÃO EXPANDIDA
-// ======================================================================
-// MyImoMate 3.0 - Lista inteligente com novos campos de qualificação
-// Funcionalidades: Edição inline, Modal expandido, Campos de gestor, Propriedades
 
 const LeadsList = ({
   leads = [],
@@ -30,13 +30,13 @@ const LeadsList = ({
     updateLead,
     deleteLead,
     updateLeadStatus,
-    addManagerContact, // ✅ NOVA FUNÇÃO
+    addManagerContact,
     LEAD_STATUS,
     LEAD_INTEREST_TYPES,
     BUDGET_RANGES,
     LEAD_STATUS_COLORS,
-    CLIENT_TYPES, // ✅ NOVA CONSTANTE
-    PROPERTY_STATUS, // ✅ NOVA CONSTANTE
+    CLIENT_TYPES,
+    PROPERTY_STATUS,
     isValidPhone,
     isValidEmail
   } = useLeads();
@@ -49,8 +49,8 @@ const LeadsList = ({
     priority: '',
     source: '',
     dateRange: 'all',
-    clientType: '', // ✅ NOVO FILTRO
-    propertyStatus: '' // ✅ NOVO FILTRO
+    clientType: '',
+    propertyStatus: ''
   });
 
   // Estados de ordenação
@@ -72,7 +72,7 @@ const LeadsList = ({
     individual: {}
   });
 
-  // Estados para edição
+  // Estados para edição (ATUALIZADOS)
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
@@ -80,7 +80,7 @@ const LeadsList = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(null);
 
-  // ✅ NOVOS ESTADOS PARA GESTÃO DE CONTACTOS
+  // Estados para gestão de contactos
   const [showManagerContactModal, setShowManagerContactModal] = useState(false);
   const [managerContactForm, setManagerContactForm] = useState({
     contactDate: new Date().toISOString().split('T')[0],
@@ -89,7 +89,7 @@ const LeadsList = ({
     outcome: ''
   });
 
-  // 📊 FILTRAR E ORDENAR LEADS
+  // Filtrar e ordenar leads
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
@@ -103,8 +103,6 @@ const LeadsList = ({
     if (localFilters.budgetRange) {
       filtered = filtered.filter(lead => lead.budgetRange === localFilters.budgetRange);
     }
-    
-    // ✅ NOVOS FILTROS
     if (localFilters.clientType) {
       filtered = filtered.filter(lead => lead.clientType === localFilters.clientType);
     }
@@ -156,12 +154,12 @@ const LeadsList = ({
     return filtered;
   }, [leads, localFilters, sortField, sortDirection]);
 
-  // 📄 PAGINAÇÃO
+  // Paginação
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedLeads = filteredLeads.slice(startIndex, startIndex + itemsPerPage);
 
-  // 🔄 FUNÇÕES DE ORDENAÇÃO
+  // Funções de ordenação
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -176,7 +174,7 @@ const LeadsList = ({
     return sortDirection === 'asc' ? '⬆️' : '⬇️';
   };
 
-  // 🔥 FUNÇÕES DE EDIÇÃO INLINE
+  // Funções de edição inline (MANTIDAS)
   const handleCellDoubleClick = (lead, field) => {
     if (!showActions) return;
     
@@ -240,43 +238,42 @@ const LeadsList = ({
     setEditValues({});
   };
 
-  // 🔥 FUNÇÕES DO MODAL DE EDIÇÃO COMPLETA
+  // ✅ FUNÇÕES DO MODAL DE EDIÇÃO COM LEADFORM
   const handleEditComplete = (lead) => {
     setEditingLead({ ...lead });
     setShowEditModal(true);
     setShowDetailsModal(null);
   };
 
-  const handleSaveComplete = async () => {
+  // ✅ NOVA FUNÇÃO: Submissão do LeadForm para edição
+  const handleEditFormSubmit = async (updatedLeadData) => {
     if (!editingLead) return;
 
     try {
-      setActionLoading(prev => ({
-        ...prev,
-        individual: { ...prev.individual, [editingLead.id]: true }
-      }));
-
-      const result = await updateLead(editingLead.id, editingLead);
+      const result = await updateLead(editingLead.id, updatedLeadData);
       
       if (result.success) {
         setShowEditModal(false);
         setEditingLead(null);
         if (onLeadUpdate) onLeadUpdate();
       } else {
-        alert(`Erro ao atualizar: ${result.error}`);
+        throw new Error(result.error || 'Erro ao atualizar lead');
       }
 
     } catch (error) {
+      // O erro será tratado pelo LeadForm internamente
+      console.error('Erro ao atualizar lead:', error);
       alert(`Erro ao atualizar: ${error.message}`);
-    } finally {
-      setActionLoading(prev => ({
-        ...prev,
-        individual: { ...prev.individual, [editingLead.id]: false }
-      }));
     }
   };
 
-  // ✅ NOVA FUNÇÃO: ADICIONAR CONTACTO COM GESTOR
+  // ✅ NOVA FUNÇÃO: Cancelar edição
+  const handleEditFormCancel = () => {
+    setShowEditModal(false);
+    setEditingLead(null);
+  };
+
+  // Função para adicionar contacto com gestor (MANTIDA)
   const handleAddManagerContact = async () => {
     if (!editingLead) return;
 
@@ -284,13 +281,11 @@ const LeadsList = ({
       const result = await addManagerContact(editingLead.id, managerContactForm);
       
       if (result.success) {
-        // Atualizar lead local com novo contacto
         setEditingLead(prev => ({
           ...prev,
           managerContactHistory: [...(prev.managerContactHistory || []), result.contact]
         }));
         
-        // Reset form
         setManagerContactForm({
           contactDate: new Date().toISOString().split('T')[0],
           contactType: 'phone',
@@ -308,7 +303,7 @@ const LeadsList = ({
     }
   };
 
-  // 🗑️ FUNÇÃO DE ELIMINAÇÃO
+  // Função de eliminação (MANTIDA)
   const handleDelete = async (leadId) => {
     try {
       setActionLoading(prev => ({
@@ -335,7 +330,7 @@ const LeadsList = ({
     }
   };
 
-  // 🎨 HELPER FUNCTIONS
+  // Helper functions (MANTIDAS)
   const getStatusLabel = (status) => {
     const labels = {
       [LEAD_STATUS.NOVO]: 'Novo',
@@ -361,7 +356,6 @@ const LeadsList = ({
     return labels[interest] || interest;
   };
 
-  // ✅ NOVOS HELPER FUNCTIONS
   const getClientTypeLabel = (type) => {
     const labels = {
       [CLIENT_TYPES.COMPRADOR]: 'Comprador',
@@ -384,7 +378,7 @@ const LeadsList = ({
     return labels[status] || status;
   };
 
-  // 🎯 COMPONENTE DE CÉLULA EDITÁVEL
+  // Componente de Célula Editável (MANTIDO)
   const EditableCell = ({ lead, field, value, type = 'text', options = null }) => {
     const isEditing = editingCell?.leadId === lead.id && editingCell?.field === field;
     const currentValue = editValues[lead.id]?.[field] ?? value;
@@ -463,7 +457,7 @@ const LeadsList = ({
     );
   };
 
-  // 🎨 RENDER DO COMPONENTE
+  // Render do componente (MANTIDO até à tabela)
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -482,7 +476,7 @@ const LeadsList = ({
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden" style={{ maxHeight }}>
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO (MANTIDO) */}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">
@@ -504,7 +498,7 @@ const LeadsList = ({
           )}
         </div>
 
-        {/* ✅ FILTROS EXPANDIDOS */}
+        {/* FILTROS EXPANDIDOS (MANTIDOS) */}
         {showFilters && (
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <select
@@ -576,7 +570,7 @@ const LeadsList = ({
         )}
       </div>
 
-      {/* ✅ TABELA EXPANDIDA */}
+      {/* TABELA (MANTIDA) */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -761,7 +755,7 @@ const LeadsList = ({
         </table>
       </div>
 
-      {/* PAGINAÇÃO */}
+      {/* PAGINAÇÃO (MANTIDA) */}
       {totalPages > 1 && (
         <div className="px-6 py-3 border-t border-gray-200">
           <div className="flex items-center justify-between">
@@ -808,265 +802,41 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE EDIÇÃO COMPLETA EXPANDIDO */}
+      {/* ✅ MODAL DE EDIÇÃO USANDO LEADFORM */}
       {showEditModal && editingLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">Editar Lead Completo</h3>
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col mx-4">
             
-            {/* SEPARADORES POR SECÇÃO */}
-            <div className="space-y-6">
-              
-              {/* SECÇÃO: INFORMAÇÕES BÁSICAS */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
-                  Informações Básicas
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                    <input
-                      type="text"
-                      value={editingLead.name || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cliente</label>
-                    <select
-                      value={editingLead.clientType || CLIENT_TYPES.COMPRADOR}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, clientType: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    >
-                      {Object.values(CLIENT_TYPES).map(type => (
-                        <option key={type} value={type}>{getClientTypeLabel(type)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                    <input
-                      type="tel"
-                      value={editingLead.phone || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editingLead.email || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={editingLead.status || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, status: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    >
-                      {Object.values(LEAD_STATUS).map(status => (
-                        <option key={status} value={status}>{getStatusLabel(status)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Interesse</label>
-                    <select
-                      value={editingLead.interestType || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, interestType: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    >
-                      {Object.values(LEAD_INTEREST_TYPES).map(type => (
-                        <option key={type} value={type}>{getInterestLabel(type)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Localização Preferida</label>
-                    <input
-                      type="text"
-                      value={editingLead.location || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, location: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      placeholder="Cidade, distrito, zona..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECÇÃO: INFORMAÇÕES DO IMÓVEL */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
-                  Informações do Imóvel
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status do Imóvel</label>
-                    <select
-                      value={editingLead.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, propertyStatus: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    >
-                      {Object.values(PROPERTY_STATUS).map(status => (
-                        <option key={status} value={status}>{getPropertyStatusLabel(status)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Referência do Imóvel</label>
-                    <input
-                      type="text"
-                      value={editingLead.propertyReference || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, propertyReference: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      placeholder="Ex: IMO001, REF123..."
-                    />
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Link do Imóvel</label>
-                    <input
-                      type="url"
-                      value={editingLead.propertyLink || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, propertyLink: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECÇÃO: INFORMAÇÕES DO GESTOR */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
-                  Informações do Gestor do Imóvel
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Gestor</label>
-                    <input
-                      type="text"
-                      value={editingLead.managerName || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, managerName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone do Gestor</label>
-                    <input
-                      type="tel"
-                      value={editingLead.managerPhone || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, managerPhone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email do Gestor</label>
-                    <input
-                      type="email"
-                      value={editingLead.managerEmail || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, managerEmail: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
-                  
-                  <div className="flex items-end">
-                    <ThemedButton
-                      onClick={() => setShowManagerContactModal(true)}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Adicionar Contacto
-                    </ThemedButton>
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notas sobre Conversas com Gestor</label>
-                    <textarea
-                      value={editingLead.managerNotes || ''}
-                      onChange={(e) => setEditingLead(prev => ({ ...prev, managerNotes: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      rows="3"
-                      placeholder="Informações sobre contactos com o gestor..."
-                    />
-                  </div>
-                </div>
-
-                {/* HISTÓRICO DE CONTACTOS COM GESTOR */}
-                {editingLead.managerContactHistory && editingLead.managerContactHistory.length > 0 && (
-                  <div className="mt-4">
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">Histórico de Contactos</h5>
-                    <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
-                      {editingLead.managerContactHistory.map((contact, index) => (
-                        <div key={index} className="mb-2 p-2 bg-white rounded border text-sm">
-                          <div className="flex justify-between items-start">
-                            <span className="font-medium">
-                              {new Date(contact.contactDate).toLocaleDateString('pt-PT')} - {contact.contactType}
-                            </span>
-                            <span className="text-xs text-gray-500">{contact.outcome}</span>
-                          </div>
-                          {contact.notes && (
-                            <p className="text-gray-600 mt-1">{contact.notes}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* SECÇÃO: NOTAS GERAIS */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-1">
-                  Notas e Observações
-                </h4>
-                <textarea
-                  value={editingLead.notes || ''}
-                  onChange={(e) => setEditingLead(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  rows="4"
-                  placeholder="Informações adicionais sobre o lead..."
-                />
-              </div>
+            {/* Cabeçalho do Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Editar Lead: {editingLead.name}
+              </h3>
+              <button
+                onClick={handleEditFormCancel}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
-              <ThemedButton 
-                onClick={handleSaveComplete} 
-                className="flex-1"
-                disabled={actionLoading.individual[editingLead.id]}
-              >
-                {actionLoading.individual[editingLead.id] ? '⏳ Guardando...' : 'Guardar Alterações'}
-              </ThemedButton>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingLead(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
+            {/* Conteúdo do Modal - LeadForm Expandido */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <LeadForm
+                initialData={editingLead}
+                onSubmit={handleEditFormSubmit}
+                onCancel={handleEditFormCancel}
+                submitButtonText="Guardar Alterações"
+                showPreview={true}
+                compactMode={false}
+                autoFocus={false}
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL PARA ADICIONAR CONTACTO COM GESTOR */}
+      {/* MODAL PARA ADICIONAR CONTACTO COM GESTOR (MANTIDO) */}
       {showManagerContactModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -1140,7 +910,7 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE DETALHES EXPANDIDO */}
+      {/* MODAL DE DETALHES EXPANDIDO (MANTIDO) */}
       {showDetailsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -1247,7 +1017,7 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO */}
+      {/* MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO (MANTIDO) */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
