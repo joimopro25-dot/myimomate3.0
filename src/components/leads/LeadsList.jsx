@@ -1,12 +1,13 @@
-// src/components/leads/LeadsList.jsx - VERSÃO COM LEADFORM NA EDIÇÃO
+// src/components/leads/LeadsList.jsx - VERSÃO COM VIEWMODE FUNCIONAL
 // ✅ Edição inline mantida
 // ✅ Modal de edição usando LeadForm expandido
+// ✅ ADICIONADO: Suporte para viewMode (grid/list)
 // ✅ Todas as funcionalidades preservadas
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedButton } from '../common/ThemedComponents';
-import LeadForm from './LeadForm'; // ✅ IMPORTAÇÃO DO COMPONENTE
+import LeadForm from './LeadForm';
 import useLeads from '../../hooks/useLeads';
 
 const LeadsList = ({
@@ -21,8 +22,12 @@ const LeadsList = ({
   showActions = true,
   showFilters = true,
   maxHeight = '600px',
-  compact = false
+  compact = false,
+  viewMode = 'list' 
 }) => {
+
+    // Debug temporário
+  console.log('LeadsList viewMode:', viewMode);
   const { theme } = useTheme();
   
   // Hook de leads para ações
@@ -89,7 +94,20 @@ const LeadsList = ({
     outcome: ''
   });
 
-  // Filtrar e ordenar leads
+  // ✅ NOVA FUNÇÃO: Cores de status para vista grid
+  const getStatusColor = (status) => {
+    const colors = {
+      'novo': 'bg-blue-100 text-blue-800',
+      'contactado': 'bg-yellow-100 text-yellow-800', 
+      'qualificado': 'bg-green-100 text-green-800',
+      'convertido': 'bg-purple-100 text-purple-800',
+      'perdido': 'bg-red-100 text-red-800',
+      'inativo': 'bg-gray-100 text-gray-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Filtrar e ordenar leads (MANTIDO IGUAL)
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
@@ -154,12 +172,12 @@ const LeadsList = ({
     return filtered;
   }, [leads, localFilters, sortField, sortDirection]);
 
-  // Paginação
+  // Paginação (MANTIDA IGUAL)
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedLeads = filteredLeads.slice(startIndex, startIndex + itemsPerPage);
 
-  // Funções de ordenação
+  // TODAS AS FUNÇÕES MANTIDAS IGUAIS
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -174,7 +192,6 @@ const LeadsList = ({
     return sortDirection === 'asc' ? '⬆️' : '⬇️';
   };
 
-  // Funções de edição inline (MANTIDAS)
   const handleCellDoubleClick = (lead, field) => {
     if (!showActions) return;
     
@@ -196,7 +213,6 @@ const LeadsList = ({
     const newValue = editValues[leadId]?.[field];
     if (newValue === undefined) return;
 
-    // Validações específicas
     if ((field === 'phone' || field === 'managerPhone') && newValue && !isValidPhone(newValue)) {
       alert('Formato de telefone inválido');
       return;
@@ -238,14 +254,12 @@ const LeadsList = ({
     setEditValues({});
   };
 
-  // ✅ FUNÇÕES DO MODAL DE EDIÇÃO COM LEADFORM
   const handleEditComplete = (lead) => {
     setEditingLead({ ...lead });
     setShowEditModal(true);
     setShowDetailsModal(null);
   };
 
-  // ✅ NOVA FUNÇÃO: Submissão do LeadForm para edição
   const handleEditFormSubmit = async (updatedLeadData) => {
     if (!editingLead) return;
 
@@ -261,19 +275,16 @@ const LeadsList = ({
       }
 
     } catch (error) {
-      // O erro será tratado pelo LeadForm internamente
       console.error('Erro ao atualizar lead:', error);
       alert(`Erro ao atualizar: ${error.message}`);
     }
   };
 
-  // ✅ NOVA FUNÇÃO: Cancelar edição
   const handleEditFormCancel = () => {
     setShowEditModal(false);
     setEditingLead(null);
   };
 
-  // Função para adicionar contacto com gestor (MANTIDA)
   const handleAddManagerContact = async () => {
     if (!editingLead) return;
 
@@ -303,7 +314,6 @@ const LeadsList = ({
     }
   };
 
-  // Função de eliminação (MANTIDA)
   const handleDelete = async (leadId) => {
     try {
       setActionLoading(prev => ({
@@ -362,7 +372,8 @@ const LeadsList = ({
       [CLIENT_TYPES.ARRENDATARIO]: 'Arrendatário',
       [CLIENT_TYPES.INQUILINO]: 'Inquilino',
       [CLIENT_TYPES.VENDEDOR]: 'Vendedor',
-      [CLIENT_TYPES.SENHORIO]: 'Senhorio'
+      [CLIENT_TYPES.SENHORIO]: 'Senhorio',
+      [CLIENT_TYPES.INVESTIDOR]: 'Investidor'
     };
     return labels[type] || type;
   };
@@ -457,7 +468,7 @@ const LeadsList = ({
     );
   };
 
-  // Render do componente (MANTIDO até à tabela)
+  // Estados de loading e erro (MANTIDOS)
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -570,189 +581,262 @@ const LeadsList = ({
         )}
       </div>
 
-      {/* TABELA (MANTIDA) */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {showSelection && (
-                <th className="px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectAll}
-                    onChange={(e) => {
-                      setSelectAll(e.target.checked);
-                      if (e.target.checked) {
-                        setSelectedLeads(paginatedLeads.map(lead => lead.id));
-                      } else {
-                        setSelectedLeads([]);
-                      }
-                    }}
-                    className="rounded"
-                  />
-                </th>
-              )}
-              
-              <th onClick={() => handleSort('name')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Nome {getSortIcon('name')}
-              </th>
-              
-              <th onClick={() => handleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Status {getSortIcon('status')}
-              </th>
-              
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tipo Cliente
-              </th>
-              
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contacto
-              </th>
-              
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Imóvel
-              </th>
-              
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Gestor
-              </th>
-              
-              <th onClick={() => handleSort('createdAt')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Criado {getSortIcon('createdAt')}
-              </th>
-              
-              {showActions && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              )}
-            </tr>
-          </thead>
-          
-          <tbody className="bg-white divide-y divide-gray-200">
-            {paginatedLeads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-gray-50">
-                {showSelection && (
-                  <td className="px-6 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedLeads.includes(lead.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedLeads(prev => [...prev, lead.id]);
-                        } else {
-                          setSelectedLeads(prev => prev.filter(id => id !== lead.id));
-                        }
-                      }}
-                      className="rounded"
-                    />
-                  </td>
-                )}
+      {/* ✅ CONTEÚDO BASEADO NO VIEWMODE */}
+      <div className="p-6">
+        {paginatedLeads.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            Nenhum lead encontrado
+          </div>
+        ) : viewMode === 'grid' ? (
+          // ✅ VISTA GRID/CARDS
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedLeads.map(lead => (
+              <div key={lead.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-semibold text-gray-900 truncate">{lead.name}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(lead.status)}`}>
+                    {getStatusLabel(lead.status)}
+                  </span>
+                </div>
                 
-                <td className="px-6 py-4">
-                  <EditableCell lead={lead} field="name" value={lead.name} />
-                </td>
-                
-                <td className="px-6 py-4">
-                  <EditableCell 
-                    lead={lead} 
-                    field="status" 
-                    value={lead.status}
-                    type="select"
-                    options={Object.values(LEAD_STATUS).map(status => ({
-                      value: status,
-                      label: getStatusLabel(status)
-                    }))}
-                  />
-                </td>
-                
-                <td className="px-6 py-4">
-                  <EditableCell 
-                    lead={lead} 
-                    field="clientType" 
-                    value={lead.clientType || CLIENT_TYPES.COMPRADOR}
-                    type="select"
-                    options={Object.values(CLIENT_TYPES).map(type => ({
-                      value: type,
-                      label: getClientTypeLabel(type)
-                    }))}
-                  />
-                </td>
-                
-                <td className="px-6 py-4 text-sm">
-                  <div className="space-y-1">
-                    <EditableCell lead={lead} field="phone" value={lead.phone} type="tel" />
-                    <EditableCell lead={lead} field="email" value={lead.email} type="email" />
+                <div className="space-y-2 text-sm text-gray-600 mb-4">
+                  <div className="flex items-center">
+                    <span className="font-medium w-16">Tipo:</span>
+                    <span className="truncate">{getClientTypeLabel(lead.clientType)}</span>
                   </div>
-                </td>
-                
-                <td className="px-6 py-4 text-sm">
-                  <div className="space-y-1">
-                    <EditableCell 
-                      lead={lead} 
-                      field="propertyStatus" 
-                      value={lead.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO}
-                      type="select"
-                      options={Object.values(PROPERTY_STATUS).map(status => ({
-                        value: status,
-                        label: getPropertyStatusLabel(status)
-                      }))}
-                    />
-                    <EditableCell lead={lead} field="propertyReference" value={lead.propertyReference} />
+                  <div className="flex items-center">
+                    <span className="font-medium w-16">Tel:</span>
+                    <span className="truncate">{lead.phone || 'N/A'}</span>
                   </div>
-                </td>
-                
-                <td className="px-6 py-4 text-sm">
-                  <div className="space-y-1">
-                    <EditableCell lead={lead} field="managerName" value={lead.managerName} />
-                    <EditableCell lead={lead} field="managerPhone" value={lead.managerPhone} type="tel" />
+                  <div className="flex items-center">
+                    <span className="font-medium w-16">Email:</span>
+                    <span className="truncate">{lead.email || 'N/A'}</span>
                   </div>
-                </td>
-                
-                <td className="px-6 py-4 text-sm text-gray-500">
-                  {lead.createdAt?.toLocaleDateString?.('pt-PT') || 
-                   (lead.createdAt?.toDate ? lead.createdAt.toDate().toLocaleDateString('pt-PT') : 'N/A')}
-                </td>
+                  <div className="flex items-center">
+                    <span className="font-medium w-16">Imóvel:</span>
+                    <span className="truncate">{lead.propertyStatus ? getPropertyStatusLabel(lead.propertyStatus) : 'Não identificado'}</span>
+                  </div>
+                </div>
                 
                 {showActions && (
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 gap-1">
+                    <button
+                      onClick={() => setShowDetailsModal(lead)}
+                      className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
+                    >
+                      Ver
+                    </button>
+                    <button
+                      onClick={() => handleEditComplete(lead)}
+                      className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
+                    >
+                      Editar
+                    </button>
+                    {onLeadConvert && (
                       <button
-                        onClick={() => setShowDetailsModal(lead)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        onClick={() => onLeadConvert(lead.id)}
+                        className="text-purple-600 hover:text-purple-800 text-xs px-2 py-1 rounded"
                       >
-                        Ver
+                        Converter
                       </button>
-                      
-                      <button
-                        onClick={() => handleEditComplete(lead)}
-                        className="text-green-600 hover:text-green-800 text-sm"
-                      >
-                        Editar
-                      </button>
-                      
-                      {onLeadConvert && (
-                        <button
-                          onClick={() => onLeadConvert(lead.id)}
-                          className="text-purple-600 hover:text-purple-800 text-sm"
-                        >
-                          Converter
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={() => setShowDeleteConfirm(lead.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
+                    )}
+                    <button
+                      onClick={() => setShowDeleteConfirm(lead.id)}
+                      className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 )}
-              </tr>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          // ✅ VISTA LISTA/TABLE - código existente mantido
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {showSelection && (
+                    <th className="px-6 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={(e) => {
+                          setSelectAll(e.target.checked);
+                          if (e.target.checked) {
+                            setSelectedLeads(paginatedLeads.map(lead => lead.id));
+                          } else {
+                            setSelectedLeads([]);
+                          }
+                        }}
+                        className="rounded"
+                      />
+                    </th>
+                  )}
+                  
+                  <th onClick={() => handleSort('name')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                    Nome {getSortIcon('name')}
+                  </th>
+                  
+                  <th onClick={() => handleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                    Status {getSortIcon('status')}
+                  </th>
+                  
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo Cliente
+                  </th>
+                  
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contacto
+                  </th>
+                  
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Imóvel
+                  </th>
+                  
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gestor
+                  </th>
+                  
+                  <th onClick={() => handleSort('createdAt')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                    Criado {getSortIcon('createdAt')}
+                  </th>
+                  
+                  {showActions && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedLeads.map((lead) => (
+                  <tr key={lead.id} className="hover:bg-gray-50">
+                    {showSelection && (
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLeads(prev => [...prev, lead.id]);
+                            } else {
+                              setSelectedLeads(prev => prev.filter(id => id !== lead.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                      </td>
+                    )}
+                    
+                    <td className="px-6 py-4">
+                      <EditableCell lead={lead} field="name" value={lead.name} />
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <EditableCell 
+                        lead={lead} 
+                        field="status" 
+                        value={lead.status}
+                        type="select"
+                        options={Object.values(LEAD_STATUS).map(status => ({
+                          value: status,
+                          label: getStatusLabel(status)
+                        }))}
+                      />
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <EditableCell 
+                        lead={lead} 
+                        field="clientType" 
+                        value={lead.clientType || CLIENT_TYPES.COMPRADOR}
+                        type="select"
+                        options={Object.values(CLIENT_TYPES).map(type => ({
+                          value: type,
+                          label: getClientTypeLabel(type)
+                        }))}
+                      />
+                    </td>
+                    
+                    <td className="px-6 py-4 text-sm">
+                      <div className="space-y-1">
+                        <EditableCell lead={lead} field="phone" value={lead.phone} type="tel" />
+                        <EditableCell lead={lead} field="email" value={lead.email} type="email" />
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 text-sm">
+                      <div className="space-y-1">
+                        <EditableCell 
+                          lead={lead} 
+                          field="propertyStatus" 
+                          value={lead.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO}
+                          type="select"
+                          options={Object.values(PROPERTY_STATUS).map(status => ({
+                            value: status,
+                            label: getPropertyStatusLabel(status)
+                          }))}
+                        />
+                        <EditableCell lead={lead} field="propertyReference" value={lead.propertyReference} />
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 text-sm">
+                      <div className="space-y-1">
+                        <EditableCell lead={lead} field="managerName" value={lead.managerName} />
+                        <EditableCell lead={lead} field="managerPhone" value={lead.managerPhone} type="tel" />
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {lead.createdAt?.toLocaleDateString?.('pt-PT') || 
+                       (lead.createdAt?.toDate ? lead.createdAt.toDate().toLocaleDateString('pt-PT') : 'N/A')}
+                    </td>
+                    
+                    {showActions && (
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowDetailsModal(lead)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            Ver
+                          </button>
+                          
+                          <button
+                            onClick={() => handleEditComplete(lead)}
+                            className="text-green-600 hover:text-green-800 text-sm"
+                          >
+                            Editar
+                          </button>
+                          
+                          {onLeadConvert && (
+                            <button
+                              onClick={() => onLeadConvert(lead.id)}
+                              className="text-purple-600 hover:text-purple-800 text-sm"
+                            >
+                              Converter
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={() => setShowDeleteConfirm(lead.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* PAGINAÇÃO (MANTIDA) */}
@@ -802,12 +886,11 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* ✅ MODAL DE EDIÇÃO USANDO LEADFORM */}
+      {/* TODOS OS MODAIS EXISTENTES MANTIDOS IGUAIS */}
+      {/* Modal de Edição usando LeadForm */}
       {showEditModal && editingLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col mx-4">
-            
-            {/* Cabeçalho do Modal */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Editar Lead: {editingLead.name}
@@ -819,8 +902,6 @@ const LeadsList = ({
                 ✕
               </button>
             </div>
-
-            {/* Conteúdo do Modal - LeadForm Expandido */}
             <div className="flex-1 overflow-y-auto p-4">
               <LeadForm
                 initialData={editingLead}
@@ -836,7 +917,7 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL PARA ADICIONAR CONTACTO COM GESTOR (MANTIDO) */}
+      {/* Modal para adicionar contacto com gestor */}
       {showManagerContactModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -910,7 +991,7 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE DETALHES EXPANDIDO (MANTIDO) */}
+      {/* Modal de detalhes expandido */}
       {showDetailsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -1017,7 +1098,7 @@ const LeadsList = ({
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO (MANTIDO) */}
+      {/* Modal de confirmação de eliminação */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">

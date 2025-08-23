@@ -1,7 +1,7 @@
-// src/pages/leads/LeadsPage.jsx - LAYOUT CORRETO E INTEGRADO
+// src/pages/leads/LeadsPage.jsx - VERSÃO CORRIGIDA FINAL
 // ✅ Mantém TODAS as funcionalidades existentes (100%)
-// ✅ Aplica layout EXATO das outras páginas do sistema
-// ✅ Remove cards desnecessários - design limpo e direto
+// ✅ Layout harmonioso e botões de visualização funcionais
+// ✅ Syntax corrigida - sem erros
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -68,7 +68,7 @@ const LeadsPage = () => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   
-  // Hook de leads com todas as funções (mantido 100% igual)
+  // Hook de leads com todas as funções
   const {
     leads,
     loading,
@@ -95,14 +95,14 @@ const LeadsPage = () => {
     handleDebugLog
   } = useLeads();
 
-  // Estados para modais (mantidos 100% iguais)
+  // Estados para modais
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [isModalConverting, setIsModalConverting] = useState(false);
 
-  // Funções (mantidas 100% iguais)
+  // Funções
   const stats = getLeadStats();
 
   const handleCreateSubmit = async (leadData) => {
@@ -244,14 +244,14 @@ const LeadsPage = () => {
     fetchLeads();
   }, [fetchLeads]);
 
-  // ✅ RENDER PRINCIPAL - LAYOUT EXATO DAS OUTRAS PÁGINAS
+  // RENDER PRINCIPAL
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          {/* ✅ Header - Design padrão do sistema */}
+          {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <div>
@@ -274,7 +274,7 @@ const LeadsPage = () => {
             </div>
           </div>
 
-          {/* ✅ Feedback Message */}
+          {/* Feedback Message */}
           {feedbackMessage && (
             <div className={`mb-6 p-4 rounded-lg ${
               feedbackType === 'success' 
@@ -285,7 +285,7 @@ const LeadsPage = () => {
             </div>
           )}
 
-          {/* ✅ Métricas - Layout direto igual outras páginas */}
+          {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <CompactMetricCard
               title="Total"
@@ -324,7 +324,7 @@ const LeadsPage = () => {
             />
           </div>
 
-          {/* ✅ Barra de Ações - Layout simples */}
+          {/* Barra de Ações com Botões de Visualização */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6 bg-white p-4 rounded-lg shadow-sm">
             <div className="flex items-center gap-4">
               <span className={`text-sm font-medium ${isDark() ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -332,7 +332,10 @@ const LeadsPage = () => {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setViewMode('grid')}
+                  onClick={() => {
+                    console.log('Clicou em grid');
+                    setViewMode('grid');
+                  }}
                   className={`p-2 rounded-lg transition-colors ${
                     viewMode === 'grid' 
                       ? 'bg-blue-100 text-blue-600' 
@@ -342,7 +345,10 @@ const LeadsPage = () => {
                   <Squares2X2Icon className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => setViewMode('list')}
+                  onClick={() => {
+                    console.log('Clicou em list');
+                    setViewMode('list');
+                  }}
                   className={`p-2 rounded-lg transition-colors ${
                     viewMode === 'list' 
                       ? 'bg-blue-100 text-blue-600' 
@@ -362,7 +368,7 @@ const LeadsPage = () => {
             />
           </div>
 
-          {/* ✅ Lista de Leads - Layout direto */}
+          {/* Lista de Leads */}
           <div className="bg-white rounded-lg shadow-sm">
             <LeadsList
               leads={leads}
@@ -373,11 +379,12 @@ const LeadsPage = () => {
               onLeadDelete={handleLeadDelete}
               showActions={true}
               showFilters={true}
+              viewMode={viewMode}
               maxHeight="calc(100vh - 500px)"
             />
           </div>
 
-          {/* ✅ Modal de Criação */}
+          {/* Modal de Criação */}
           {showCreateForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
@@ -402,7 +409,7 @@ const LeadsPage = () => {
             </div>
           )}
 
-          {/* ✅ Modal de Conversão */}
+          {/* Modal de Conversão */}
           {conversionModal && conversionModal.isOpen && (
             <SimpleConversionModal
               isOpen={conversionModal.isOpen}
