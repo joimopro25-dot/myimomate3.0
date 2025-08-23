@@ -59,7 +59,8 @@ export const CLIENT_TYPES = {
   ARRENDATARIO: 'arrendatario',
   INQUILINO: 'inquilino',
   VENDEDOR: 'vendedor',
-  SENHORIO: 'senhorio'
+  SENHORIO: 'senhorio',
+  INVESTIDOR: 'Investidor'
 };
 
 export const PROPERTY_STATUS = {
