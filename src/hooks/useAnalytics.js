@@ -1,36 +1,52 @@
 // src/hooks/useAnalytics.js
+// 🤖 HOOK DE ANALYTICS AVANÇADO COM IA - MyImoMate 3.0 MULTI-TENANT
+// ================================================================
+// VERSÃO MIGRADA: Multi-tenant + Machine Learning + Analytics completo
+// Funcionalidades: Dashboard inteligente, Análise preditiva, Insights automáticos, Scoring leads
+// Data: Agosto 2025 | Versão: 3.1 Multi-Tenant
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy,
-  startAt,
-  endAt,
-  limit
-} from 'firebase/firestore';
+import { serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
+// 🏗️ IMPORTS DO SISTEMA MULTI-TENANT
+import firebaseService, { 
+  SUBCOLLECTIONS, 
+  createCRUDHelpers,
+  useFirebaseService 
+} from '../utils/FirebaseService';
+
+// 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
+const LEADS_SUBCOLLECTION = SUBCOLLECTIONS.LEADS;
+const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
+const VISITS_SUBCOLLECTION = SUBCOLLECTIONS.VISITS;
+const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
+const DEALS_SUBCOLLECTION = SUBCOLLECTIONS.DEALS;
+const TASKS_SUBCOLLECTION = SUBCOLLECTIONS.TASKS;
+
 /**
- * 🤖 HOOK DE ANALYTICS AVANÇADO COM IA
+ * 🤖 HOOK DE ANALYTICS AVANÇADO COM IA MULTI-TENANT
  * 
  * Funcionalidades:
- * ✅ Dashboard executivo inteligente
+ * ✅ Dashboard executivo inteligente isolado por utilizador
  * ✅ Análise preditiva com machine learning
- * ✅ Insights automáticos baseados em padrões
- * ✅ Alertas inteligentes por anomalias
- * ✅ Previsões de vendas 30/60/90 dias
- * ✅ Análise comportamental de clientes
- * ✅ Scoring automático de leads
- * ✅ Recomendações personalizadas
- * ✅ Análise de cohort avançada
- * ✅ ROI e métricas financeiras
+ * ✅ Insights automáticos baseados em padrões individuais
+ * ✅ Alertas inteligentes por anomalias pessoais
+ * ✅ Previsões de vendas 30/60/90 dias personalizadas
+ * ✅ Análise comportamental de clientes individual
+ * ✅ Scoring automático de leads baseado no histórico
+ * ✅ Recomendações personalizadas por consultor
+ * ✅ Análise de cohort individual
+ * ✅ ROI e métricas financeiras isoladas
  */
 
 const useAnalytics = () => {
-  // Estados principais
+  // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
+  const { currentUser: user, userProfile } = useAuth();
+  const fbService = useFirebaseService(user);
+  
+  // 📊 STATES PRINCIPAIS
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [rawData, setRawData] = useState({
@@ -42,6 +58,9 @@ const useAnalytics = () => {
     tasks: [],
     interactions: []
   });
+
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
 
   // Estados de analytics processados
   const [dashboardMetrics, setDashboardMetrics] = useState({});
@@ -63,8 +82,6 @@ const useAnalytics = () => {
       behavioral: 0.3
     }
   });
-
-  const { currentUser } = useAuth();
 
   // 📊 DEFINIÇÕES DE MÉTRICAS CORE
   const CORE_METRICS = {
@@ -103,76 +120,70 @@ const useAnalytics = () => {
       
       const n = data.length;
       let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-      
-      data.forEach((point, index) => {
-        sumX += index;
-        sumY += point.value;
-        sumXY += index * point.value;
-        sumXX += index * index;
+
+      data.forEach((point, i) => {
+        const x = i; // índice como tempo
+        const y = point.value || 0;
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumXX += x * x;
       });
-      
+
       const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
       const intercept = (sumY - slope * sumX) / n;
-      
-      return { slope, intercept };
+
+      return { slope, intercept, correlation: Math.abs(slope) / (Math.max(data.map(p => p.value || 0)) || 1) };
     },
 
     /**
-     * Análise de anomalias usando Z-Score
+     * Detectar anomalias usando Z-score
      */
     detectAnomalies: (data, threshold = 2) => {
       if (!data || data.length < 3) return [];
       
-      const values = data.map(d => d.value);
+      const values = data.map(d => d.value || 0);
       const mean = values.reduce((a, b) => a + b) / values.length;
-      const stdDev = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length);
-      
-      return data.filter((point, index) => {
-        const zScore = Math.abs((point.value - mean) / stdDev);
+      const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2)) / values.length;
+      const stdDev = Math.sqrt(variance);
+
+      return data.filter(d => {
+        const zScore = Math.abs(((d.value || 0) - mean) / stdDev);
         return zScore > threshold;
       });
     },
 
     /**
-     * Lead Scoring baseado em múltiplos fatores
+     * Clustering simples para segmentação de clientes
      */
-    calculateLeadScore: (lead) => {
-      let score = 0;
-      const weights = {
-        source: { hot: 25, warm: 15, cold: 5 },
-        interestType: { compra_casa: 30, venda_casa: 25, arrendamento: 15, investimento: 35 },
-        budget: { high: 30, medium: 20, low: 10 },
-        engagement: { high: 25, medium: 15, low: 5 },
-        timeline: { immediate: 30, short: 20, medium: 10, long: 5 }
-      };
+    kMeansClustering: (data, k = 3) => {
+      if (!data || data.length < k) return [];
 
-      // Pontuação por fonte
-      score += weights.source[lead.source] || 10;
+      // Simplificação: agrupar por valor
+      const sorted = [...data].sort((a, b) => (a.value || 0) - (b.value || 0));
+      const chunkSize = Math.ceil(sorted.length / k);
       
-      // Pontuação por tipo de interesse
-      score += weights.interestType[lead.interestType] || 15;
-      
-      // Pontuação por orçamento
-      const budgetScore = lead.budget > 300000 ? 'high' : lead.budget > 150000 ? 'medium' : 'low';
-      score += weights.budget[budgetScore];
-      
-      // Pontuação por engajamento (baseado em interações)
-      const interactions = lead.interactions || 0;
-      const engagementLevel = interactions > 5 ? 'high' : interactions > 2 ? 'medium' : 'low';
-      score += weights.engagement[engagementLevel];
-      
-      return Math.min(100, Math.max(0, score));
+      return Array.from({ length: k }, (_, i) => ({
+        cluster: i,
+        items: sorted.slice(i * chunkSize, (i + 1) * chunkSize),
+        centroid: sorted.slice(i * chunkSize, (i + 1) * chunkSize)
+          .reduce((sum, item) => sum + (item.value || 0), 0) / chunkSize
+      }));
     }
   };
 
   /**
-   * 📈 CARREGAR E PROCESSAR DADOS RAW
+   * 📈 CARREGAR E PROCESSAR DADOS RAW (MULTI-TENANT)
    */
   const loadRawData = useCallback(async (filters = {}) => {
+    if (!isUserReady) return null;
+    
     setLoading(true);
     setError(null);
 
     try {
+      console.log('🤖 Carregando dados para analytics multi-tenant...');
+
       const { dateRange = 'last30days', consultant = 'all' } = filters;
       
       // Calcular datas do período
@@ -183,49 +194,92 @@ const useAnalytics = () => {
         startDate.setDate(endDate.getDate() - days);
       }
 
-      // Buscar dados de todas as coleções
-      const collections = ['leads', 'clients', 'visits', 'opportunities', 'deals', 'tasks'];
-      const dataPromises = collections.map(async (collectionName) => {
-        let q = query(
-          collection(db, collectionName),
-          where('userId', '==', currentUser.uid),
-          where('createdAt', '>=', startDate),
-          where('createdAt', '<=', endDate),
-          orderBy('createdAt', 'desc')
-        );
+      // Construir query options para cada subcoleção
+      const queryOptions = {
+        where: [
+          { field: 'createdAt', operator: '>=', value: startDate },
+          { field: 'createdAt', operator: '<=', value: endDate }
+        ],
+        orderBy: [{ field: 'createdAt', direction: 'desc' }],
+        limit: 1000
+      };
 
-        if (consultant !== 'all') {
-          q = query(q, where('assignedTo', '==', consultant));
-        }
+      // Buscar dados de todas as subcoleções do utilizador
+      const [
+        leadsResult,
+        clientsResult,
+        visitsResult,
+        opportunitiesResult,
+        dealsResult,
+        tasksResult
+      ] = await Promise.all([
+        fbService.getDocuments(LEADS_SUBCOLLECTION, queryOptions),
+        fbService.getDocuments(CLIENTS_SUBCOLLECTION, queryOptions),
+        fbService.getDocuments(VISITS_SUBCOLLECTION, queryOptions),
+        fbService.getDocuments(OPPORTUNITIES_SUBCOLLECTION, queryOptions),
+        fbService.getDocuments(DEALS_SUBCOLLECTION, queryOptions),
+        fbService.getDocuments(TASKS_SUBCOLLECTION, queryOptions)
+      ]);
 
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      });
-
-      const results = await Promise.all(dataPromises);
+      // Processar e converter datas
       const newRawData = {
-        leads: results[0] || [],
-        clients: results[1] || [],
-        visits: results[2] || [],
-        opportunities: results[3] || [],
-        deals: results[4] || [],
-        tasks: results[5] || []
+        leads: (leadsResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        })),
+        clients: (clientsResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        })),
+        visits: (visitsResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          scheduledDate: doc.scheduledDate?.toDate?.() || doc.scheduledDate,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        })),
+        opportunities: (opportunitiesResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        })),
+        deals: (dealsResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        })),
+        tasks: (tasksResult.docs || []).map(doc => ({
+          id: doc.id,
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt
+        }))
       };
 
       setRawData(newRawData);
+      
+      console.log('✅ Dados carregados para analytics multi-tenant:', {
+        leads: newRawData.leads.length,
+        clients: newRawData.clients.length,
+        visits: newRawData.visits.length,
+        opportunities: newRawData.opportunities.length,
+        deals: newRawData.deals.length,
+        tasks: newRawData.tasks.length
+      });
+
       return newRawData;
 
     } catch (err) {
-      console.error('Erro ao carregar dados:', err);
+      console.error('❌ Erro ao carregar dados para analytics:', err);
       setError('Erro ao carregar dados para análise');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [isUserReady, fbService]);
 
   /**
-   * 🎯 CALCULAR MÉTRICAS DO DASHBOARD
+   * 🎯 CALCULAR MÉTRICAS DO DASHBOARD (MULTI-TENANT)
    */
   const calculateDashboardMetrics = useCallback((data) => {
     if (!data) return {};
@@ -251,28 +305,23 @@ const useAnalytics = () => {
           ((data.opportunities.length / data.visits.length) * 100).toFixed(1) : 0
       },
 
-      // Valores financeiros
+      // Financeiras
       financial: {
-        totalPipelineValue: data.opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0),
-        totalDealValue: data.deals.reduce((sum, deal) => sum + (deal.totalValue || 0), 0),
+        totalDealValue: data.deals.reduce((sum, deal) => sum + (deal.dealValue || 0), 0),
         avgDealValue: data.deals.length > 0 ? 
-          (data.deals.reduce((sum, deal) => sum + (deal.totalValue || 0), 0) / data.deals.length) : 0,
-        projectedCommission: data.deals.reduce((sum, deal) => 
-          sum + ((deal.totalValue || 0) * (deal.commissionPercentage || 2.5) / 100), 0)
+          data.deals.reduce((sum, deal) => sum + (deal.dealValue || 0), 0) / data.deals.length : 0,
+        totalPipelineValue: data.opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0),
+        totalCommission: data.deals.reduce((sum, deal) => sum + (deal.commissionValue || 0), 0)
       },
 
       // Performance
       performance: {
-        avgResponseTime: data.leads.length > 0 ? 
-          data.leads.reduce((sum, lead) => sum + (lead.responseTime || 0), 0) / data.leads.length : 0,
+        completedTasks: data.tasks.filter(t => t.status === 'completa').length,
         taskCompletionRate: data.tasks.length > 0 ?
-          ((data.tasks.filter(task => task.status === 'completed').length / data.tasks.length) * 100).toFixed(1) : 0,
-        avgSalesCycle: data.deals.length > 0 ?
-          data.deals.reduce((sum, deal) => {
-            const created = new Date(deal.createdAt?.toDate?.() || deal.createdAt);
-            const closed = new Date(deal.closedAt?.toDate?.() || deal.closedAt || Date.now());
-            return sum + Math.ceil((closed - created) / (1000 * 60 * 60 * 24));
-          }, 0) / data.deals.length : 0
+          ((data.tasks.filter(t => t.status === 'completa').length / data.tasks.length) * 100).toFixed(1) : 0,
+        completedVisits: data.visits.filter(v => v.status === 'realizada').length,
+        visitCompletionRate: data.visits.length > 0 ?
+          ((data.visits.filter(v => v.status === 'realizada').length / data.visits.length) * 100).toFixed(1) : 0
       }
     };
 
@@ -280,36 +329,43 @@ const useAnalytics = () => {
   }, []);
 
   /**
-   * 🔮 ANÁLISE PREDITIVA
+   * 🔮 GERAR ANÁLISE PREDITIVA (MULTI-TENANT)
    */
   const generatePredictiveAnalysis = useCallback((data, metrics) => {
     if (!data || !metrics) return {};
 
-    // Preparar dados históricos para ML
-    const historicalData = data.deals.map((deal, index) => ({
-      period: index,
-      value: deal.totalValue || 0,
-      date: new Date(deal.createdAt?.toDate?.() || deal.createdAt)
-    })).sort((a, b) => a.date - b.date);
+    // Preparar dados temporais para regressão
+    const dailyDeals = {};
+    data.deals.forEach(deal => {
+      if (deal.createdAt) {
+        const dateKey = deal.createdAt.toISOString().split('T')[0];
+        dailyDeals[dateKey] = (dailyDeals[dateKey] || 0) + 1;
+      }
+    });
 
-    // Aplicar regressão linear para previsões
-    const regression = MLAlgorithms.linearRegression(historicalData);
-    
+    const timeSeriesData = Object.entries(dailyDeals)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, value], index) => ({ index, date, value }));
+
+    // Aplicar regressão linear
+    const regression = MLAlgorithms.linearRegression(timeSeriesData);
+
+    // Gerar previsões
     const predictions = {
       next30Days: {
         deals: Math.max(0, Math.round(regression ? regression.slope * 30 + regression.intercept : metrics.summary.totalDeals * 1.1)),
-        revenue: Math.max(0, regression ? (regression.slope * 30 + regression.intercept) * metrics.financial.avgDealValue : metrics.financial.totalDealValue * 1.15),
-        confidence: regression ? 75 : 50
+        revenue: Math.max(0, regression ? (regression.slope * 30 + regression.intercept) * metrics.financial.avgDealValue : metrics.financial.totalDealValue * 1.2),
+        confidence: regression ? Math.min(95, Math.max(30, regression.correlation * 100)) : 45
       },
       next60Days: {
-        deals: Math.max(0, Math.round(regression ? regression.slope * 60 + regression.intercept : metrics.summary.totalDeals * 1.2)),
-        revenue: Math.max(0, regression ? (regression.slope * 60 + regression.intercept) * metrics.financial.avgDealValue : metrics.financial.totalDealValue * 1.3),
-        confidence: regression ? 65 : 40
+        deals: Math.max(0, Math.round(regression ? regression.slope * 60 + regression.intercept : metrics.summary.totalDeals * 1.25)),
+        revenue: Math.max(0, regression ? (regression.slope * 60 + regression.intercept) * metrics.financial.avgDealValue : metrics.financial.totalDealValue * 1.35),
+        confidence: regression ? Math.min(85, Math.max(25, regression.correlation * 85)) : 40
       },
       next90Days: {
         deals: Math.max(0, Math.round(regression ? regression.slope * 90 + regression.intercept : metrics.summary.totalDeals * 1.35)),
         revenue: Math.max(0, regression ? (regression.slope * 90 + regression.intercept) * metrics.financial.avgDealValue : metrics.financial.totalDealValue * 1.5),
-        confidence: regression ? 55 : 30
+        confidence: regression ? Math.min(75, Math.max(20, regression.correlation * 75)) : 35
       }
     };
 
@@ -324,7 +380,63 @@ const useAnalytics = () => {
   }, []);
 
   /**
-   * 💡 GERAR RECOMENDAÇÕES INTELIGENTES
+   * 🎯 CALCULAR SCORING DE LEADS (MULTI-TENANT)
+   */
+  const calculateLeadScoring = useCallback((leads) => {
+    if (!leads || leads.length === 0) return {};
+
+    const weights = {
+      status: { 'novo': 10, 'contactado': 20, 'qualificado': 40, 'interessado': 60, 'convertido': 80 },
+      budget: { high: 40, medium: 25, low: 10 },
+      engagement: { high: 30, medium: 20, low: 10 }
+    };
+
+    const scoredLeads = leads.map(lead => {
+      let score = 0;
+      
+      // Pontuação por status
+      score += weights.status[lead.status] || 0;
+      
+      // Pontuação por orçamento
+      const budget = lead.budgetValue || 0;
+      const budgetScore = budget > 300000 ? 'high' : budget > 150000 ? 'medium' : 'low';
+      score += weights.budget[budgetScore];
+      
+      // Pontuação por engajamento (baseado em interações)
+      const interactions = lead.interactions || 0;
+      const engagementLevel = interactions > 5 ? 'high' : interactions > 2 ? 'medium' : 'low';
+      score += weights.engagement[engagementLevel];
+      
+      const finalScore = Math.min(100, Math.max(0, score));
+      
+      return {
+        ...lead,
+        score: finalScore,
+        grade: finalScore >= 70 ? 'A' : finalScore >= 50 ? 'B' : finalScore >= 30 ? 'C' : 'D'
+      };
+    });
+
+    const distribution = {
+      A: scoredLeads.filter(l => l.grade === 'A').length,
+      B: scoredLeads.filter(l => l.grade === 'B').length,
+      C: scoredLeads.filter(l => l.grade === 'C').length,
+      D: scoredLeads.filter(l => l.grade === 'D').length
+    };
+
+    return {
+      distribution,
+      averageScore: scoredLeads.length > 0 ? 
+        scoredLeads.reduce((sum, lead) => sum + lead.score, 0) / scoredLeads.length : 0,
+      topLeads: scoredLeads
+        .filter(lead => lead.score >= 70)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10),
+      scoredLeads
+    };
+  }, []);
+
+  /**
+   * 💡 GERAR RECOMENDAÇÕES INTELIGENTES (MULTI-TENANT)
    */
   const generateRecommendations = useCallback((data, metrics, predictions) => {
     const recommendations = [];
@@ -339,7 +451,7 @@ const useAnalytics = () => {
         actions: [
           'Revisar qualificação de leads',
           'Melhorar follow-up inicial',
-          'Treinar equipe em conversão'
+          'Implementar sistema de nurturing'
         ],
         impact: 'high',
         effort: 'medium'
@@ -356,10 +468,27 @@ const useAnalytics = () => {
         actions: [
           'Intensificar geração de leads',
           'Focar em leads de alto valor',
-          'Reativar clientes inativos'
+          'Reativar oportunidades pausadas'
         ],
         impact: 'high',
         effort: 'high'
+      });
+    }
+
+    // Recomendações baseadas em tarefas
+    if (parseFloat(metrics.performance.taskCompletionRate) < CORE_METRICS.PERFORMANCE_METRICS.taskCompletion.critical) {
+      recommendations.push({
+        type: 'warning',
+        category: 'Produtividade',
+        title: 'Baixa Taxa de Conclusão de Tarefas',
+        description: `Taxa atual: ${metrics.performance.taskCompletionRate}%`,
+        actions: [
+          'Priorizar tarefas críticas',
+          'Usar templates de tarefas',
+          'Implementar lembretes automáticos'
+        ],
+        impact: 'medium',
+        effort: 'low'
       });
     }
 
@@ -368,12 +497,12 @@ const useAnalytics = () => {
       recommendations.push({
         type: 'info',
         category: 'Previsibilidade',
-        title: 'Dados Insuficientes para Previsões',
+        title: 'Dados Insuficientes para Previsões Precisas',
         description: 'Precisamos de mais dados históricos para melhorar as previsões',
         actions: [
           'Manter registros consistentes',
-          'Documentar todos os deals',
-          'Acompanhar métricas regularmente'
+          'Documentar todos os negócios',
+          'Acompanhar métricas diariamente'
         ],
         impact: 'medium',
         effort: 'low'
@@ -384,15 +513,15 @@ const useAnalytics = () => {
   }, []);
 
   /**
-   * 🚨 DETECTAR ANOMALIAS
+   * 🚨 DETECTAR ANOMALIAS (MULTI-TENANT)
    */
   const detectAnomalies = useCallback((data, metrics) => {
     if (!data || !metrics) return {};
 
-    // Análise de anomalias em deals
+    // Análise de anomalias em negócios
     const dealValues = data.deals.map((deal, index) => ({
       index,
-      value: deal.totalValue || 0,
+      value: deal.dealValue || 0,
       date: deal.createdAt,
       deal
     }));
@@ -402,105 +531,70 @@ const useAnalytics = () => {
     return {
       deals: anomalies.map(anomaly => ({
         ...anomaly,
-        type: anomaly.value > metrics.financial.avgDealValue * 2 ? 'high_value' : 'low_value',
-        severity: anomaly.value > metrics.financial.avgDealValue * 3 ? 'critical' : 'warning'
+        type: anomaly.value > metrics.financial.avgDealValue * 2 ? 'exceptional' : 'low',
+        severity: anomaly.value > metrics.financial.avgDealValue * 3 ? 'critical' : 'warning',
+        title: `Deal com Valor ${anomaly.value > metrics.financial.avgDealValue ? 'Excepcional' : 'Baixo'}`,
+        description: `Deal de €${anomaly.value.toLocaleString()} detectado (${anomaly.value > metrics.financial.avgDealValue ? 'acima' : 'abaixo'} do padrão)`,
+        createdAt: new Date(),
+        data: anomaly
       })),
-      alerts: generateAnomalyAlerts(anomalies, metrics)
+      count: anomalies.length,
+      lastDetected: anomalies.length > 0 ? new Date() : null
     };
   }, [analyticsConfig.anomalyThreshold]);
 
   /**
-   * 🎯 SCORING DE LEADS
-   */
-  const calculateLeadScoring = useCallback((leads) => {
-    if (!leads || leads.length === 0) return {};
-
-    const scoredLeads = leads.map(lead => ({
-      ...lead,
-      score: MLAlgorithms.calculateLeadScore(lead),
-      priority: getLeadPriority(MLAlgorithms.calculateLeadScore(lead))
-    }));
-
-    // Análise de distribuição de scores
-    const scoreDistribution = {
-      hot: scoredLeads.filter(lead => lead.score >= 80).length,
-      warm: scoredLeads.filter(lead => lead.score >= 60 && lead.score < 80).length,
-      cold: scoredLeads.filter(lead => lead.score < 60).length
-    };
-
-    return {
-      scoredLeads: scoredLeads.sort((a, b) => b.score - a.score),
-      distribution: scoreDistribution,
-      averageScore: scoredLeads.reduce((sum, lead) => sum + lead.score, 0) / scoredLeads.length,
-      topLeads: scoredLeads.filter(lead => lead.score >= 80).slice(0, 5)
-    };
-  }, []);
-
-  /**
-   * 📊 ANÁLISE DE COHORT
+   * 📊 GERAR ANÁLISE DE COHORT (MULTI-TENANT)
    */
   const generateCohortAnalysis = useCallback((clients) => {
     if (!clients || clients.length === 0) return {};
 
-    // Agrupar clientes por mês de aquisição
-    const cohorts = {};
+    // Agrupar clientes por mês de criação
+    const cohortGroups = {};
     clients.forEach(client => {
-      const monthKey = new Date(client.createdAt?.toDate?.() || client.createdAt)
-        .toISOString().substring(0, 7); // YYYY-MM
-      
-      if (!cohorts[monthKey]) {
-        cohorts[monthKey] = [];
+      if (client.createdAt) {
+        const monthKey = client.createdAt.toISOString().substring(0, 7);
+        if (!cohortGroups[monthKey]) {
+          cohortGroups[monthKey] = [];
+        }
+        cohortGroups[monthKey].push(client);
       }
-      cohorts[monthKey].push(client);
     });
 
-    // Calcular retenção e valor por cohort
-    const cohortAnalysis = Object.entries(cohorts).map(([month, clients]) => {
-      const totalClients = clients.length;
-      const activeClients = clients.filter(client => 
-        client.lastInteraction && 
-        new Date(client.lastInteraction?.toDate?.() || client.lastInteraction) > 
-        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) // Últimos 90 dias
-      ).length;
-
+    // Calcular métricas por cohort
+    const cohortData = Object.entries(cohortGroups).map(([month, groupClients]) => {
+      const activeClients = groupClients.filter(c => c.status === 'ativo').length;
+      const totalValue = groupClients.reduce((sum, c) => sum + (c.totalValue || 0), 0);
+      
       return {
         month,
-        totalClients,
+        totalClients: groupClients.length,
         activeClients,
-        retentionRate: totalClients > 0 ? (activeClients / totalClients * 100).toFixed(1) : 0,
-        avgValue: clients.reduce((sum, client) => sum + (client.totalValue || 0), 0) / totalClients
+        retentionRate: groupClients.length > 0 ? (activeClients / groupClients.length * 100).toFixed(1) : 0,
+        totalValue,
+        avgValuePerClient: groupClients.length > 0 ? totalValue / groupClients.length : 0
       };
     });
 
-    return cohortAnalysis.sort((a, b) => a.month.localeCompare(b.month));
+    return {
+      cohorts: cohortData.sort((a, b) => a.month.localeCompare(b.month)),
+      totalCohorts: cohortData.length,
+      averageRetention: cohortData.length > 0 ? 
+        cohortData.reduce((sum, c) => sum + parseFloat(c.retentionRate), 0) / cohortData.length : 0
+    };
   }, []);
 
-  // Funções auxiliares
-  const getLeadPriority = (score) => {
-    if (score >= 80) return 'high';
-    if (score >= 60) return 'medium';
-    return 'low';
-  };
-
-  const generateAnomalyAlerts = (anomalies, metrics) => {
-    return anomalies.map(anomaly => ({
-      id: `anomaly_${anomaly.index}`,
-      type: 'anomaly',
-      severity: anomaly.value > metrics.financial.avgDealValue * 3 ? 'critical' : 'warning',
-      title: `Deal com Valor ${anomaly.value > metrics.financial.avgDealValue ? 'Excepcional' : 'Baixo'}`,
-      description: `Deal de €${anomaly.value.toLocaleString()} detectado (${anomaly.value > metrics.financial.avgDealValue ? 'acima' : 'abaixo'} do padrão)`,
-      createdAt: new Date(),
-      data: anomaly
-    }));
-  };
-
   /**
-   * 🔄 PROCESSAR TODOS OS ANALYTICS
+   * 🔄 PROCESSAR TODOS OS ANALYTICS (MULTI-TENANT)
    */
   const processAllAnalytics = useCallback(async (filters = {}) => {
+    if (!isUserReady) return;
+    
     setLoading(true);
     
     try {
+      console.log('🤖 Processando analytics multi-tenant...');
+
       // Carregar dados
       const data = await loadRawData(filters);
       if (!data) return;
@@ -525,6 +619,8 @@ const useAnalytics = () => {
       const cohorts = generateCohortAnalysis(data.clients);
       setCustomerInsights({ cohorts });
 
+      console.log('✅ Analytics processados com sucesso (multi-tenant)');
+
       return {
         metrics,
         predictive,
@@ -534,47 +630,65 @@ const useAnalytics = () => {
       };
 
     } catch (err) {
-      console.error('Erro no processamento de analytics:', err);
+      console.error('❌ Erro no processamento de analytics:', err);
       setError('Erro ao processar análises');
     } finally {
       setLoading(false);
     }
-  }, [loadRawData, calculateDashboardMetrics, generatePredictiveAnalysis, 
+  }, [isUserReady, loadRawData, calculateDashboardMetrics, generatePredictiveAnalysis, 
       calculateLeadScoring, detectAnomalies, generateCohortAnalysis]);
 
-  // 📤 EXPORTAR DADOS
+  /**
+   * 📤 EXPORTAR DADOS (MULTI-TENANT SEGURO)
+   */
   const exportAnalytics = useCallback(async (format = 'json') => {
-    const analyticsData = {
-      summary: dashboardMetrics,
-      predictions: predictiveAnalysis,
-      leadScoring,
-      anomalies: anomalyDetection,
-      customerInsights,
-      exportedAt: new Date().toISOString()
-    };
+    try {
+      console.log(`📤 Exportando analytics em formato ${format} (multi-tenant)`);
 
-    if (format === 'json') {
-      const blob = new Blob([JSON.stringify(analyticsData, null, 2)], 
-        { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
+      const analyticsData = {
+        summary: dashboardMetrics,
+        predictions: predictiveAnalysis,
+        leadScoring,
+        anomalies: anomalyDetection,
+        customerInsights,
+        metadata: {
+          userId: user.uid,
+          userName: userProfile?.displayName || user.displayName,
+          exportedAt: new Date().toISOString(),
+          version: '3.1-multi-tenant'
+        }
+      };
+
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(analyticsData, null, 2)], 
+          { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `analytics_${user.uid}_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      
+      return { success: true, data: analyticsData };
+      
+    } catch (err) {
+      console.error('❌ Erro ao exportar analytics:', err);
+      return { success: false, error: err.message };
     }
-    
-    return analyticsData;
-  }, [dashboardMetrics, predictiveAnalysis, leadScoring, anomalyDetection, customerInsights]);
+  }, [dashboardMetrics, predictiveAnalysis, leadScoring, anomalyDetection, customerInsights, user, userProfile]);
 
-  // Carregar dados automaticamente
+  // 🔄 CARREGAR DADOS INICIAIS
   useEffect(() => {
-    if (currentUser) {
+    if (isUserReady) {
+      console.log('🔄 Carregando analytics iniciais...');
       processAllAnalytics();
     }
-  }, [currentUser, processAllAnalytics]);
+  }, [isUserReady, processAllAnalytics]);
 
+  // 📤 INTERFACE PÚBLICA DO HOOK MULTI-TENANT
   return {
-    // Estados
+    // Estados principais
     loading,
     error,
     rawData,
@@ -591,7 +705,7 @@ const useAnalytics = () => {
     analyticsConfig,
     setAnalyticsConfig,
     
-    // Métodos
+    // Métodos principais
     loadRawData,
     processAllAnalytics,
     calculateDashboardMetrics,
@@ -600,9 +714,18 @@ const useAnalytics = () => {
     detectAnomalies,
     exportAnalytics,
     
-    // Constantes
+    // Constantes e algoritmos
     CORE_METRICS,
-    MLAlgorithms
+    MLAlgorithms,
+
+    // Estado de conectividade
+    isConnected: isUserReady && !error,
+    isUserReady,
+
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    structureVersion: '3.1-multi-tenant'
   };
 };
 
