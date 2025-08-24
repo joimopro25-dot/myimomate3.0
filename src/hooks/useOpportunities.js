@@ -181,6 +181,52 @@ const useOpportunities = () => {
     return rangeMap[oldRange] || UNIFIED_BUDGET_RANGES.INDEFINIDO;
   };
 
+  // 🏃‍♂️ ADICIONAR ATIVIDADE À OPORTUNIDADE - MOVIDA PARA ANTES DAS FUNÇÕES QUE A USAM
+  const addActivity = useCallback(async (opportunityId, activityData) => {
+    if (!isUserReady || !opportunityId || !activityData) {
+      throw new Error('Dados inválidos para atividade');
+    }
+
+    try {
+      console.log('🏃‍♂️ Adicionando atividade:', opportunityId);
+
+      const opportunity = opportunities.find(o => o.id === opportunityId);
+      if (!opportunity) {
+        throw new Error('Oportunidade não encontrada');
+      }
+
+      // Preparar dados da atividade
+      const newActivity = {
+        id: Date.now().toString(),
+        type: activityData.type || ACTIVITY_TYPES.NOTA,
+        title: activityData.title?.trim() || 'Nova atividade',
+        description: activityData.description?.trim() || '',
+        date: activityData.date || new Date().toISOString(),
+        userId: user.uid,
+        userName: userProfile?.displayName || user.displayName || 'Consultor',
+        isSystemGenerated: activityData.isSystemGenerated || false,
+        createdAt: new Date().toISOString()
+      };
+
+      // Atualizar oportunidade com nova atividade
+      const updatedActivities = [...(opportunity.activities || []), newActivity];
+      
+      await updateOpportunity(opportunityId, {
+        activities: updatedActivities,
+        activitiesCount: updatedActivities.length,
+        lastActivity: newActivity,
+        lastContactDate: serverTimestamp()
+      });
+
+      console.log('✅ Atividade adicionada com sucesso');
+      return { success: true, activity: newActivity };
+      
+    } catch (err) {
+      console.error('❌ Erro ao adicionar atividade:', err);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, user, userProfile, opportunities]); // Removemos updateOpportunity das dependências para evitar ciclo
+
   // 📥 BUSCAR OPORTUNIDADES COM FILTROS AVANÇADOS (MULTI-TENANT)
   const fetchOpportunities = useCallback(async (additionalFilters = {}) => {
     if (!isUserReady) {
@@ -914,52 +960,6 @@ const useOpportunities = () => {
     }
   }, [isUserReady, fbService, opportunities]);
 
-  // 🏃‍♂️ ADICIONAR ATIVIDADE À OPORTUNIDADE
-  const addActivity = useCallback(async (opportunityId, activityData) => {
-    if (!isUserReady || !opportunityId || !activityData) {
-      throw new Error('Dados inválidos para atividade');
-    }
-
-    try {
-      console.log('🏃‍♂️ Adicionando atividade:', opportunityId);
-
-      const opportunity = opportunities.find(o => o.id === opportunityId);
-      if (!opportunity) {
-        throw new Error('Oportunidade não encontrada');
-      }
-
-      // Preparar dados da atividade
-      const newActivity = {
-        id: Date.now().toString(),
-        type: activityData.type || ACTIVITY_TYPES.NOTA,
-        title: activityData.title?.trim() || 'Nova atividade',
-        description: activityData.description?.trim() || '',
-        date: activityData.date || new Date().toISOString(),
-        userId: user.uid,
-        userName: userProfile?.displayName || user.displayName || 'Consultor',
-        isSystemGenerated: activityData.isSystemGenerated || false,
-        createdAt: new Date().toISOString()
-      };
-
-      // Atualizar oportunidade com nova atividade
-      const updatedActivities = [...(opportunity.activities || []), newActivity];
-      
-      await updateOpportunity(opportunityId, {
-        activities: updatedActivities,
-        activitiesCount: updatedActivities.length,
-        lastActivity: newActivity,
-        lastContactDate: serverTimestamp()
-      });
-
-      console.log('✅ Atividade adicionada com sucesso');
-      return { success: true, activity: newActivity };
-      
-    } catch (err) {
-      console.error('❌ Erro ao adicionar atividade:', err);
-      return { success: false, error: err.message };
-    }
-  }, [isUserReady, user, userProfile, opportunities, updateOpportunity]);
-
   // 🔍 PESQUISAR OPORTUNIDADES
   const searchOpportunities = useCallback((searchTerm) => {
     setFilters(prev => ({ ...prev, searchTerm }));
@@ -1170,7 +1170,7 @@ const useOpportunities = () => {
     updateOpportunity,
     updateOpportunityStatus,
     deleteOpportunity,
-    convertToDeal,
+    convertToDeal: convertOpportunityToDeal, // Alias para compatibilidade
     convertOpportunityToDeal,
     addActivity,
     
