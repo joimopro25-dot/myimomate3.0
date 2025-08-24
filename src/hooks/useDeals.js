@@ -565,6 +565,62 @@ const useDeals = () => {
     }
   }, [isUserReady, fbService, user, deals]);
 
+  // 📝 ADICIONAR ATIVIDADE AO NEGÓCIO (MULTI-TENANT) - MOVIDA PARA ANTES DE updateDealStatus
+  const addActivity = useCallback(async (dealId, activityData) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
+    try {
+      console.log('🏃‍♂️ Adicionando atividade ao negócio:', dealId);
+
+      const activity = {
+        id: Date.now().toString(),
+        type: activityData.type || ACTIVITY_TYPES.OUTRO,
+        description: activityData.description?.trim() || '',
+        notes: activityData.notes?.trim() || '',
+        duration: activityData.duration || null,
+        cost: activityData.cost || null,
+        outcome: activityData.outcome?.trim() || '',
+        nextAction: activityData.nextAction?.trim() || '',
+        createdAt: serverTimestamp(),
+        userId: user.uid,
+        userEmail: user.email,
+        userName: userProfile?.displayName || user.displayName || 'Consultor',
+        structureVersion: '3.1'
+      };
+
+      // Encontrar o negócio
+      const deal = deals.find(d => d.id === dealId);
+      if (!deal) {
+        return { success: false, error: 'Negócio não encontrado' };
+      }
+
+      const activities = [...(deal.activities || []), activity];
+      
+      const updateData = {
+        activities,
+        lastActivityDate: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await fbService.updateDocument(DEALS_SUBCOLLECTION, dealId, updateData);
+      
+      // Atualizar lista local
+      setDeals(prev => prev.map(d => 
+        d.id === dealId 
+          ? { ...d, ...updateData, id: dealId }
+          : d
+      ));
+
+      console.log('✅ Atividade adicionada com sucesso');
+      
+      return { success: true, activity, message: 'Atividade registada com sucesso!' };
+      
+    } catch (err) {
+      console.error('❌ Erro ao adicionar atividade:', err);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, user, userProfile, deals, fbService]);
+
   // 🔄 ATUALIZAR STATUS DO NEGÓCIO COM AUDITORIA (MULTI-TENANT)
   const updateDealStatus = useCallback(async (dealId, newStatus, notes = '') => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
@@ -688,55 +744,6 @@ const useDeals = () => {
       setDeleting(false);
     }
   }, [isUserReady, fbService, user, deals]);
-
-  // 📝 ADICIONAR ATIVIDADE AO NEGÓCIO (MULTI-TENANT)
-  const addActivity = useCallback(async (dealId, activityData) => {
-    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-    
-    try {
-      console.log('🏃‍♂️ Adicionando atividade ao negócio:', dealId);
-
-      const activity = {
-        id: Date.now().toString(),
-        type: activityData.type || ACTIVITY_TYPES.OUTRO,
-        description: activityData.description?.trim() || '',
-        notes: activityData.notes?.trim() || '',
-        duration: activityData.duration || null,
-        cost: activityData.cost || null,
-        outcome: activityData.outcome?.trim() || '',
-        nextAction: activityData.nextAction?.trim() || '',
-        createdAt: serverTimestamp(),
-        userId: user.uid,
-        userEmail: user.email,
-        userName: userProfile?.displayName || user.displayName || 'Consultor',
-        structureVersion: '3.1'
-      };
-
-      // Encontrar o negócio
-      const deal = deals.find(d => d.id === dealId);
-      if (!deal) {
-        return { success: false, error: 'Negócio não encontrado' };
-      }
-
-      const activities = [...(deal.activities || []), activity];
-      
-      const updateData = {
-        activities,
-        lastActivityDate: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      await updateDeal(dealId, updateData);
-
-      console.log('✅ Atividade adicionada com sucesso');
-      
-      return { success: true, activity, message: 'Atividade registada com sucesso!' };
-      
-    } catch (err) {
-      console.error('❌ Erro ao adicionar atividade:', err);
-      return { success: false, error: err.message };
-    }
-  }, [isUserReady, user, userProfile, deals, updateDeal]);
 
   // 🔍 PESQUISAR NEGÓCIOS
   const searchDeals = useCallback((searchTerm) => {
