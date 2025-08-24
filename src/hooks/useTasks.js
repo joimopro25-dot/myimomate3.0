@@ -1,31 +1,44 @@
 // src/hooks/useTasks.js
+// 🎯 HOOK UNIFICADO PARA SISTEMA DE TAREFAS - MyImoMate 3.0 MULTI-TENANT
+// =====================================================================
+// VERSÃO ATUALIZADA: Multi-tenant + Todas as funcionalidades existentes preservadas
+// Funcionalidades: CRUD, Lembretes, Templates, Associações, Analytics, Follow-ups automáticos
+// Data: Agosto 2025 | Versão: 3.1 Multi-Tenant
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
+  serverTimestamp,
   getDoc,
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot,
-  Timestamp,
+  doc,
+  updateDoc,
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// Hook personalizado para Sistema de Tarefas
-// MyImoMate 3.0 - Gestão completa de follow-ups e produtividade
-// Funcionalidades: CRUD, Lembretes, Templates, Associações, Analytics
+// 🏗️ IMPORTS DO SISTEMA MULTI-TENANT
+import firebaseService, { 
+  SUBCOLLECTIONS, 
+  createCRUDHelpers,
+  useFirebaseService 
+} from '../utils/FirebaseService';
 
+// 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
+const TASKS_SUBCOLLECTION = SUBCOLLECTIONS.TASKS;
+const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
+const LEADS_SUBCOLLECTION = SUBCOLLECTIONS.LEADS;
+const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
+const DEALS_SUBCOLLECTION = SUBCOLLECTIONS.DEALS;
+const VISITS_SUBCOLLECTION = SUBCOLLECTIONS.VISITS;
+const crudHelpers = createCRUDHelpers(TASKS_SUBCOLLECTION);
+
+// 🎯 HOOK PRINCIPAL MULTI-TENANT
 const useTasks = () => {
-  const { user } = useAuth();
+  // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
+  const { currentUser: user, userProfile } = useAuth();
+  const fbService = useFirebaseService(user);
   
-  // Estados principais
+  // 📊 STATES PRINCIPAIS
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,7 +46,7 @@ const useTasks = () => {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Estados para filtros e pesquisa
+  // 🔍 STATES DE FILTROS E PESQUISA
   const [filters, setFilters] = useState({
     status: 'all',
     priority: 'all',
@@ -45,7 +58,10 @@ const useTasks = () => {
     overdue: false
   });
 
-  // Constantes do sistema de tarefas
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
+
+  // 🎯 CONSTANTES DO SISTEMA DE TAREFAS
   const TASK_STATUS = {
     PENDENTE: 'pendente',
     EM_PROGRESSO: 'em_progresso',
@@ -86,7 +102,7 @@ const useTasks = () => {
     GERAL: 'geral'
   };
 
-  // Cores dos status para UI
+  // 🎨 CORES DOS STATUS PARA UI
   const TASK_STATUS_COLORS = {
     [TASK_STATUS.PENDENTE]: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
     [TASK_STATUS.EM_PROGRESSO]: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
@@ -97,194 +113,380 @@ const useTasks = () => {
   };
 
   const PRIORITY_COLORS = {
-    [TASK_PRIORITY.BAIXA]: { bg: 'bg-green-100', text: 'text-green-800' },
-    [TASK_PRIORITY.MEDIA]: { bg: 'bg-blue-100', text: 'text-blue-800' },
-    [TASK_PRIORITY.ALTA]: { bg: 'bg-orange-100', text: 'text-orange-800' },
-    [TASK_PRIORITY.URGENTE]: { bg: 'bg-red-100', text: 'text-red-800' },
-    [TASK_PRIORITY.CRITICA]: { bg: 'bg-purple-100', text: 'text-purple-800' }
+    [TASK_PRIORITY.BAIXA]: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
+    [TASK_PRIORITY.MEDIA]: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
+    [TASK_PRIORITY.ALTA]: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200' },
+    [TASK_PRIORITY.URGENTE]: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
+    [TASK_PRIORITY.CRITICA]: { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-300' }
   };
 
-  // Carregar tarefas do Firebase
-  useEffect(() => {
-    if (!user?.uid) {
+  // 📥 BUSCAR TODAS AS TAREFAS (MULTI-TENANT)
+  const fetchTasks = useCallback(async () => {
+    if (!isUserReady) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔄 Buscando tarefas multi-tenant...');
+
+      // Construir query multi-tenant
+      const queryOptions = {
+        orderBy: [{ field: 'dueDate', direction: 'asc' }],
+        limit: 200
+      };
+
+      // Aplicar filtros específicos
+      if (filters.status && filters.status !== 'all') {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'status', operator: '==', value: filters.status });
+      }
+
+      if (filters.priority && filters.priority !== 'all') {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'priority', operator: '==', value: filters.priority });
+      }
+
+      if (filters.type && filters.type !== 'all') {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'type', operator: '==', value: filters.type });
+      }
+
+      if (filters.associatedTo && filters.associatedTo !== 'all') {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'associatedTo', operator: '==', value: filters.associatedTo });
+      }
+
+      // Executar query usando FirebaseService
+      const result = await fbService.getDocuments(TASKS_SUBCOLLECTION, queryOptions);
+      
+      let fetchedTasks = result.docs || [];
+
+      // Aplicar migração automática se necessário
+      fetchedTasks = fetchedTasks.map(task => {
+        const migratedData = migrateTaskData(task);
+        return {
+          id: task.id,
+          ...migratedData,
+          dueDate: task.dueDate?.toDate?.() || task.dueDate,
+          createdAt: task.createdAt?.toDate?.() || task.createdAt,
+          updatedAt: task.updatedAt?.toDate?.() || task.updatedAt,
+          completedAt: task.completedAt?.toDate?.() || task.completedAt,
+          reminderDate: task.reminderDate?.toDate?.() || task.reminderDate
+        };
+      });
+
+      // Aplicar filtros client-side adicionais
+      if (filters.overdue) {
+        const now = new Date();
+        fetchedTasks = fetchedTasks.filter(task => 
+          task.dueDate && new Date(task.dueDate) < now && task.status !== TASK_STATUS.COMPLETA
+        );
+      }
+
+      if (filters.dateRange && filters.dateRange !== 'all') {
+        const now = new Date();
+        fetchedTasks = fetchedTasks.filter(task => {
+          const taskDate = task.dueDate;
+          if (!taskDate) return false;
+
+          switch (filters.dateRange) {
+            case 'today':
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              return taskDate >= today && taskDate < tomorrow;
+            case 'week':
+              const weekEnd = new Date(now);
+              weekEnd.setDate(now.getDate() + 7);
+              return taskDate >= now && taskDate <= weekEnd;
+            case 'month':
+              const monthEnd = new Date(now);
+              monthEnd.setMonth(now.getMonth() + 1);
+              return taskDate >= now && taskDate <= monthEnd;
+            case 'overdue':
+              return taskDate < now && task.status !== TASK_STATUS.COMPLETA;
+            default:
+              return true;
+          }
+        });
+      }
+
+      if (filters.searchTerm) {
+        const term = filters.searchTerm.toLowerCase();
+        fetchedTasks = fetchedTasks.filter(task => 
+          task.title?.toLowerCase().includes(term) ||
+          task.description?.toLowerCase().includes(term) ||
+          task.associatedName?.toLowerCase().includes(term)
+        );
+      }
+
+      setTasks(fetchedTasks);
+      console.log(`✅ ${fetchedTasks.length} tarefas carregadas (multi-tenant)`);
+      
+    } catch (err) {
+      console.error('❌ Erro ao buscar tarefas:', err);
+      setError(`Erro ao carregar tarefas: ${err.message}`);
+    } finally {
       setLoading(false);
-      return;
+    }
+  }, [isUserReady, fbService, filters]);
+
+  // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
+  const migrateTaskData = useCallback((oldData) => {
+    // Se já tem estrutura nova, retornar como está
+    if (oldData.structureVersion === '3.1') {
+      return oldData;
     }
 
-    const tasksRef = collection(db, 'tasks');
-    const q = query(
-      tasksRef,
-      where('userId', '==', user.uid),
-      orderBy('dueDate', 'asc')
-    );
+    // Mapear campos antigos para novos
+    const migrated = {
+      ...oldData,
+      
+      // Garantir estrutura base obrigatória
+      status: oldData.status || TASK_STATUS.PENDENTE,
+      priority: oldData.priority || TASK_PRIORITY.MEDIA,
+      type: oldData.type || TASK_TYPES.FOLLOW_UP,
+      
+      // Garantir campos obrigatórios
+      title: oldData.title || 'Tarefa sem título',
+      description: oldData.description || '',
+      
+      // Associações
+      associatedTo: oldData.associatedTo || TASK_ASSOCIATIONS.GERAL,
+      associatedId: oldData.associatedId || null,
+      associatedName: oldData.associatedName || '',
+      
+      // Datas
+      dueDate: oldData.dueDate || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      
+      // Lembretes e estimativas
+      reminderDate: oldData.reminderDate || null,
+      estimatedDuration: oldData.estimatedDuration || 30,
+      
+      // Adicionar campos novos
+      structureVersion: '3.1',
+      isMultiTenant: true,
+      migratedAt: new Date().toISOString(),
+      
+      // Controlo e auditoria
+      isRecurring: oldData.isRecurring || false,
+      recurringFrequency: oldData.recurringFrequency || null,
+      completionNotes: oldData.completionNotes || '',
+      
+      // Assignação
+      assignedTo: oldData.assignedTo || oldData.userId,
+      assignedBy: oldData.assignedBy || oldData.userId
+    };
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const tasksData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-          updatedAt: doc.data().updatedAt?.toDate(),
-          dueDate: doc.data().dueDate?.toDate(),
-          completedAt: doc.data().completedAt?.toDate(),
-          reminderDate: doc.data().reminderDate?.toDate()
-        }));
-        setTasks(tasksData);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        console.error('Erro ao carregar tarefas:', err);
-        setError('Erro ao carregar tarefas. Tente novamente.');
-        setLoading(false);
-      }
-    );
+    return migrated;
+  }, []);
 
-    return () => unsubscribe();
-  }, [user?.uid]);
-
-  // Criar nova tarefa
+  // ➕ CRIAR NOVA TAREFA (MULTI-TENANT)
   const createTask = useCallback(async (taskData) => {
-    if (!user?.uid) {
-      setError('Utilizador não autenticado');
-      return false;
+    if (!isUserReady) {
+      throw new Error('Utilizador não autenticado');
     }
 
     setCreating(true);
     setError(null);
 
     try {
-      // Validações obrigatórias
+      console.log('➕ Criando nova tarefa multi-tenant...');
+
+      // 1. VALIDAÇÃO BÁSICA
       if (!taskData.title?.trim()) {
         throw new Error('Título da tarefa é obrigatório');
       }
+
       if (!taskData.dueDate) {
-        throw new Error('Data de vencimento é obrigatória');
+        throw new Error('Data de conclusão é obrigatória');
       }
 
-      // Validar data de vencimento
-      const dueDate = new Date(taskData.dueDate);
-      if (dueDate < new Date()) {
-        throw new Error('Data de vencimento não pode ser no passado');
-      }
-
+      // 2. CRIAR OBJETO DA TAREFA COM ESTRUTURA COMPLETA
       const newTask = {
-        ...taskData,
-        userId: user.uid,
+        // Dados básicos
+        title: taskData.title.trim(),
+        description: taskData.description?.trim() || '',
+        
+        // Status e prioridade
         status: taskData.status || TASK_STATUS.PENDENTE,
         priority: taskData.priority || TASK_PRIORITY.MEDIA,
         type: taskData.type || TASK_TYPES.FOLLOW_UP,
-        dueDate: Timestamp.fromDate(dueDate),
-        reminderDate: taskData.reminderDate ? Timestamp.fromDate(new Date(taskData.reminderDate)) : null,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        completedAt: null,
-        estimatedDuration: taskData.estimatedDuration || 30, // minutos
-        actualDuration: null,
-        // Auditoria
+        
+        // Datas
+        dueDate: taskData.dueDate,
+        reminderDate: taskData.reminderDate || null,
+        estimatedDuration: taskData.estimatedDuration || 30,
+        
+        // Associações
+        associatedTo: taskData.associatedTo || TASK_ASSOCIATIONS.GERAL,
+        associatedId: taskData.associatedId || null,
+        associatedName: taskData.associatedName || '',
+        
+        // Assignação
+        assignedTo: taskData.assignedTo || user.uid,
+        assignedBy: user.uid,
+        
+        // Recorrência
+        isRecurring: taskData.isRecurring || false,
+        recurringFrequency: taskData.recurringFrequency || null,
+        
+        // Notas e observações
+        notes: taskData.notes?.trim() || '',
+        tags: taskData.tags || [],
+        
+        // Dados de auditoria obrigatórios MULTI-TENANT
+        userId: user.uid,
+        userEmail: user.email,
         createdBy: user.uid,
-        lastModifiedBy: user.uid,
-        metadata: {
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString(),
-          ip: 'client-ip'
+        createdByName: userProfile?.displayName || user.displayName || 'Consultor',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        
+        // Flags de controlo
+        isActive: true,
+        isCompleted: false,
+        
+        // Versão da estrutura
+        structureVersion: '3.1',
+        isMultiTenant: true,
+        
+        // Metadados técnicos
+        userAgent: navigator.userAgent,
+        source_details: {
+          created_via: 'web_form',
+          form_version: '3.1',
+          timestamp: new Date().toISOString()
         }
       };
 
-      const docRef = await addDoc(collection(db, 'tasks'), newTask);
-
-      // Criar lembrete automático se especificado
-      if (taskData.autoReminder && taskData.reminderDate) {
-        await createReminder(docRef.id, taskData.reminderDate);
+      // 3. CRIAR USANDO FIREBASESERVICE
+      const createdTask = await fbService.createDocument(TASKS_SUBCOLLECTION, newTask);
+      
+      // 4. CRIAR LEMBRETE SE SOLICITADO
+      if (taskData.reminderDate) {
+        await createReminder(createdTask.id, taskData.reminderDate);
       }
+      
+      // 5. ATUALIZAR LISTA LOCAL
+      setTasks(prev => [createdTask, ...prev]);
 
-      setCreating(false);
-      return docRef.id;
+      console.log('✅ Tarefa criada com sucesso:', createdTask.id);
+      
+      return {
+        success: true,
+        task: createdTask,
+        message: 'Tarefa criada com sucesso!'
+      };
+
     } catch (err) {
-      console.error('Erro ao criar tarefa:', err);
-      setError(err.message || 'Erro ao criar tarefa');
+      console.error('❌ Erro ao criar tarefa:', err);
+      setError(err.message);
+      
+      return {
+        success: false,
+        error: err.message,
+        message: `Erro ao criar tarefa: ${err.message}`
+      };
+    } finally {
       setCreating(false);
-      return false;
     }
-  }, [user?.uid]);
+  }, [isUserReady, fbService, user, userProfile]);
 
-  // Atualizar tarefa
+  // ✏️ ATUALIZAR TAREFA (MULTI-TENANT)
   const updateTask = useCallback(async (taskId, updateData) => {
-    if (!user?.uid || !taskId) {
-      setError('Dados inválidos para atualização');
-      return false;
+    if (!isUserReady || !taskId) {
+      return { success: false, error: 'Dados inválidos para atualização' };
     }
 
     setUpdating(true);
     setError(null);
 
     try {
-      const taskRef = doc(db, 'tasks', taskId);
-      
+      console.log('✏️ Atualizando tarefa:', taskId);
+
+      // Preparar dados para atualização
       const updates = {
         ...updateData,
-        updatedAt: Timestamp.now(),
-        lastModifiedBy: user.uid
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        structureVersion: '3.1'
       };
 
-      // Se mudou para completa, definir data de conclusão
-      if (updateData.status === TASK_STATUS.COMPLETA) {
-        updates.completedAt = Timestamp.now();
+      // Se atualizando data de lembrete, converter para timestamp
+      if (updates.reminderDate && updates.reminderDate instanceof Date) {
+        updates.reminderDate = updates.reminderDate;
       }
 
-      // Atualizar data de vencimento se fornecida
-      if (updateData.dueDate) {
-        updates.dueDate = Timestamp.fromDate(new Date(updateData.dueDate));
-      }
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(TASKS_SUBCOLLECTION, taskId, updates);
+      
+      // Atualizar lista local
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, ...updates, id: taskId }
+          : task
+      ));
 
-      // Atualizar lembrete se fornecido
-      if (updateData.reminderDate) {
-        updates.reminderDate = Timestamp.fromDate(new Date(updateData.reminderDate));
-      }
-
-      await updateDoc(taskRef, updates);
+      console.log('✅ Tarefa atualizada com sucesso');
       setUpdating(false);
-      return true;
+      
+      return { success: true, message: 'Tarefa atualizada com sucesso!' };
+
     } catch (err) {
-      console.error('Erro ao atualizar tarefa:', err);
-      setError('Erro ao atualizar tarefa');
+      console.error('❌ Erro ao atualizar tarefa:', err);
+      setError(err.message);
       setUpdating(false);
-      return false;
+      return { success: false, error: err.message };
     }
-  }, [user?.uid]);
+  }, [isUserReady, fbService, user]);
 
-  // Marcar tarefa como completa
+  // ✅ MARCAR TAREFA COMO COMPLETA (MULTI-TENANT)
   const completeTask = useCallback(async (taskId, notes = '') => {
-    if (!user?.uid || !taskId) {
+    if (!isUserReady || !taskId) {
       setError('Dados inválidos');
       return false;
     }
 
     try {
+      console.log('✅ Completando tarefa:', taskId);
+
       const updates = {
         status: TASK_STATUS.COMPLETA,
-        completedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        lastModifiedBy: user.uid
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        isCompleted: true
       };
 
       if (notes.trim()) {
         updates.completionNotes = notes;
       }
 
-      const taskRef = doc(db, 'tasks', taskId);
-      await updateDoc(taskRef, updates);
-      return true;
-    } catch (err) {
-      console.error('Erro ao completar tarefa:', err);
-      setError('Erro ao completar tarefa');
-      return false;
-    }
-  }, [user?.uid]);
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(TASKS_SUBCOLLECTION, taskId, updates);
+      
+      // Atualizar lista local
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, ...updates, id: taskId }
+          : task
+      ));
 
-  // Excluir tarefa
+      console.log('✅ Tarefa completada com sucesso');
+      return { success: true, message: 'Tarefa completada com sucesso!' };
+
+    } catch (err) {
+      console.error('❌ Erro ao completar tarefa:', err);
+      setError('Erro ao completar tarefa');
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, fbService, user]);
+
+  // 🗑️ ELIMINAR TAREFA (MULTI-TENANT)
   const deleteTask = useCallback(async (taskId) => {
-    if (!user?.uid || !taskId) {
+    if (!isUserReady || !taskId) {
       setError('Dados inválidos para exclusão');
       return false;
     }
@@ -293,40 +495,57 @@ const useTasks = () => {
     setError(null);
 
     try {
-      await deleteDoc(doc(db, 'tasks', taskId));
-      setDeleting(false);
-      return true;
-    } catch (err) {
-      console.error('Erro ao excluir tarefa:', err);
-      setError('Erro ao excluir tarefa');
-      setDeleting(false);
-      return false;
-    }
-  }, [user?.uid]);
+      console.log('🗑️ Eliminando tarefa:', taskId);
 
-  // Criar lembrete
+      // Eliminar usando FirebaseService
+      await fbService.deleteDocument(TASKS_SUBCOLLECTION, taskId);
+      
+      // Remover da lista local
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+
+      console.log('✅ Tarefa eliminada com sucesso');
+      setDeleting(false);
+      
+      return { success: true, message: 'Tarefa eliminada com sucesso!' };
+
+    } catch (err) {
+      console.error('❌ Erro ao eliminar tarefa:', err);
+      setError('Erro ao eliminar tarefa');
+      setDeleting(false);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, fbService]);
+
+  // 🔔 CRIAR LEMBRETE (MULTI-TENANT)
   const createReminder = useCallback(async (taskId, reminderDate) => {
-    if (!user?.uid || !taskId) return false;
+    if (!isUserReady || !taskId) return false;
 
     try {
+      console.log('🔔 Criando lembrete para tarefa:', taskId);
+
       const reminderData = {
         taskId,
         userId: user.uid,
-        reminderDate: Timestamp.fromDate(new Date(reminderDate)),
+        reminderDate: reminderDate,
         sent: false,
         type: 'task_reminder',
-        createdAt: Timestamp.now()
+        createdAt: serverTimestamp(),
+        structureVersion: '3.1'
       };
 
-      await addDoc(collection(db, 'reminders'), reminderData);
-      return true;
-    } catch (err) {
-      console.error('Erro ao criar lembrete:', err);
-      return false;
-    }
-  }, [user?.uid]);
+      // Usar subcoleção de lembretes
+      await fbService.createDocument('reminders', reminderData);
+      
+      console.log('✅ Lembrete criado com sucesso');
+      return { success: true };
 
-  // Criar tarefa a partir de template
+    } catch (err) {
+      console.error('❌ Erro ao criar lembrete:', err);
+      return { success: false, error: err.message };
+    }
+  }, [isUserReady, fbService, user]);
+
+  // 📋 CRIAR TAREFA A PARTIR DE TEMPLATE (MULTI-TENANT)
   const createFromTemplate = useCallback(async (templateData, customData = {}) => {
     const taskData = {
       ...templateData,
@@ -339,7 +558,7 @@ const useTasks = () => {
     return await createTask(taskData);
   }, [createTask]);
 
-  // Templates de tarefas comuns
+  // 🎯 TEMPLATES DE TAREFAS COMUNS
   const TASK_TEMPLATES = {
     FOLLOW_UP_LEAD: {
       title: 'Follow-up com Lead',
@@ -368,173 +587,138 @@ const useTasks = () => {
       type: TASK_TYPES.DOCUMENTOS,
       priority: TASK_PRIORITY.MEDIA,
       estimatedDuration: 10
+    },
+    REUNIAO_CLIENTE: {
+      title: 'Reunião com cliente',
+      description: 'Reunião presencial ou virtual com cliente',
+      type: TASK_TYPES.REUNIAO,
+      priority: TASK_PRIORITY.ALTA,
+      estimatedDuration: 45
+    },
+    PESQUISA_IMOVEIS: {
+      title: 'Pesquisar imóveis',
+      description: 'Pesquisar imóveis que correspondam ao perfil do cliente',
+      type: TASK_TYPES.PESQUISA,
+      priority: TASK_PRIORITY.MEDIA,
+      estimatedDuration: 30
     }
   };
 
-  // Estatísticas das tarefas
+  // 📊 ESTATÍSTICAS DAS TAREFAS (MULTI-TENANT)
   const getTaskStats = useMemo(() => {
     if (!tasks.length) {
       return {
         total: 0,
+        completed: 0,
+        pending: 0,
+        overdue: 0,
+        dueToday: 0,
+        completionRate: 0,
+        averageDuration: 0,
         byStatus: {},
         byPriority: {},
         byType: {},
-        overdue: 0,
-        dueToday: 0,
-        dueThisWeek: 0,
-        completionRate: 0,
-        avgCompletionTime: 0
+        byAssociation: {}
       };
     }
 
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
     const stats = {
       total: tasks.length,
+      completed: 0,
+      pending: 0,
+      overdue: 0,
+      dueToday: 0,
+      completionRate: 0,
+      averageDuration: 0,
       byStatus: {},
       byPriority: {},
       byType: {},
-      overdue: 0,
-      dueToday: 0,
-      dueThisWeek: 0,
-      completionRate: 0,
-      avgCompletionTime: 0
+      byAssociation: {}
     };
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekEnd = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    let totalDuration = 0;
     
-    let completedTasks = 0;
-    let totalCompletionTime = 0;
+    // Inicializar contadores
+    Object.values(TASK_STATUS).forEach(status => {
+      stats.byStatus[status] = 0;
+    });
+    
+    Object.values(TASK_PRIORITY).forEach(priority => {
+      stats.byPriority[priority] = 0;
+    });
+    
+    Object.values(TASK_TYPES).forEach(type => {
+      stats.byType[type] = 0;
+    });
+    
+    Object.values(TASK_ASSOCIATIONS).forEach(assoc => {
+      stats.byAssociation[assoc] = 0;
+    });
 
+    // Calcular estatísticas
     tasks.forEach(task => {
-      // Contagem por status
-      stats.byStatus[task.status] = (stats.byStatus[task.status] || 0) + 1;
+      // Por status
+      if (task.status) {
+        stats.byStatus[task.status]++;
+      }
       
-      // Contagem por prioridade
-      stats.byPriority[task.priority] = (stats.byPriority[task.priority] || 0) + 1;
+      // Por prioridade
+      if (task.priority) {
+        stats.byPriority[task.priority]++;
+      }
       
-      // Contagem por tipo
-      stats.byType[task.type] = (stats.byType[task.type] || 0) + 1;
+      // Por tipo
+      if (task.type) {
+        stats.byType[task.type]++;
+      }
+      
+      // Por associação
+      if (task.associatedTo) {
+        stats.byAssociation[task.associatedTo]++;
+      }
+
+      // Contadores específicos
+      if (task.status === TASK_STATUS.COMPLETA) {
+        stats.completed++;
+      } else {
+        stats.pending++;
+      }
 
       // Tarefas em atraso
-      if (task.dueDate && task.dueDate < now && task.status !== TASK_STATUS.COMPLETA) {
+      if (task.dueDate && new Date(task.dueDate) < now && task.status !== TASK_STATUS.COMPLETA) {
         stats.overdue++;
       }
 
-      // Tarefas para hoje
-      if (task.dueDate && task.dueDate >= today && task.dueDate < new Date(today.getTime() + 24 * 60 * 60 * 1000)) {
-        stats.dueToday++;
-      }
-
-      // Tarefas para esta semana
-      if (task.dueDate && task.dueDate >= today && task.dueDate <= weekEnd) {
-        stats.dueThisWeek++;
-      }
-
-      // Taxa de conclusão
-      if (task.status === TASK_STATUS.COMPLETA) {
-        completedTasks++;
-        if (task.createdAt && task.completedAt) {
-          totalCompletionTime += task.completedAt - task.createdAt;
+      // Tarefas devido hoje
+      if (task.dueDate) {
+        const taskDate = new Date(task.dueDate);
+        if (taskDate >= today && taskDate < tomorrow) {
+          stats.dueToday++;
         }
+      }
+
+      // Duração média
+      if (task.estimatedDuration) {
+        totalDuration += task.estimatedDuration;
       }
     });
 
-    stats.completionRate = (completedTasks / tasks.length) * 100;
-    stats.avgCompletionTime = completedTasks > 0 ? totalCompletionTime / completedTasks / (1000 * 60 * 60 * 24) : 0; // dias
+    // Calcular médias
+    stats.completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+    stats.averageDuration = stats.total > 0 ? Math.round(totalDuration / stats.total) : 0;
 
     return stats;
   }, [tasks]);
 
-  // Tarefas filtradas
-  const filteredTasks = useMemo(() => {
-    let filtered = [...tasks];
-
-    // Filtro por status
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(task => task.status === filters.status);
-    }
-
-    // Filtro por prioridade
-    if (filters.priority !== 'all') {
-      filtered = filtered.filter(task => task.priority === filters.priority);
-    }
-
-    // Filtro por tipo
-    if (filters.type !== 'all') {
-      filtered = filtered.filter(task => task.type === filters.type);
-    }
-
-    // Filtro por associação
-    if (filters.associatedTo !== 'all') {
-      filtered = filtered.filter(task => task.associatedTo === filters.associatedTo);
-    }
-
-    // Filtro por termo de pesquisa
-    if (filters.searchTerm) {
-      const term = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(task => 
-        task.title?.toLowerCase().includes(term) ||
-        task.description?.toLowerCase().includes(term) ||
-        task.associatedName?.toLowerCase().includes(term)
-      );
-    }
-
-    // Filtro por tarefas em atraso
-    if (filters.overdue) {
-      const now = new Date();
-      filtered = filtered.filter(task => 
-        task.dueDate && 
-        task.dueDate < now && 
-        task.status !== TASK_STATUS.COMPLETA
-      );
-    }
-
-    // Filtro por faixa de data
-    if (filters.dateRange !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      switch (filters.dateRange) {
-        case 'today':
-          filtered = filtered.filter(task => 
-            task.dueDate && 
-            task.dueDate >= today && 
-            task.dueDate < new Date(today.getTime() + 24 * 60 * 60 * 1000)
-          );
-          break;
-        case 'tomorrow':
-          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-          filtered = filtered.filter(task => 
-            task.dueDate && 
-            task.dueDate >= tomorrow && 
-            task.dueDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
-          );
-          break;
-        case 'week':
-          const weekEnd = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-          filtered = filtered.filter(task => 
-            task.dueDate && 
-            task.dueDate >= today && 
-            task.dueDate <= weekEnd
-          );
-          break;
-        case 'overdue':
-          filtered = filtered.filter(task => 
-            task.dueDate && 
-            task.dueDate < now && 
-            task.status !== TASK_STATUS.COMPLETA
-          );
-          break;
-      }
-    }
-
-    return filtered;
-  }, [tasks, filters]);
-
-  // Funções de utilidade
+  // 🔧 FUNÇÕES AUXILIARES
   const isOverdue = (task) => {
-    return task.dueDate && task.dueDate < new Date() && task.status !== TASK_STATUS.COMPLETA;
+    if (!task.dueDate) return false;
+    return new Date(task.dueDate) < new Date() && task.status !== TASK_STATUS.COMPLETA;
   };
 
   const isDueToday = (task) => {
@@ -564,9 +748,34 @@ const useTasks = () => {
     }).format(new Date(date));
   };
 
+  // 🔄 CARREGAR DADOS INICIAIS
+  useEffect(() => {
+    if (isUserReady) {
+      console.log('🔄 Carregando tarefas iniciais...');
+      fetchTasks();
+    }
+  }, [isUserReady, fetchTasks]);
+
+  // 🔄 RECARREGAR QUANDO FILTROS MUDAM
+  useEffect(() => {
+    if (isUserReady) {
+      console.log('🔍 Aplicando filtros...');
+      fetchTasks();
+    }
+  }, [filters.status, filters.priority, filters.type, filters.associatedTo, filters.dateRange, filters.overdue]);
+
+  // 🔄 LIMPAR ERROS AUTOMATICAMENTE
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // 📤 RETORNO DO HOOK MULTI-TENANT COMPLETO
   return {
-    // Estados
-    tasks: filteredTasks,
+    // Estados principais
+    tasks: tasks,
     allTasks: tasks,
     loading,
     error,
@@ -602,7 +811,16 @@ const useTasks = () => {
 
     // Filtros
     filters,
-    setFilters
+    setFilters,
+
+    // Estado de conectividade
+    isConnected: isUserReady && !error,
+    isUserReady,
+
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    structureVersion: '3.1-multi-tenant'
   };
 };
 

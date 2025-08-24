@@ -1,29 +1,28 @@
 // src/hooks/useVisits.js
-// 🎯 HOOK UNIFICADO PARA GESTÃO DE VISITAS - MyImoMate 3.0
-// =======================================================
-// VERSÃO UNIFICADA com estrutura padronizada
+// 🎯 HOOK UNIFICADO PARA GESTÃO DE VISITAS - MyImoMate 3.0 MULTI-TENANT
+// =====================================================================
+// VERSÃO ATUALIZADA: Multi-tenant + Todas as funcionalidades existentes preservadas
 // Funcionalidades: Agendamento, Confirmações, Feedback, Partilhas, Controlo Temporal
+// Data: Agosto 2025 | Versão: 3.1 Multi-Tenant
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc, 
-  doc, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  serverTimestamp
+  serverTimestamp,
+  getDoc,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
+// 🏗️ IMPORTS DO SISTEMA MULTI-TENANT
+import firebaseService, { 
+  SUBCOLLECTIONS, 
+  createCRUDHelpers,
+  useFirebaseService 
+} from '../utils/FirebaseService';
+
 // 📚 IMPORTS DA ESTRUTURA UNIFICADA
-// =================================
 import {
   UNIFIED_VISIT_STATUS,
   UNIFIED_PRIORITIES,
@@ -45,11 +44,11 @@ import {
   validatePostalCode
 } from '../constants/validations.js';
 
-// 🔧 CONFIGURAÇÕES DO HOOK
-// ========================
-const VISITS_COLLECTION = 'visits';
-const CLIENTS_COLLECTION = 'clients';
-const OPPORTUNITIES_COLLECTION = 'opportunities';
+// 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
+const VISITS_SUBCOLLECTION = SUBCOLLECTIONS.VISITS;
+const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
+const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
+const crudHelpers = createCRUDHelpers(VISITS_SUBCOLLECTION);
 const FETCH_LIMIT = 100;
 
 // 🎯 TIPOS DE VISITA ESPECÍFICOS
@@ -63,55 +62,57 @@ export const VISIT_TYPES = {
 };
 
 export const VISIT_TYPE_LABELS = {
-  [VISIT_TYPES.PRESENCIAL]: 'Visita Presencial',
-  [VISIT_TYPES.VIRTUAL]: 'Visita Virtual',
-  [VISIT_TYPES.AVALIACAO]: 'Avaliação de Imóvel',
-  [VISIT_TYPES.APRESENTACAO]: 'Apresentação de Proposta',
+  [VISIT_TYPES.PRESENCIAL]: 'Presencial',
+  [VISIT_TYPES.VIRTUAL]: 'Virtual',
+  [VISIT_TYPES.AVALIACAO]: 'Avaliação',
+  [VISIT_TYPES.APRESENTACAO]: 'Apresentação',
   [VISIT_TYPES.SEGUNDA_VISITA]: 'Segunda Visita',
   [VISIT_TYPES.VISITA_TECNICA]: 'Visita Técnica'
 };
 
-// 📊 TIPOS DE OPERAÇÃO
+// 🏠 TIPOS DE OPERAÇÃO IMOBILIÁRIA
 export const OPERATION_TYPES = {
   VENDA: 'venda',
-  ARRENDAMENTO: 'arrendamento',
   COMPRA: 'compra',
-  AVALIACAO: 'avaliacao'
+  ARRENDAMENTO: 'arrendamento',
+  ALUGUER: 'aluguer',
+  AVALIACAO: 'avaliacao',
+  CONSULTORIA: 'consultoria'
 };
 
 export const OPERATION_TYPE_LABELS = {
   [OPERATION_TYPES.VENDA]: 'Venda',
-  [OPERATION_TYPES.ARRENDAMENTO]: 'Arrendamento',
   [OPERATION_TYPES.COMPRA]: 'Compra',
-  [OPERATION_TYPES.AVALIACAO]: 'Avaliação'
+  [OPERATION_TYPES.ARRENDAMENTO]: 'Arrendamento',
+  [OPERATION_TYPES.ALUGUER]: 'Aluguer',
+  [OPERATION_TYPES.AVALIACAO]: 'Avaliação',
+  [OPERATION_TYPES.CONSULTORIA]: 'Consultoria'
 };
 
-// 🎯 RESULTADOS DE VISITA
+// 📊 RESULTADOS DE VISITA
 export const VISIT_OUTCOMES = {
+  PENDENTE: 'pendente',
   MUITO_INTERESSADO: 'muito_interessado',
   INTERESSADO: 'interessado',
   POUCO_INTERESSADO: 'pouco_interessado',
   NAO_INTERESSADO: 'nao_interessado',
-  QUER_PENSAR: 'quer_pensar',
-  PRECO_ALTO: 'preco_alto',
-  NAO_ADEQUADO: 'nao_adequado',
-  FARA_PROPOSTA: 'fara_proposta',
-  NAO_COMPARECEU: 'nao_compareceu'
+  PRECISA_PENSAR: 'precisa_pensar',
+  QUER_SEGUNDA_VISITA: 'quer_segunda_visita',
+  PROPOSTA_FEITA: 'proposta_feita'
 };
 
 export const VISIT_OUTCOME_LABELS = {
+  [VISIT_OUTCOMES.PENDENTE]: 'Pendente',
   [VISIT_OUTCOMES.MUITO_INTERESSADO]: 'Muito Interessado',
   [VISIT_OUTCOMES.INTERESSADO]: 'Interessado',
   [VISIT_OUTCOMES.POUCO_INTERESSADO]: 'Pouco Interessado',
   [VISIT_OUTCOMES.NAO_INTERESSADO]: 'Não Interessado',
-  [VISIT_OUTCOMES.QUER_PENSAR]: 'Quer Pensar',
-  [VISIT_OUTCOMES.PRECO_ALTO]: 'Preço Alto',
-  [VISIT_OUTCOMES.NAO_ADEQUADO]: 'Não Adequado',
-  [VISIT_OUTCOMES.FARA_PROPOSTA]: 'Fará Proposta',
-  [VISIT_OUTCOMES.NAO_COMPARECEU]: 'Não Compareceu'
+  [VISIT_OUTCOMES.PRECISA_PENSAR]: 'Precisa Pensar',
+  [VISIT_OUTCOMES.QUER_SEGUNDA_VISITA]: 'Quer Segunda Visita',
+  [VISIT_OUTCOMES.PROPOSTA_FEITA]: 'Proposta Feita'
 };
 
-// 🎨 CORES PARA STATUS (usando constantes unificadas)
+// 🎨 CORES PARA STATUS
 export const VISIT_STATUS_COLORS = {
   [UNIFIED_VISIT_STATUS.AGENDADA]: 'bg-blue-100 text-blue-800 border-blue-200',
   [UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE]: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -125,10 +126,13 @@ export const VISIT_STATUS_COLORS = {
   [UNIFIED_VISIT_STATUS.REMARCADA]: 'bg-indigo-100 text-indigo-800 border-indigo-200'
 };
 
-// 🎯 HOOK PRINCIPAL UNIFICADO
-// ===========================
+// 🎯 HOOK PRINCIPAL MULTI-TENANT
 const useVisits = () => {
-  // Estados principais
+  // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
+  const { currentUser: user, userProfile } = useAuth();
+  const fbService = useFirebaseService(user);
+  
+  // 📊 STATES PRINCIPAIS
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -136,7 +140,7 @@ const useVisits = () => {
   const [updating, setUpdating] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  // Estados de filtros expandidos
+  // 🔍 STATES DE FILTROS E PESQUISA
   const [filters, setFilters] = useState({
     status: '',
     visitType: '',
@@ -149,12 +153,10 @@ const useVisits = () => {
     searchTerm: ''
   });
 
-  // Context de autenticação
-  const { user } = useAuth();
-  const isUserReady = !!user;
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
 
-  // 📥 BUSCAR TODAS AS VISITAS COM ESTRUTURA UNIFICADA
-  // =================================================
+  // 📥 BUSCAR TODAS AS VISITAS COM ESTRUTURA UNIFICADA (MULTI-TENANT)
   const fetchVisits = useCallback(async () => {
     if (!isUserReady) return;
     
@@ -162,71 +164,92 @@ const useVisits = () => {
     setError(null);
     
     try {
-      // Query simplificada para evitar problemas de índice
-      let visitQuery = query(
-        collection(db, VISITS_COLLECTION),
-        where('userId', '==', user.uid),
-        limit(FETCH_LIMIT)
-      );
+      console.log('🔄 Buscando visitas multi-tenant...');
 
-      const querySnapshot = await getDocs(visitQuery);
-      const visitsData = querySnapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          
-          // Aplicar migração automática se necessário
-          const migratedData = migrateVisitData(data);
-          
-          return {
-            id: doc.id,
-            ...migratedData,
-            scheduledDate: data.scheduledDate?.toDate(),
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-            confirmedAt: data.confirmedAt?.toDate(),
-            completedAt: data.completedAt?.toDate()
-          };
-        })
-        .filter(visit => visit.isActive !== false) // Filtrar inativos
-        .sort((a, b) => (b.scheduledDate || 0) - (a.scheduledDate || 0)); // Ordenar por data de visita
+      // Construir query multi-tenant
+      const queryOptions = {
+        orderBy: [{ field: 'scheduledDate', direction: 'desc' }],
+        limit: FETCH_LIMIT
+      };
 
-      // Aplicar filtros client-side
-      let filteredVisits = visitsData;
-      
-      if (filters.status && Object.values(UNIFIED_VISIT_STATUS).includes(filters.status)) {
-        filteredVisits = filteredVisits.filter(visit => visit.status === filters.status);
+      // Aplicar filtros específicos
+      if (filters.status) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'status', operator: '==', value: filters.status });
       }
-      
+
       if (filters.visitType) {
-        filteredVisits = filteredVisits.filter(visit => visit.visitType === filters.visitType);
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'visitType', operator: '==', value: filters.visitType });
       }
-      
-      if (filters.propertyType && Object.values(UNIFIED_PROPERTY_TYPES).includes(filters.propertyType)) {
-        filteredVisits = filteredVisits.filter(visit => visit.property?.type === filters.propertyType);
+
+      if (filters.operationType) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'operationType', operator: '==', value: filters.operationType });
       }
+
+      // Executar query usando FirebaseService
+      const result = await fbService.getDocuments(VISITS_SUBCOLLECTION, queryOptions);
       
+      let fetchedVisits = result.docs || [];
+
+      // Aplicar migração automática se necessário
+      fetchedVisits = fetchedVisits.map(visit => {
+        const migratedData = migrateVisitData(visit);
+        return {
+          id: visit.id,
+          ...migratedData,
+          scheduledDate: visit.scheduledDate?.toDate?.() || visit.scheduledDate,
+          createdAt: visit.createdAt?.toDate?.() || visit.createdAt,
+          updatedAt: visit.updatedAt?.toDate?.() || visit.updatedAt,
+          confirmedAt: visit.confirmedAt?.toDate?.() || visit.confirmedAt,
+          completedAt: visit.completedAt?.toDate?.() || visit.completedAt
+        };
+      });
+
+      // Filtrar inativos
+      fetchedVisits = fetchedVisits.filter(visit => visit.isActive !== false);
+
+      // Aplicar filtros client-side adicionais
+      if (filters.priority && Object.values(UNIFIED_PRIORITIES).includes(filters.priority)) {
+        fetchedVisits = fetchedVisits.filter(visit => visit.priority === filters.priority);
+      }
+
+      if (filters.outcome) {
+        fetchedVisits = fetchedVisits.filter(visit => visit.outcome === filters.outcome);
+      }
+
       if (filters.clientName) {
-        filteredVisits = filteredVisits.filter(visit => 
-          visit.clientName?.toLowerCase().includes(filters.clientName.toLowerCase())
+        const term = filters.clientName.toLowerCase();
+        fetchedVisits = fetchedVisits.filter(visit => 
+          visit.clientName?.toLowerCase().includes(term)
         );
       }
 
+      // Filtro por período
       if (filters.dateRange && filters.dateRange !== 'all') {
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        filteredVisits = filteredVisits.filter(visit => {
+        fetchedVisits = fetchedVisits.filter(visit => {
           const visitDate = visit.scheduledDate;
           if (!visitDate) return false;
-          
+
           switch (filters.dateRange) {
             case 'today':
-              const visitDay = new Date(visitDate.getFullYear(), visitDate.getMonth(), visitDate.getDate());
-              return visitDay.getTime() === today.getTime();
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              return visitDate >= today && visitDate < tomorrow;
             case 'week':
-              const weekEnd = new Date(today);
-              weekEnd.setDate(today.getDate() + 7);
-              return visitDate >= today && visitDate <= weekEnd;
+              const weekStart = new Date(now);
+              weekStart.setDate(now.getDate() - now.getDay());
+              weekStart.setHours(0, 0, 0, 0);
+              const weekEnd = new Date(weekStart);
+              weekEnd.setDate(weekStart.getDate() + 7);
+              return visitDate >= weekStart && visitDate < weekEnd;
+            case 'month':
+              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+              const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+              return visitDate >= monthStart && visitDate < monthEnd;
             case 'upcoming':
               return visitDate >= now;
             case 'past':
@@ -239,7 +262,7 @@ const useVisits = () => {
       
       if (filters.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
-        filteredVisits = filteredVisits.filter(visit => 
+        fetchedVisits = fetchedVisits.filter(visit => 
           visit.clientName?.toLowerCase().includes(term) ||
           visit.property?.address?.street?.toLowerCase().includes(term) ||
           visit.property?.address?.city?.toLowerCase().includes(term) ||
@@ -247,22 +270,21 @@ const useVisits = () => {
         );
       }
 
-      setVisits(filteredVisits);
-      console.log(`Carregadas ${filteredVisits.length} visitas com estrutura unificada`);
+      setVisits(fetchedVisits);
+      console.log(`✅ ${fetchedVisits.length} visitas carregadas (multi-tenant)`);
       
     } catch (err) {
-      console.error('Erro ao buscar visitas:', err);
+      console.error('❌ Erro ao buscar visitas:', err);
       setError(`Erro ao carregar visitas: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [isUserReady, user, filters]);
+  }, [isUserReady, fbService, filters]);
 
   // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
-  // =======================================
   const migrateVisitData = useCallback((oldData) => {
     // Se já tem estrutura nova, retornar como está
-    if (oldData.structureVersion === '3.0') {
+    if (oldData.structureVersion === '3.1') {
       return oldData;
     }
 
@@ -277,69 +299,87 @@ const useVisits = () => {
       // Migrar status de visita
       status: migrateVisitStatus(oldData.status),
       
-      // Migrar tipo de propriedade
+      // Garantir campos obrigatórios
+      clientName: oldData.clientName || 'Cliente não identificado',
+      scheduledDate: oldData.scheduledDate || oldData.date || new Date(),
+      
+      // Estrutura de propriedade padronizada
       property: {
-        ...oldData.property,
-        type: migratePropertyType(oldData.property?.type),
-        operation: oldData.property?.operation || OPERATION_TYPES.VENDA
+        address: {
+          street: oldData.property?.address?.street || oldData.address || '',
+          postalCode: oldData.property?.address?.postalCode || '',
+          city: oldData.property?.address?.city || '',
+          district: oldData.property?.address?.district || ''
+        },
+        type: oldData.property?.type || oldData.propertyType || '',
+        description: oldData.property?.description || '',
+        price: oldData.property?.price || oldData.price || 0,
+        features: oldData.property?.features || {}
       },
       
-      // Garantir campos obrigatórios
-      visitType: oldData.visitType || VISIT_TYPES.PRESENCIAL,
-      duration: oldData.duration || 60,
+      // Dados do cliente estruturados
+      client: {
+        id: oldData.clientId || null,
+        name: oldData.clientName || '',
+        phone: oldData.clientPhone || '',
+        email: oldData.clientEmail || '',
+        notes: oldData.clientNotes || ''
+      },
+      
+      // Confirmações
+      confirmations: {
+        client: oldData.confirmations?.client || false,
+        consultant: oldData.confirmations?.consultant || false,
+        clientConfirmedAt: oldData.confirmations?.clientConfirmedAt || null,
+        consultantConfirmedAt: oldData.confirmations?.consultantConfirmedAt || null
+      },
+      
+      // Resultado e feedback
+      outcome: oldData.outcome || VISIT_OUTCOMES.PENDENTE,
+      feedback: {
+        clientRating: oldData.feedback?.clientRating || null,
+        clientComments: oldData.feedback?.clientComments || '',
+        consultantNotes: oldData.feedback?.consultantNotes || '',
+        nextSteps: oldData.feedback?.nextSteps || '',
+        followUpDate: oldData.feedback?.followUpDate || null
+      },
       
       // Adicionar campos novos
-      structureVersion: '3.0',
+      structureVersion: '3.1',
+      isMultiTenant: true,
       migratedAt: new Date().toISOString(),
       
       // Garantir referências cruzadas
-      leadId: oldData.leadId || null,
       clientId: oldData.clientId || null,
       opportunityId: oldData.opportunityId || null,
       dealId: oldData.dealId || null,
       
-      // Dados de controlo temporal
-      scheduledFor: oldData.scheduledDate,
-      confirmedBy: oldData.confirmedBy || null,
-      completedBy: oldData.completedBy || null
+      // Tipo de visita e operação
+      visitType: oldData.visitType || VISIT_TYPES.PRESENCIAL,
+      operationType: oldData.operationType || OPERATION_TYPES.VENDA
     };
 
     return migrated;
   }, []);
 
   // 🔄 FUNÇÕES DE MIGRAÇÃO ESPECÍFICAS
-  // ==================================
   const migrateVisitStatus = (oldStatus) => {
     const statusMap = {
       'agendada': UNIFIED_VISIT_STATUS.AGENDADA,
-      'confirmada': UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA,
       'confirmada_cliente': UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE,
       'confirmada_consultor': UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR,
+      'confirmada_dupla': UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA,
       'em_curso': UNIFIED_VISIT_STATUS.EM_CURSO,
       'realizada': UNIFIED_VISIT_STATUS.REALIZADA,
-      'nao_compareceu': UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE,
+      'nao_compareceu_cliente': UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CLIENTE,
+      'nao_compareceu_consultor': UNIFIED_VISIT_STATUS.NAO_COMPARECEU_CONSULTOR,
       'cancelada': UNIFIED_VISIT_STATUS.CANCELADA,
       'remarcada': UNIFIED_VISIT_STATUS.REMARCADA
     };
     return statusMap[oldStatus] || UNIFIED_VISIT_STATUS.AGENDADA;
   };
 
-  const migratePropertyType = (oldType) => {
-    const typeMap = {
-      'apartamento': UNIFIED_PROPERTY_TYPES.APARTAMENTO,
-      'moradia': UNIFIED_PROPERTY_TYPES.MORADIA,
-      'terreno': UNIFIED_PROPERTY_TYPES.TERRENO,
-      'comercial': UNIFIED_PROPERTY_TYPES.COMERCIAL,
-      'quinta': UNIFIED_PROPERTY_TYPES.QUINTA_HERDADE,
-      'escritorio': UNIFIED_PROPERTY_TYPES.ESCRITORIO,
-      'armazem': UNIFIED_PROPERTY_TYPES.ARMAZEM,
-      'garagem': UNIFIED_PROPERTY_TYPES.GARAGEM
-    };
-    return typeMap[oldType] || UNIFIED_PROPERTY_TYPES.APARTAMENTO;
-  };
-
-  // ➕ CRIAR NOVA VISITA COM ESTRUTURA UNIFICADA
-  // ===========================================
+  // ➕ CRIAR NOVA VISITA (MULTI-TENANT)
   const createVisit = useCallback(async (visitData) => {
     if (!isUserReady) {
       throw new Error('Utilizador não autenticado');
@@ -349,139 +389,136 @@ const useVisits = () => {
     setError(null);
 
     try {
+      console.log('➕ Criando nova visita multi-tenant...');
+
       // 1. VALIDAÇÃO BÁSICA
-      if (!visitData.clientId || !visitData.clientName) {
-        throw new Error('Cliente é obrigatório');
+      if (!visitData.clientName?.trim()) {
+        throw new Error('Nome do cliente é obrigatório');
       }
-
+      
       if (!visitData.scheduledDate) {
-        throw new Error('Data de agendamento é obrigatória');
+        throw new Error('Data da visita é obrigatória');
       }
 
-      if (!visitData.property?.address?.street) {
-        throw new Error('Morada do imóvel é obrigatória');
+      if (!visitData.property?.address?.street?.trim()) {
+        throw new Error('Endereço da propriedade é obrigatório');
       }
 
-      // Verificar se a data não está no passado
-      const scheduledDate = new Date(visitData.scheduledDate);
-      const now = new Date();
-      if (scheduledDate < now) {
-        throw new Error('Não é possível agendar visita no passado');
+      // Validações específicas
+      if (visitData.clientPhone && !validatePortuguesePhone(visitData.clientPhone)) {
+        throw new Error('Número de telefone português inválido');
       }
 
-      // 2. PREPARAR DADOS COM ESTRUTURA UNIFICADA
+      if (visitData.clientEmail && !validateEmail(visitData.clientEmail)) {
+        throw new Error('Email inválido');
+      }
+
+      // 2. CRIAR OBJETO DA VISITA COM ESTRUTURA UNIFICADA
       const newVisit = {
-        // Dados básicos obrigatórios
-        clientId: visitData.clientId,
+        // Dados básicos da visita
         clientName: visitData.clientName.trim(),
         scheduledDate: visitData.scheduledDate,
-        duration: visitData.duration || 60,
-        visitType: visitData.visitType || VISIT_TYPES.PRESENCIAL,
+        scheduledTime: visitData.scheduledTime || null,
+        duration: visitData.duration || 60, // minutos
         
-        // Status e prioridade
-        status: UNIFIED_VISIT_STATUS.AGENDADA,
-        priority: visitData.priority || UNIFIED_PRIORITIES.NORMAL,
-        
-        // Dados da propriedade (PROPERTY_DATA_STRUCTURE expandida)
-        propertyReference: visitData.propertyReference?.trim() || '',
-        propertyType: visitData.property?.type || UNIFIED_PROPERTY_TYPES.APARTAMENTO,
+        // Dados da propriedade
         property: {
-          type: visitData.property?.type || UNIFIED_PROPERTY_TYPES.APARTAMENTO,
-          operation: visitData.property?.operation || OPERATION_TYPES.VENDA,
           address: {
             street: visitData.property.address.street.trim(),
-            number: visitData.property.address.number?.trim() || '',
-            floor: visitData.property.address.floor?.trim() || '',
             postalCode: visitData.property.address.postalCode?.trim() || '',
             city: visitData.property.address.city?.trim() || '',
             district: visitData.property.address.district?.trim() || '',
-            country: visitData.property.address.country || 'Portugal',
             coordinates: visitData.property.address.coordinates || null
           },
-          features: {
-            area: visitData.property.area || null,
-            bedrooms: visitData.property.rooms || null,
-            bathrooms: visitData.property.bathrooms || null,
-            parkingSpaces: visitData.property.parking || null,
-            buildYear: visitData.property.buildYear || null,
-            condition: visitData.property.condition || 'good',
-            energyRating: visitData.property.energyRating || ''
-          },
-          financials: {
-            askingPrice: visitData.property.price || null,
-            pricePerSqm: visitData.property.price && visitData.property.area ? 
-              (visitData.property.price / visitData.property.area) : null
-          },
+          type: visitData.property.type || '',
           description: visitData.property.description?.trim() || '',
-          internal_ref: visitData.property.internal_ref?.trim() || '',
-          external_ref: visitData.property.external_ref?.trim() || ''
+          price: parseFloat(visitData.property.price) || 0,
+          features: visitData.property.features || {}
         },
+        
+        // Dados do cliente
+        client: {
+          id: visitData.clientId || null,
+          name: visitData.clientName.trim(),
+          phone: visitData.clientPhone?.trim() || '',
+          email: visitData.clientEmail?.trim() || '',
+          notes: visitData.clientNotes?.trim() || ''
+        },
+        
+        // Tipo e categoria
+        visitType: visitData.visitType || VISIT_TYPES.PRESENCIAL,
+        operationType: visitData.operationType || OPERATION_TYPES.VENDA,
+        
+        // Status e controlo
+        status: visitData.status || UNIFIED_VISIT_STATUS.AGENDADA,
+        priority: visitData.priority || UNIFIED_PRIORITIES.NORMAL,
+        
+        // Confirmações
+        confirmations: {
+          client: false,
+          consultant: false,
+          clientConfirmedAt: null,
+          consultantConfirmedAt: null
+        },
+        
+        // Resultado e feedback
+        outcome: VISIT_OUTCOMES.PENDENTE,
+        feedback: {
+          clientRating: null,
+          clientComments: '',
+          consultantNotes: '',
+          nextSteps: '',
+          followUpDate: null
+        },
+        
+        // Partilhas e colaboração
+        sharedWith: visitData.sharedWith || [],
+        isShared: visitData.sharedWith?.length > 0 || false,
         
         // Notas e observações
         notes: visitData.notes?.trim() || '',
-        internal_notes: visitData.internal_notes?.trim() || '',
+        internalNotes: visitData.internalNotes?.trim() || '',
         
-        // Dados de controlo temporal
-        scheduledFor: visitData.scheduledDate,
-        confirmedBy: null,
-        confirmedAt: null,
-        completedBy: null,
-        completedAt: null,
-        
-        // Sistema de partilhas
-        sharedWith: visitData.sharedWith || [],
-        isShared: false,
-        
-        // Feedback pós-visita
-        feedback: null,
-        outcome: null,
-        nextSteps: null,
-        followUpDate: null,
-        
-        // Dados de auditoria obrigatórios
+        // Dados de auditoria obrigatórios MULTI-TENANT
         userId: user.uid,
         userEmail: user.email,
+        consultantId: user.uid,
+        consultantName: userProfile?.displayName || user.displayName || 'Consultor',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         
         // Flags de controlo
         isActive: true,
-        isConverted: false,
+        isCompleted: false,
         
         // Referências cruzadas
-        leadId: visitData.leadId || null,
-        clientId: visitData.clientId,
+        clientId: visitData.clientId || null,
         opportunityId: visitData.opportunityId || null,
         dealId: visitData.dealId || null,
         
+        // Fonte e rastreamento
+        source: visitData.source || 'manual',
+        
         // Versão da estrutura
-        structureVersion: '3.0',
+        structureVersion: '3.1',
+        isMultiTenant: true,
         
         // Metadados técnicos
         userAgent: navigator.userAgent,
         source_details: {
           created_via: 'web_form',
-          form_version: '3.0',
+          form_version: '3.1',
           timestamp: new Date().toISOString()
         }
       };
 
-      // 3. INSERIR NO FIREBASE
-      const docRef = await addDoc(collection(db, VISITS_COLLECTION), newVisit);
+      // 3. CRIAR USANDO FIREBASESERVICE
+      const createdVisit = await fbService.createDocument(VISITS_SUBCOLLECTION, newVisit);
       
-      // 4. CRIAR OBJETO COMPLETO PARA RETORNO
-      const createdVisit = {
-        id: docRef.id,
-        ...newVisit,
-        scheduledDate: new Date(visitData.scheduledDate),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      // 5. ATUALIZAR LISTA LOCAL
+      // 4. ATUALIZAR LISTA LOCAL
       setVisits(prev => [createdVisit, ...prev]);
 
-      console.log('Visita criada com estrutura unificada:', docRef.id);
+      console.log('✅ Visita criada com sucesso:', createdVisit.id);
       
       return {
         success: true,
@@ -490,7 +527,7 @@ const useVisits = () => {
       };
 
     } catch (err) {
-      console.error('Erro ao criar visita:', err);
+      console.error('❌ Erro ao criar visita:', err);
       setError(err.message);
       
       return {
@@ -501,95 +538,102 @@ const useVisits = () => {
     } finally {
       setCreating(false);
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user, userProfile]);
 
-  // 🔄 CONFIRMAR VISITA (DUPLA CONFIRMAÇÃO)
-  // =======================================
-  const confirmVisit = useCallback(async (visitId, confirmationType = 'cliente', notes = '') => {
+  // ✅ CONFIRMAR VISITA (MULTI-TENANT)
+  const confirmVisit = useCallback(async (visitId, confirmedBy = 'consultant', notes = '') => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     setConfirming(true);
     setError(null);
     
     try {
+      console.log('✅ Confirmando visita:', visitId, 'por:', confirmedBy);
+
       const visit = visits.find(v => v.id === visitId);
       if (!visit) {
         throw new Error('Visita não encontrada');
       }
 
-      let newStatus;
-      const currentStatus = visit.status;
-      
-      // Lógica de confirmação dupla
-      if (confirmationType === 'cliente') {
-        if (currentStatus === UNIFIED_VISIT_STATUS.AGENDADA) {
-          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE;
-        } else if (currentStatus === UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR) {
+      // Preparar dados de confirmação
+      const confirmationData = {
+        [`confirmations.${confirmedBy}`]: true,
+        [`confirmations.${confirmedBy}ConfirmedAt`]: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid
+      };
+
+      // Determinar novo status baseado nas confirmações
+      const currentConfirmations = visit.confirmations || {};
+      let newStatus = visit.status;
+
+      if (confirmedBy === 'client') {
+        if (currentConfirmations.consultant) {
           newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA;
         } else {
           newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE;
         }
-      } else if (confirmationType === 'consultor') {
-        if (currentStatus === UNIFIED_VISIT_STATUS.AGENDADA) {
-          newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR;
-        } else if (currentStatus === UNIFIED_VISIT_STATUS.CONFIRMADA_CLIENTE) {
+      } else if (confirmedBy === 'consultant') {
+        if (currentConfirmations.client) {
           newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_DUPLA;
         } else {
           newStatus = UNIFIED_VISIT_STATUS.CONFIRMADA_CONSULTOR;
         }
       }
 
-      const updateData = {
-        status: newStatus,
-        confirmedBy: confirmationType,
-        confirmedAt: serverTimestamp(),
-        confirmationNotes: notes.trim(),
-        updatedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        
-        // Auditoria de confirmação
-        [`confirmationHistory.${confirmationType}_${Date.now()}`]: {
-          type: confirmationType,
-          confirmedBy: user.uid,
-          confirmedAt: new Date().toISOString(),
-          notes: notes.trim(),
-          userAgent: navigator.userAgent
-        }
-      };
+      confirmationData.status = newStatus;
+      
+      if (notes.trim()) {
+        confirmationData[`confirmationNotes.${confirmedBy}`] = notes.trim();
+      }
 
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      await updateDoc(visitRef, updateData);
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(VISITS_SUBCOLLECTION, visitId, confirmationData);
       
       // Atualizar lista local
       setVisits(prev => prev.map(v => 
         v.id === visitId 
-          ? { ...v, ...updateData, confirmedAt: new Date(), updatedAt: new Date() }
+          ? { 
+              ...v, 
+              ...confirmationData, 
+              confirmations: {
+                ...v.confirmations,
+                [confirmedBy]: true,
+                [`${confirmedBy}ConfirmedAt`]: new Date()
+              },
+              status: newStatus,
+              updatedAt: new Date()
+            }
           : v
       ));
 
-      console.log(`Visita ${visitId} confirmada por ${confirmationType}`);
+      console.log('✅ Visita confirmada com sucesso');
       
       return { 
         success: true, 
-        message: `Visita confirmada pelo ${confirmationType}!`,
-        status: newStatus
+        message: `Visita confirmada por ${confirmedBy === 'client' ? 'cliente' : 'consultor'}!`,
+        newStatus
       };
       
     } catch (err) {
-      console.error('Erro ao confirmar visita:', err);
+      console.error('❌ Erro ao confirmar visita:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
       setConfirming(false);
     }
-  }, [isUserReady, user, visits]);
+  }, [isUserReady, fbService, user, visits]);
 
-  // 🔄 ATUALIZAR STATUS DA VISITA
-  // =============================
-  const updateVisitStatus = useCallback(async (visitId, newStatus, notes = '') => {
+  // 🔄 ATUALIZAR STATUS DA VISITA (MULTI-TENANT)
+  const updateVisitStatus = useCallback(async (visitId, newStatus, additionalData = {}) => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-
+    
+    setUpdating(true);
+    setError(null);
+    
     try {
+      console.log('📊 Atualizando status da visita:', visitId, newStatus);
+
       // Validar se o status é válido
       if (!Object.values(UNIFIED_VISIT_STATUS).includes(newStatus)) {
         throw new Error(`Status inválido: ${newStatus}`);
@@ -597,201 +641,158 @@ const useVisits = () => {
 
       const updateData = {
         status: newStatus,
-        statusChangeReason: notes.trim(),
+        ...additionalData,
         updatedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        
-        // Auditoria de mudança de status
-        [`statusHistory.change_${Date.now()}`]: {
-          to: newStatus,
-          changedBy: user.uid,
-          changedAt: new Date().toISOString(),
-          reason: notes.trim(),
-          userAgent: navigator.userAgent
-        }
+        lastModifiedBy: user.uid
       };
 
       // Lógica específica por status
+      if (newStatus === UNIFIED_VISIT_STATUS.REALIZADA) {
+        updateData.completedAt = serverTimestamp();
+        updateData.isCompleted = true;
+      }
+
       if (newStatus === UNIFIED_VISIT_STATUS.EM_CURSO) {
         updateData.startedAt = serverTimestamp();
       }
-      
-      if (newStatus === UNIFIED_VISIT_STATUS.REALIZADA) {
-        updateData.completedAt = serverTimestamp();
-        updateData.completedBy = user.uid;
-      }
 
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      await updateDoc(visitRef, updateData);
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(VISITS_SUBCOLLECTION, visitId, updateData);
       
       // Atualizar lista local
       setVisits(prev => prev.map(visit => 
         visit.id === visitId 
-          ? { ...visit, ...updateData, updatedAt: new Date() }
+          ? { ...visit, ...updateData, id: visitId }
           : visit
       ));
 
-      console.log(`Status da visita ${visitId} atualizado para: ${newStatus}`);
+      console.log('✅ Status da visita atualizado com sucesso');
       
-      return { 
-        success: true, 
-        message: `Status atualizado para ${getStatusLabel(newStatus)}!` 
-      };
-
+      return { success: true, message: 'Status atualizado com sucesso!' };
+      
     } catch (err) {
-      console.error('Erro ao atualizar status:', err);
+      console.error('❌ Erro ao atualizar status:', err);
+      setError(err.message);
       return { success: false, error: err.message };
+    } finally {
+      setUpdating(false);
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user]);
 
-  // 💬 ADICIONAR FEEDBACK PÓS-VISITA
-  // ================================
+  // 📝 ADICIONAR FEEDBACK À VISITA (MULTI-TENANT)
   const addVisitFeedback = useCallback(async (visitId, feedbackData) => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     try {
-      const feedback = {
-        outcome: feedbackData.outcome || VISIT_OUTCOMES.INTERESSADO,
-        rating: feedbackData.rating || null,
-        clientFeedback: feedbackData.clientFeedback?.trim() || '',
-        consultorFeedback: feedbackData.consultorFeedback?.trim() || '',
-        nextSteps: feedbackData.nextSteps?.trim() || '',
-        followUpDate: feedbackData.followUpDate || null,
-        willMakeOffer: feedbackData.willMakeOffer || false,
-        offerAmount: feedbackData.offerAmount || null,
-        additionalVisits: feedbackData.additionalVisits || false,
-        
-        // Auditoria
-        createdBy: user.uid,
-        createdAt: new Date().toISOString(),
-        structureVersion: '3.0'
-      };
+      console.log('📝 Adicionando feedback à visita:', visitId);
 
       const updateData = {
-        feedback: feedback,
-        outcome: feedbackData.outcome,
-        nextSteps: feedbackData.nextSteps?.trim() || '',
-        followUpDate: feedbackData.followUpDate,
-        status: UNIFIED_VISIT_STATUS.REALIZADA,
-        completedAt: serverTimestamp(),
-        completedBy: user.uid,
-        updatedAt: serverTimestamp()
+        outcome: feedbackData.outcome || VISIT_OUTCOMES.PENDENTE,
+        feedback: {
+          clientRating: feedbackData.clientRating || null,
+          clientComments: feedbackData.clientComments?.trim() || '',
+          consultantNotes: feedbackData.consultantNotes?.trim() || '',
+          nextSteps: feedbackData.nextSteps?.trim() || '',
+          followUpDate: feedbackData.followUpDate || null
+        },
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid
       };
 
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      await updateDoc(visitRef, updateData);
+      // Se não estava realizada, marcar como realizada
+      const visit = visits.find(v => v.id === visitId);
+      if (visit && visit.status !== UNIFIED_VISIT_STATUS.REALIZADA) {
+        updateData.status = UNIFIED_VISIT_STATUS.REALIZADA;
+        updateData.completedAt = serverTimestamp();
+        updateData.isCompleted = true;
+      }
+
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(VISITS_SUBCOLLECTION, visitId, updateData);
       
       // Atualizar lista local
-      setVisits(prev => prev.map(visit => 
-        visit.id === visitId 
-          ? { ...visit, ...updateData, completedAt: new Date(), updatedAt: new Date() }
-          : visit
+      setVisits(prev => prev.map(v => 
+        v.id === visitId 
+          ? { ...v, ...updateData, id: visitId }
+          : v
       ));
 
-      console.log(`Feedback adicionado à visita ${visitId}`);
+      console.log('✅ Feedback adicionado com sucesso');
       
-      return { 
-        success: true, 
-        feedback,
-        message: 'Feedback registado com sucesso!' 
-      };
+      return { success: true, message: 'Feedback registado com sucesso!' };
       
     } catch (err) {
-      console.error('Erro ao adicionar feedback:', err);
+      console.error('❌ Erro ao adicionar feedback:', err);
       return { success: false, error: err.message };
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user, visits]);
 
-  // 🔗 PARTILHAR VISITA COM OUTROS CONSULTORES
-  // ==========================================
-  const shareVisit = useCallback(async (visitId, consultorIds, notes = '') => {
+  // 🔗 PARTILHAR VISITA COM OUTROS CONSULTORES (MULTI-TENANT)
+  const shareVisit = useCallback(async (visitId, consultantIds, message = '') => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     try {
-      const shareData = {
-        sharedWith: consultorIds,
-        isShared: consultorIds.length > 0,
-        shareNotes: notes.trim(),
-        sharedBy: user.uid,
+      console.log('🔗 Partilhando visita:', visitId, 'com:', consultantIds);
+
+      if (!Array.isArray(consultantIds) || consultantIds.length === 0) {
+        throw new Error('Lista de consultores é obrigatória');
+      }
+
+      const updateData = {
+        sharedWith: consultantIds,
+        isShared: true,
+        shareMessage: message.trim(),
         sharedAt: serverTimestamp(),
+        sharedBy: user.uid,
         updatedAt: serverTimestamp()
       };
 
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      await updateDoc(visitRef, shareData);
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(VISITS_SUBCOLLECTION, visitId, updateData);
       
       // Atualizar lista local
-      setVisits(prev => prev.map(visit => 
-        visit.id === visitId 
-          ? { ...visit, ...shareData, sharedAt: new Date(), updatedAt: new Date() }
-          : visit
+      setVisits(prev => prev.map(v => 
+        v.id === visitId 
+          ? { ...v, ...updateData, id: visitId }
+          : v
       ));
 
-      console.log(`Visita ${visitId} partilhada com ${consultorIds.length} consultores`);
+      console.log('✅ Visita partilhada com sucesso');
       
       return { 
         success: true, 
-        message: `Visita partilhada com ${consultorIds.length} consultor(es)!` 
+        message: `Visita partilhada com ${consultantIds.length} consultor(es)!` 
       };
       
     } catch (err) {
-      console.error('Erro ao partilhar visita:', err);
+      console.error('❌ Erro ao partilhar visita:', err);
       return { success: false, error: err.message };
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user]);
 
-  // ❌ CANCELAR VISITA
-  // ==================
+  // ❌ CANCELAR VISITA (MULTI-TENANT)
   const cancelVisit = useCallback(async (visitId, reason = '') => {
-    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-    
-    try {
-      const updateData = {
-        status: UNIFIED_VISIT_STATUS.CANCELADA,
-        cancellationReason: reason.trim(),
-        cancelledBy: user.uid,
-        cancelledAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+    return await updateVisitStatus(visitId, UNIFIED_VISIT_STATUS.CANCELADA, {
+      cancellationReason: reason.trim(),
+      cancelledAt: serverTimestamp(),
+      cancelledBy: user.uid
+    });
+  }, [updateVisitStatus, user]);
 
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      await updateDoc(visitRef, updateData);
-      
-      // Atualizar lista local
-      setVisits(prev => prev.map(visit => 
-        visit.id === visitId 
-          ? { ...visit, ...updateData, cancelledAt: new Date(), updatedAt: new Date() }
-          : visit
-      ));
-
-      console.log(`Visita ${visitId} cancelada`);
-      
-      return { 
-        success: true, 
-        message: 'Visita cancelada com sucesso!' 
-      };
-      
-    } catch (err) {
-      console.error('Erro ao cancelar visita:', err);
-      return { success: false, error: err.message };
-    }
-  }, [isUserReady, user]);
-
-  // 🗑️ ELIMINAR VISITA (SOFT DELETE)
-  // ================================
+  // 🗑️ ELIMINAR VISITA (SOFT DELETE MULTI-TENANT)
   const deleteVisit = useCallback(async (visitId, hardDelete = false) => {
     if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
     
     try {
-      const visitRef = doc(db, VISITS_COLLECTION, visitId);
-      
+      console.log('🗑️ Eliminando visita:', visitId);
+
       if (hardDelete) {
         // Eliminação definitiva
-        await deleteDoc(visitRef);
+        await fbService.deleteDocument(VISITS_SUBCOLLECTION, visitId);
         console.log(`Visita ${visitId} eliminada permanentemente`);
       } else {
         // Soft delete (recomendado)
-        await updateDoc(visitRef, {
+        await fbService.updateDocument(VISITS_SUBCOLLECTION, visitId, {
           isActive: false,
           status: UNIFIED_VISIT_STATUS.CANCELADA,
           deletedAt: serverTimestamp(),
@@ -802,7 +803,9 @@ const useVisits = () => {
       }
       
       // Remover da lista local
-      setVisits(prev => prev.filter(visit => visit.id !== visitId));
+      setVisits(prev => prev.filter(v => v.id !== visitId));
+
+      console.log('✅ Visita eliminada com sucesso');
       
       return { 
         success: true, 
@@ -810,19 +813,17 @@ const useVisits = () => {
       };
       
     } catch (err) {
-      console.error('Erro ao eliminar visita:', err);
+      console.error('❌ Erro ao eliminar visita:', err);
       return { success: false, error: err.message };
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user]);
 
   // 🔍 PESQUISAR VISITAS
-  // ====================
   const searchVisits = useCallback((searchTerm) => {
     setFilters(prev => ({ ...prev, searchTerm }));
   }, []);
 
-  // 📊 ESTATÍSTICAS UNIFICADAS
-  // ==========================
+  // 📊 ESTATÍSTICAS UNIFICADAS E AVANÇADAS (MULTI-TENANT)
   const visitStats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -842,6 +843,8 @@ const useVisits = () => {
       byOutcome: {},
       byPropertyType: {}
     };
+
+    if (visits.length === 0) return stats;
 
     // Contar por status unificado
     Object.values(UNIFIED_VISIT_STATUS).forEach(status => {
@@ -906,7 +909,6 @@ const useVisits = () => {
   }, [visits]);
 
   // 🔧 FUNÇÕES AUXILIARES
-  // =====================
   const getStatusLabel = (status) => {
     const labels = {
       [UNIFIED_VISIT_STATUS.AGENDADA]: 'Agendada',
@@ -926,15 +928,23 @@ const useVisits = () => {
   // Função para compatibilidade
   const getVisitStats = useCallback(() => visitStats, [visitStats]);
 
-  // 🔄 EFFECTS
-  // ==========
+  // 🔄 CARREGAR DADOS INICIAIS
   useEffect(() => {
     if (isUserReady) {
-      console.log('useVisits: Utilizador pronto, carregando visitas...');
+      console.log('🔄 Carregando visitas iniciais...');
       fetchVisits();
     }
   }, [isUserReady, fetchVisits]);
 
+  // 🔄 RECARREGAR QUANDO FILTROS MUDAM
+  useEffect(() => {
+    if (isUserReady) {
+      console.log('🔍 Aplicando filtros...');
+      fetchVisits();
+    }
+  }, [filters.status, filters.visitType, filters.operationType, filters.dateRange]);
+
+  // 🔄 LIMPAR ERROS AUTOMATICAMENTE
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 5000);
@@ -942,10 +952,9 @@ const useVisits = () => {
     }
   }, [error]);
 
-  // 📤 RETORNO DO HOOK UNIFICADO
-  // ============================
+  // 📤 RETORNO DO HOOK MULTI-TENANT COMPLETO
   return {
-    // Estados
+    // Estados principais
     visits,
     loading,
     error,
@@ -980,7 +989,7 @@ const useVisits = () => {
     VISIT_OUTCOMES,
     VISIT_STATUS_COLORS,
     
-    // Novos: constantes unificadas
+    // Constantes expandidas
     UNIFIED_VISIT_STATUS,
     UNIFIED_PROPERTY_TYPES,
     UNIFIED_PRIORITIES,
@@ -1000,9 +1009,11 @@ const useVisits = () => {
     isConnected: isUserReady && !error,
     isUserReady,
     
-    // Informações da estrutura
-    structureVersion: '3.0',
-    isUnified: true
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    isUnified: true,
+    structureVersion: '3.1-multi-tenant'
   };
 };
 
