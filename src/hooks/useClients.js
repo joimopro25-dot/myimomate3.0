@@ -1,26 +1,16 @@
 // src/hooks/useClients.js
 // 🎯 HOOK UNIFICADO PARA GESTÃO DE CLIENTES - MyImoMate 3.0 MULTI-TENANT COMPLETO
 // ===============================================================================
-// VERSÃO HÍBRIDA: Multi-tenant + Todas as funcionalidades avançadas
+// VERSÃO HÍBRIDA: Multi-tenant + Todas as funcionalidades avançadas + ANTI-LOOP
 // Inclui: Conversão cliente→oportunidade, sincronização, migração, GDPR, auditoria
 // Data: Agosto 2025 | Versão: 3.1 Multi-Tenant Complete
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc,
-  query, 
-  where, 
-  orderBy, 
-  limit,
   serverTimestamp,
-  writeBatch,
-  arrayUnion
+  getDoc,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,111 +55,197 @@ import {
 // 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
 const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
 const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
-const LEADS_SUBCOLLECTION = SUBCOLLECTIONS.LEADS;
+const VISITS_SUBCOLLECTION = SUBCOLLECTIONS.VISITS;
+const DEALS_SUBCOLLECTION = SUBCOLLECTIONS.DEALS;
 const FETCH_LIMIT = 100;
 
-// 🎯 TIPOS DE CLIENTE ESPECÍFICOS (mantendo compatibilidade)
+// 🎯 TIPOS DE CLIENTE ESPECÍFICOS
 export const CLIENT_TYPES = {
   COMPRADOR: 'comprador',
   VENDEDOR: 'vendedor',
-  INQUILINO: 'inquilino',
+  ARRENDATARIO: 'arrendatario',
   SENHORIO: 'senhorio',
-  INVESTIDOR: 'investidor',
-  AMBOS: 'ambos' // Comprador e vendedor
+  INVESTIDOR: 'investidor'
 };
 
 export const CLIENT_TYPE_LABELS = {
   [CLIENT_TYPES.COMPRADOR]: 'Comprador',
   [CLIENT_TYPES.VENDEDOR]: 'Vendedor',
-  [CLIENT_TYPES.INQUILINO]: 'Inquilino',
+  [CLIENT_TYPES.ARRENDATARIO]: 'Arrendatário',
   [CLIENT_TYPES.SENHORIO]: 'Senhorio',
-  [CLIENT_TYPES.INVESTIDOR]: 'Investidor',
-  [CLIENT_TYPES.AMBOS]: 'Comprador & Vendedor'
+  [CLIENT_TYPES.INVESTIDOR]: 'Investidor'
 };
 
-// 🎨 CORES PARA STATUS (usando constantes unificadas)
+// 🌡️ CORES PARA STATUS DE CLIENTES
 export const CLIENT_STATUS_COLORS = {
   [UNIFIED_CLIENT_STATUS.ATIVO]: 'bg-green-100 text-green-800 border-green-200',
   [UNIFIED_CLIENT_STATUS.INATIVO]: 'bg-gray-100 text-gray-800 border-gray-200',
   [UNIFIED_CLIENT_STATUS.PROSPETO]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [UNIFIED_CLIENT_STATUS.EX_CLIENTE]: 'bg-red-100 text-red-800 border-red-200',
   [UNIFIED_CLIENT_STATUS.SUSPENSO]: 'bg-yellow-100 text-yellow-800 border-yellow-200'
 };
 
-// 💬 TIPOS DE INTERAÇÃO/CONTACTO
-export const CONTACT_TYPES = {
-  CHAMADA: 'chamada',
-  EMAIL: 'email',
-  WHATSAPP: 'whatsapp',
-  REUNIAO: 'reuniao',
-  VISITA: 'visita',
-  SMS: 'sms',
-  VIDEOCHAMADA: 'videochamada',
-  FACEBOOK: 'facebook',
-  INSTAGRAM: 'instagram',
-  OUTRO: 'outro'
-};
-
-export const CONTACT_TYPE_LABELS = {
-  [CONTACT_TYPES.CHAMADA]: 'Chamada Telefónica',
-  [CONTACT_TYPES.EMAIL]: 'E-mail',
-  [CONTACT_TYPES.WHATSAPP]: 'WhatsApp',
-  [CONTACT_TYPES.REUNIAO]: 'Reunião Presencial',
-  [CONTACT_TYPES.VISITA]: 'Visita ao Imóvel',
-  [CONTACT_TYPES.SMS]: 'SMS',
-  [CONTACT_TYPES.VIDEOCHAMADA]: 'Videochamada',
-  [CONTACT_TYPES.FACEBOOK]: 'Facebook Messenger',
-  [CONTACT_TYPES.INSTAGRAM]: 'Instagram Direct',
-  [CONTACT_TYPES.OUTRO]: 'Outro'
-};
-
-// 🎯 HOOK PRINCIPAL MULTI-TENANT COMPLETO
+// 🎯 HOOK PRINCIPAL MULTI-TENANT COM CORREÇÕES ANTI-LOOP
 const useClients = () => {
   // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
-  const { currentUser: user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
+  const { currentUser: user, userProfile } = useAuth();
   const fbService = useFirebaseService(user);
-  
-  // Estados principais
+
+  // 📊 STATES PRINCIPAIS
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [converting, setConverting] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState(false);
 
-  // Filtros expandidos
+  // 📊 FILTROS E PESQUISA - COM CONTROLE ANTI-LOOP
   const [filters, setFilters] = useState({
     status: '',
     clientType: '',
     interestType: '',
     budgetRange: '',
     priority: '',
-    city: '',
     searchTerm: ''
   });
 
-  // Verificação de autenticação melhorada
-  const activeUser = user;
-  const isUserReady = !authLoading && !!activeUser && activeUser.uid;
+  // 🔧 CONTROLES ANTI-LOOP
+  const fetchTimeoutRef = useRef(null);
+  const lastFetchFilters = useRef('');
+  const mountedRef = useRef(false);
 
   // 🎯 HELPERS CRUD MULTI-TENANT
   const crudHelpers = createCRUDHelpers(CLIENTS_SUBCOLLECTION);
 
-  // 📊 CARREGAR CLIENTES COM ESTRUTURA UNIFICADA (MULTI-TENANT)
-  const fetchClients = useCallback(async () => {
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
+
+  // 🔧 FUNÇÕES AUXILIARES PARA CÁLCULOS
+  const calculateDataCompleteness = useCallback((clientData) => {
+    if (!clientData) return 0;
+    
+    const requiredFields = [
+      'name', 'primaryEmail', 'primaryPhone', 'interestType', 
+      'budgetRange', 'clientType', 'preferredLocation'
+    ];
+    const optionalFields = [
+      'secondaryPhone', 'alternativeEmail', 'nif', 'cc', 
+      'address.street', 'address.city', 'dateOfBirth'
+    ];
+    
+    let completedRequired = 0;
+    let completedOptional = 0;
+    
+    requiredFields.forEach(field => {
+      if (getNestedValue(clientData, field)) completedRequired++;
+    });
+    
+    optionalFields.forEach(field => {
+      if (getNestedValue(clientData, field)) completedOptional++;
+    });
+    
+    const requiredWeight = 0.7;
+    const optionalWeight = 0.3;
+    
+    return Math.round(
+      (completedRequired / requiredFields.length) * requiredWeight * 100 +
+      (completedOptional / optionalFields.length) * optionalWeight * 100
+    );
+  }, []);
+
+  const getNestedValue = (obj, path) => {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+  };
+
+  const isRecentlyActive = useCallback((lastInteraction, createdAt) => {
+    if (!lastInteraction && !createdAt) return false;
+    
+    const referenceDate = lastInteraction || createdAt;
+    const date = referenceDate instanceof Date ? referenceDate : 
+                 referenceDate.toDate ? referenceDate.toDate() : new Date(referenceDate);
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return date >= thirtyDaysAgo;
+  }, []);
+
+  const isHighValueClient = useCallback((budgetRange, interestType) => {
+    const highValueBudgets = [
+      UNIFIED_BUDGET_RANGES.ATE_500K,
+      UNIFIED_BUDGET_RANGES.ACIMA_500K
+    ];
+    
+    const highValueTypes = [
+      UNIFIED_INTEREST_TYPES.INVESTIMENTO_COMERCIAL,
+      UNIFIED_INTEREST_TYPES.INVESTIMENTO_RESIDENCIAL
+    ];
+    
+    return highValueBudgets.includes(budgetRange) || 
+           highValueTypes.includes(interestType);
+  }, []);
+
+  const suggestNextAction = useCallback((clientData) => {
+    if (!clientData) return 'Contactar cliente';
+    
+    if (!clientData.lastInteraction) return 'Primeiro contacto';
+    if (clientData.hasOpportunities) return 'Acompanhar oportunidades';
+    if (clientData.dataCompleteness < 80) return 'Completar dados';
+    return 'Agendar follow-up';
+  }, []);
+
+  const getBudgetRangeMiddleValue = useCallback((budgetRange) => {
+    const ranges = {
+      [UNIFIED_BUDGET_RANGES.ATE_100K]: 75000,
+      [UNIFIED_BUDGET_RANGES.ATE_200K]: 150000,
+      [UNIFIED_BUDGET_RANGES.ATE_300K]: 250000,
+      [UNIFIED_BUDGET_RANGES.ATE_500K]: 400000,
+      [UNIFIED_BUDGET_RANGES.ACIMA_500K]: 650000,
+      [UNIFIED_BUDGET_RANGES.INDEFINIDO]: 200000
+    };
+    return ranges[budgetRange] || 200000;
+  }, []);
+
+  const calculateNextFollowUp = useCallback((priority) => {
+    const now = new Date();
+    const daysToAdd = priority === UNIFIED_PRIORITIES.ALTA ? 3 : 
+                     priority === UNIFIED_PRIORITIES.NORMAL ? 7 : 14;
+    
+    const followUpDate = new Date(now.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+    return followUpDate;
+  }, []);
+
+  // 📥 BUSCAR TODOS OS CLIENTES COM ESTRUTURA UNIFICADA (MULTI-TENANT) - ANTI-LOOP
+  const fetchClients = useCallback(async (forceRefresh = false) => {
     if (!isUserReady) {
       console.log('useClients: Aguardando utilizador...');
       return;
+    }
+    
+    // Evitar múltiplas chamadas desnecessárias
+    const currentFiltersString = JSON.stringify(filters);
+    if (!forceRefresh && lastFetchFilters.current === currentFiltersString && clients.length > 0) {
+      console.log('useClients: Filtros inalterados, skip fetch');
+      return;
+    }
+    
+    // Cancelar fetch anterior se existir
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
     }
     
     setLoading(true);
     setError(null);
     
     try {
-      console.log(`📊 Carregando clientes para utilizador: ${activeUser.uid}`);
+      console.log(`📊 Carregando clientes para utilizador: ${user.uid}`);
       
-      // Construir condições de filtro
+      // Construir query com filtros
+      const queryOptions = {
+        orderBy: [{ field: 'createdAt', direction: 'desc' }],
+        limitCount: FETCH_LIMIT
+      };
+
+      // Aplicar filtros ao nível da query quando possível
       const whereConditions = [];
       
       if (filters.status && Object.values(UNIFIED_CLIENT_STATUS).includes(filters.status)) {
@@ -179,53 +255,39 @@ const useClients = () => {
       if (filters.clientType && Object.values(CLIENT_TYPES).includes(filters.clientType)) {
         whereConditions.push({ field: 'clientType', operator: '==', value: filters.clientType });
       }
-
-      if (filters.interestType && Object.values(UNIFIED_INTEREST_TYPES).includes(filters.interestType)) {
-        whereConditions.push({ field: 'interestType', operator: '==', value: filters.interestType });
-      }
-
-      if (filters.budgetRange && Object.values(UNIFIED_BUDGET_RANGES).includes(filters.budgetRange)) {
-        whereConditions.push({ field: 'budgetRange', operator: '==', value: filters.budgetRange });
-      }
-
+      
       if (filters.priority && Object.values(UNIFIED_PRIORITIES).includes(filters.priority)) {
         whereConditions.push({ field: 'priority', operator: '==', value: filters.priority });
       }
 
-      if (filters.city) {
-        whereConditions.push({ field: 'address.city', operator: '==', value: filters.city });
+      if (whereConditions.length > 0) {
+        queryOptions.where = whereConditions;
       }
 
-      const result = await crudHelpers.read({
-        orderBy: 'createdAt',
-        orderDirection: 'desc',
-        limitCount: FETCH_LIMIT,
-        where: whereConditions,
-        includeInactive: false
-      });
+      // Executar query usando FirebaseService multi-tenant
+      const result = await fbService.readDocuments(CLIENTS_SUBCOLLECTION, queryOptions);
 
-      if (result.success) {
-        let clientsData = result.data.map(client => {
-          // Aplicar migração automática se necessário
-          let migratedData;
-          try {
-            migratedData = migrateClientData(client);
-          } catch (error) {
-            console.warn('⚠️ Migração falhou:', error);
-            migratedData = client;
-          }
+      if (result.success && Array.isArray(result.data)) {
+        console.log(`📊 Encontrados ${result.data.length} clientes brutos`);
+
+        // Processar e enriquecer dados
+        let clientsData = result.data.map(clientDoc => {
+          const migratedData = migrateClientData(clientDoc);
           
           return {
+            id: clientDoc.id,
             ...migratedData,
-            // Enriquecer com dados calculados
-            clientTypeLabel: CLIENT_TYPE_LABELS[migratedData.clientType] || migratedData.clientType,
+            
+            // Enriquecimentos para UI
+            clientTypeLabel: CLIENT_TYPE_LABELS[migratedData.clientType] || 'N/A',
             interestTypeLabel: getInterestTypeLabel(migratedData.interestType),
             budgetRangeLabel: getBudgetRangeLabel(migratedData.budgetRange),
-            budgetDisplay: formatCurrency(migratedData.estimatedBudget),
-            statusColor: CLIENT_STATUS_COLORS[migratedData.status] || CLIENT_STATUS_COLORS[UNIFIED_CLIENT_STATUS.ATIVO],
+            budgetDisplay: formatCurrency(getBudgetRangeMiddleValue(migratedData.budgetRange)),
+            statusColor: CLIENT_STATUS_COLORS[migratedData.status],
             
-            // Calcular idade do cliente
-            ageInDays: migratedData.createdAt ? Math.floor((new Date() - new Date(migratedData.createdAt)) / (1000 * 60 * 60 * 24)) : 0,
+            // Cálculos temporais
+            ageInDays: migratedData.createdAt ? 
+              Math.floor((new Date() - new Date(migratedData.createdAt)) / (1000 * 60 * 60 * 24)) : 0,
             
             // Status de atividade
             isRecentlyActive: isRecentlyActive(migratedData.lastInteraction, migratedData.createdAt),
@@ -243,7 +305,7 @@ const useClients = () => {
           };
         });
 
-        // Aplicar filtro de pesquisa se existir
+        // Aplicar filtros client-side adicionais
         if (filters.searchTerm) {
           const term = filters.searchTerm.toLowerCase();
           clientsData = clientsData.filter(client => 
@@ -258,8 +320,17 @@ const useClients = () => {
           );
         }
 
+        if (filters.interestType) {
+          clientsData = clientsData.filter(client => client.interestType === filters.interestType);
+        }
+
+        if (filters.budgetRange) {
+          clientsData = clientsData.filter(client => client.budgetRange === filters.budgetRange);
+        }
+
         setClients(clientsData);
-        console.log(`✅ Carregados ${clientsData.length} clientes com estrutura unificada para utilizador ${activeUser.uid}`);
+        lastFetchFilters.current = currentFiltersString;
+        console.log(`✅ Carregados ${clientsData.length} clientes com estrutura unificada para utilizador ${user.uid}`);
       } else {
         throw new Error('Falha ao carregar clientes');
       }
@@ -271,7 +342,7 @@ const useClients = () => {
     } finally {
       setLoading(false);
     }
-  }, [isUserReady, activeUser, filters, crudHelpers]);
+  }, [isUserReady, user, fbService, filters, clients.length, calculateDataCompleteness, isRecentlyActive, isHighValueClient, suggestNextAction, getBudgetRangeMiddleValue]);
 
   // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
   const migrateClientData = useCallback((oldData) => {
@@ -287,172 +358,74 @@ const useClients = () => {
       // Garantir estrutura base obrigatória
       isActive: oldData.isActive !== undefined ? oldData.isActive : true,
       priority: oldData.priority || UNIFIED_PRIORITIES.NORMAL,
+      clientType: oldData.clientType || CLIENT_TYPES.COMPRADOR,
       
-      // Migrar status de cliente
-      status: migrateClientStatus(oldData.status),
-      
-      // Migrar tipos de interesse
-      interestType: migrateInterestType(oldData.primaryInterest || oldData.interestType),
-      primaryInterest: migrateInterestType(oldData.primaryInterest || oldData.interestType),
-      
-      // Migrar faixas de orçamento
-      budgetRange: migrateBudgetRange(oldData.budgetRange),
+      // Migrar status
+      status: oldData.status || UNIFIED_CLIENT_STATUS.PROSPETO,
       
       // Garantir campos obrigatórios
-      phoneNormalized: oldData.phoneNormalized || oldData.phone?.replace(/\s|-/g, '') || '',
-      primaryPhone: oldData.primaryPhone || oldData.phone || '',
-      primaryEmail: oldData.primaryEmail || oldData.email || '',
+      name: oldData.name || 'Cliente sem nome',
+      primaryEmail: oldData.email || oldData.primaryEmail || '',
+      primaryPhone: oldData.phone || oldData.primaryPhone || '',
       
-      // Dados calculados
-      estimatedBudget: getBudgetRangeMiddleValue(oldData.budgetRange),
+      // Estrutura expandida
+      estimatedBudget: oldData.estimatedBudget || getBudgetRangeMiddleValue(oldData.budgetRange),
+      dataCompleteness: oldData.dataCompleteness || calculateDataCompleteness(oldData),
       
       // Adicionar campos novos
       structureVersion: '3.1',
+      isMultiTenant: true,
       migratedAt: new Date().toISOString(),
       
-      // Migrar preferências de contacto
-      preferredContactTime: oldData.preferredContactTime || UNIFIED_CONTACT_TIMES.QUALQUER_HORA,
-      
-      // Garantir referências cruzadas
-      leadId: oldData.originalLeadId || oldData.leadId || null,
+      // Referências cruzadas
+      leadId: oldData.leadId || oldData.originalLeadId || null,
       clientId: oldData.id || null,
-      opportunityId: oldData.opportunityId || null,
-      dealId: oldData.dealId || null,
-      
-      // Estrutura de marketing consent (GDPR)
-      marketingConsent: oldData.marketingConsent || {
-        email: false,
-        sms: false,
-        phone: false,
-        whatsapp: false,
-        consentDate: new Date().toISOString(),
-        gdprCompliant: true
-      },
-      
-      // Dados profissionais
-      profession: oldData.profession || '',
-      employer: oldData.employer || '',
-      monthlyIncome: oldData.monthlyIncome || null,
-      
-      // Sistema de interações expandido
-      interactions: oldData.interactions || {},
-      stats: oldData.stats || {
-        totalInteractions: 0,
-        lastContactDate: null,
-        nextFollowUpDate: null
-      }
+      opportunityIds: oldData.opportunityIds || []
     };
 
     return migrated;
-  }, []);
+  }, [getBudgetRangeMiddleValue, calculateDataCompleteness]);
 
-  // 🔄 FUNÇÕES DE MIGRAÇÃO ESPECÍFICAS
-  const migrateClientStatus = (oldStatus) => {
-    const statusMap = {
-      'ativo': UNIFIED_CLIENT_STATUS.ATIVO,
-      'inativo': UNIFIED_CLIENT_STATUS.INATIVO,
-      'prospeto': UNIFIED_CLIENT_STATUS.PROSPETO,
-      'ex_cliente': UNIFIED_CLIENT_STATUS.EX_CLIENTE,
-      'active': UNIFIED_CLIENT_STATUS.ATIVO,
-      'inactive': UNIFIED_CLIENT_STATUS.INATIVO
-    };
-    return statusMap[oldStatus] || UNIFIED_CLIENT_STATUS.ATIVO;
-  };
-
-  const migrateInterestType = (oldType) => {
-    const typeMap = {
-      'apartamento': UNIFIED_INTEREST_TYPES.COMPRA_APARTAMENTO,
-      'moradia': UNIFIED_INTEREST_TYPES.COMPRA_CASA,
-      'comercial': UNIFIED_INTEREST_TYPES.COMPRA_COMERCIAL,
-      'terreno': UNIFIED_INTEREST_TYPES.COMPRA_TERRENO,
-      'compra_casa': UNIFIED_INTEREST_TYPES.COMPRA_CASA,
-      'compra_apartamento': UNIFIED_INTEREST_TYPES.COMPRA_APARTAMENTO,
-      'venda_casa': UNIFIED_INTEREST_TYPES.VENDA_CASA,
-      'venda_apartamento': UNIFIED_INTEREST_TYPES.VENDA_APARTAMENTO
-    };
-    return typeMap[oldType] || UNIFIED_INTEREST_TYPES.COMPRA_CASA;
-  };
-
-  const migrateBudgetRange = (oldRange) => {
-    const rangeMap = {
-      'ate_100k': UNIFIED_BUDGET_RANGES.ATE_100K,
-      '100k_250k': UNIFIED_BUDGET_RANGES.DE_100K_200K,
-      '250k_500k': UNIFIED_BUDGET_RANGES.DE_300K_500K,
-      '500k_1m': UNIFIED_BUDGET_RANGES.DE_500K_750K,
-      'acima_1m': UNIFIED_BUDGET_RANGES.ACIMA_1M
-    };
-    return rangeMap[oldRange] || UNIFIED_BUDGET_RANGES.INDEFINIDO;
-  };
-
-  // 🔍 VERIFICAR DUPLICADOS COMPLETO (MULTI-TENANT)
-  const checkForDuplicates = useCallback(async (phone, email, nif = null) => {
+  // 🔍 VERIFICAR DUPLICADOS - MOVIDA PARA ANTES DE createClient
+  const checkForDuplicates = useCallback(async (phone, email) => {
+    if (!isUserReady) return { hasDuplicates: false, duplicates: [] };
+    
     setDuplicateCheck(true);
     
     try {
       const duplicates = [];
       
-      // Verificar por telefone normalizado
       if (phone) {
-        const normalizedPhone = phone.replace(/\s|-/g, '');
-        const phoneResult = await crudHelpers.read({
-          where: [{ field: 'phoneNormalized', operator: '==', value: normalizedPhone }],
-          limitCount: 5
+        const phoneResult = await fbService.readDocuments(CLIENTS_SUBCOLLECTION, {
+          where: [{ field: 'primaryPhone', operator: '==', value: phone.trim() }],
+          limitCount: 1
         });
         
-        if (phoneResult.success) {
-          phoneResult.data.forEach(client => {
-            duplicates.push({ 
-              ...client, 
-              duplicateField: 'phone' 
-            });
+        if (phoneResult.success && phoneResult.data.length > 0) {
+          duplicates.push({
+            ...phoneResult.data[0],
+            duplicateField: 'phone'
           });
         }
       }
-
-      // Verificar por email
-      if (email) {
-        const emailResult = await crudHelpers.read({
-          where: [{ field: 'primaryEmail', operator: '==', value: email.toLowerCase() }],
-          limitCount: 5
-        });
-        
-        if (emailResult.success) {
-          emailResult.data.forEach(client => {
-            if (!duplicates.find(d => d.id === client.id)) {
-              duplicates.push({ 
-                ...client, 
-                duplicateField: 'email' 
-              });
-            }
-          });
-        }
-      }
-
-      // Verificar por NIF se fornecido
-      if (nif) {
-        const nifResult = await crudHelpers.read({
-          where: [{ field: 'nif', operator: '==', value: nif }],
-          limitCount: 5
-        });
-        
-        if (nifResult.success) {
-          nifResult.data.forEach(client => {
-            if (!duplicates.find(d => d.id === client.id)) {
-              duplicates.push({ 
-                ...client, 
-                duplicateField: 'nif' 
-              });
-            }
-          });
-        }
-      }
-
-      console.log(`Verificação de duplicados: ${duplicates.length} encontrados`);
       
+      if (email && duplicates.length === 0) {
+        const emailResult = await fbService.readDocuments(CLIENTS_SUBCOLLECTION, {
+          where: [{ field: 'primaryEmail', operator: '==', value: email.toLowerCase().trim() }],
+          limitCount: 1
+        });
+        
+        if (emailResult.success && emailResult.data.length > 0) {
+          duplicates.push({
+            ...emailResult.data[0],
+            duplicateField: 'email'
+          });
+        }
+      }
+
       return {
         hasDuplicates: duplicates.length > 0,
-        duplicates,
-        count: duplicates.length
+        duplicates: duplicates
       };
       
     } catch (err) {
@@ -461,9 +434,9 @@ const useClients = () => {
     } finally {
       setDuplicateCheck(false);
     }
-  }, [crudHelpers]);
+  }, [isUserReady, fbService]);
 
-  // ➕ CRIAR NOVO CLIENTE COM ESTRUTURA UNIFICADA COMPLETA (MULTI-TENANT)
+  // ➕ CRIAR NOVO CLIENTE COM ESTRUTURA UNIFICADA (MULTI-TENANT)
   const createClient = useCallback(async (clientData) => {
     if (!isUserReady) {
       throw new Error('Utilizador não autenticado');
@@ -473,118 +446,101 @@ const useClients = () => {
     setError(null);
 
     try {
-      console.log('➕ Criando novo cliente:', clientData);
+      console.log('➕ Criando novo cliente multi-tenant...');
 
-      // 1. VALIDAÇÃO BÁSICA
+      // 1. VALIDAÇÕES BÁSICAS
       if (!clientData.name?.trim()) {
         throw new Error('Nome é obrigatório');
       }
       
-      if (!clientData.phone?.trim() && !clientData.email?.trim()) {
+      if (!clientData.primaryPhone?.trim() && !clientData.primaryEmail?.trim()) {
         throw new Error('Telefone ou email é obrigatório');
       }
 
       // Validações específicas
-      if (clientData.phone && !validatePortuguesePhone(clientData.phone)) {
+      if (clientData.primaryPhone && !validatePortuguesePhone(clientData.primaryPhone)) {
         throw new Error('Formato de telefone inválido');
       }
 
-      if (clientData.email && !validateEmail(clientData.email)) {
+      if (clientData.primaryEmail && !validateEmail(clientData.primaryEmail)) {
         throw new Error('Formato de email inválido');
       }
 
       if (clientData.nif && !validateNIF(clientData.nif)) {
-        throw new Error('NIF deve ter 9 dígitos');
+        throw new Error('Formato de NIF inválido');
       }
 
       // 2. VERIFICAR DUPLICADOS
-      const duplicateCheck = await checkForDuplicates(
-        clientData.phone, 
-        clientData.email, 
-        clientData.nif
-      );
-      
+      const duplicateCheck = await checkForDuplicates(clientData.primaryPhone, clientData.primaryEmail);
       if (duplicateCheck.hasDuplicates) {
         const duplicateInfo = duplicateCheck.duplicates[0];
-        const field = duplicateInfo.duplicateField === 'phone' ? 'telefone' : 
-                     duplicateInfo.duplicateField === 'email' ? 'email' : 'NIF';
-        throw new Error(`Já existe um cliente com este ${field}`);
+        throw new Error(
+          `Já existe um cliente com este ${
+            duplicateInfo.duplicateField === 'phone' ? 'telefone' : 'email'
+          }`
+        );
       }
 
-      // 3. PREPARAR DADOS NORMALIZADOS
-      const normalizedPhone = clientData.phone?.replace(/\s|-/g, '') || '';
-      const normalizedEmail = clientData.email?.toLowerCase().trim() || '';
+      // 3. PREPARAR DADOS COM ESTRUTURA UNIFICADA
+      const estimatedBudget = getBudgetRangeMiddleValue(clientData.budgetRange);
       
-      // 4. CRIAR OBJETO DO CLIENTE COM ESTRUTURA UNIFICADA COMPLETA
+      // 4. CRIAR OBJETO DO CLIENTE COM ESTRUTURA UNIFICADA
       const newClient = {
         // Aplicar estrutura core
         ...applyCoreStructure(clientData, CLIENT_TEMPLATE),
         
         // Dados básicos obrigatórios
         name: clientData.name.trim(),
-        primaryPhone: clientData.phone?.trim() || '',
+        primaryEmail: clientData.primaryEmail?.toLowerCase().trim() || '',
+        primaryPhone: clientData.primaryPhone?.trim() || '',
+        
+        // Dados secundários
         secondaryPhone: clientData.secondaryPhone?.trim() || '',
-        phoneNormalized: normalizedPhone,
-        primaryEmail: normalizedEmail,
-        secondaryEmail: clientData.secondaryEmail?.toLowerCase().trim() || '',
+        alternativeEmail: clientData.alternativeEmail?.toLowerCase().trim() || '',
         
-        // Dados específicos do cliente
-        clientType: clientData.clientType || CLIENT_TYPES.COMPRADOR,
-        
-        // Dados pessoais expandidos (PERSONAL_DATA_STRUCTURE)
-        nameFirst: clientData.nameFirst?.trim() || '',
-        nameLast: clientData.nameLast?.trim() || '',
+        // Identificação
         nif: clientData.nif?.trim() || '',
         cc: clientData.cc?.trim() || '',
-        dateOfBirth: clientData.dateOfBirth || null,
-        nationality: clientData.nationality || 'Portuguesa',
-        maritalStatus: clientData.maritalStatus || '',
         
-        // Morada completa
+        // Classificação
+        clientType: clientData.clientType || CLIENT_TYPES.COMPRADOR,
+        interestType: clientData.interestType || UNIFIED_INTEREST_TYPES.COMPRA_CASA,
+        budgetRange: clientData.budgetRange || UNIFIED_BUDGET_RANGES.INDEFINIDO,
+        status: UNIFIED_CLIENT_STATUS.PROSPETO,
+        priority: clientData.priority || UNIFIED_PRIORITIES.NORMAL,
+        source: clientData.source || 'manual',
+        
+        // Localização e preferências
+        preferredLocation: clientData.preferredLocation?.trim() || '',
+        preferredLocations: clientData.preferredLocation ? [clientData.preferredLocation] : [],
+        preferredContactTime: clientData.preferredContactTime || UNIFIED_CONTACT_TIMES.QUALQUER_HORA,
+        
+        // Endereço estruturado
         address: {
           street: clientData.address?.street?.trim() || '',
-          number: clientData.address?.number?.trim() || '',
-          floor: clientData.address?.floor?.trim() || '',
-          postalCode: clientData.address?.postalCode?.trim() || '',
           city: clientData.address?.city?.trim() || '',
+          postalCode: clientData.address?.postalCode?.trim() || '',
           district: clientData.address?.district?.trim() || '',
           country: clientData.address?.country || 'Portugal'
         },
         
-        // Dados de interesse com estrutura unificada
-        interestType: clientData.interestType || UNIFIED_INTEREST_TYPES.COMPRA_CASA,
-        primaryInterest: clientData.primaryInterest || clientData.interestType || UNIFIED_INTEREST_TYPES.COMPRA_CASA,
-        budgetRange: clientData.budgetRange || UNIFIED_BUDGET_RANGES.INDEFINIDO,
+        // Dados pessoais
+        dateOfBirth: clientData.dateOfBirth || null,
+        nationality: clientData.nationality || 'Portuguesa',
+        maritalStatus: clientData.maritalStatus || '',
+        profession: clientData.profession?.trim() || '',
         
         // Dados calculados
-        estimatedBudget: getBudgetRangeMiddleValue(clientData.budgetRange || UNIFIED_BUDGET_RANGES.INDEFINIDO),
-        clientScore: calculateInitialClientScore(clientData),
+        estimatedBudget: estimatedBudget,
+        dataCompleteness: calculateDataCompleteness(clientData),
         
-        // Preferências de contacto
-        preferredContactTime: clientData.preferredContactTime || UNIFIED_CONTACT_TIMES.QUALQUER_HORA,
-        preferredContactMethod: clientData.preferredContactMethod || 'telefone',
-        preferredLocation: clientData.preferredLocation?.trim() || '',
-        preferredLocations: clientData.preferredLocations || [],
-        
-        // Dados profissionais
-        profession: clientData.profession?.trim() || '',
-        employer: clientData.employer?.trim() || '',
-        monthlyIncome: clientData.monthlyIncome || null,
-        
-        // Dados de marketing (GDPR)
-        marketingConsent: {
-          email: clientData.marketingConsent?.email || false,
-          sms: clientData.marketingConsent?.sms || false,
-          phone: clientData.marketingConsent?.phone || false,
-          whatsapp: clientData.marketingConsent?.whatsapp || false,
-          consentDate: new Date().toISOString(),
-          gdprCompliant: true
-        },
-        
-        // Status e metadados
-        status: UNIFIED_CLIENT_STATUS.ATIVO,
-        priority: clientData.priority || UNIFIED_PRIORITIES.NORMAL,
-        source: clientData.source || 'manual',
+        // Dados de auditoria obrigatórios MULTI-TENANT
+        userId: user.uid,
+        userEmail: user.email,
+        consultantId: user.uid,
+        consultantName: userProfile?.displayName || user.displayName || 'Consultor',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         
         // Histórico e rastreamento
         interactions: {},
@@ -602,6 +558,7 @@ const useClients = () => {
         hasOpportunities: false,
         isHighValue: isHighValueClient(clientData.budgetRange, clientData.interestType),
         requiresFollowUp: true,
+        isActive: true,
         
         // Referências cruzadas
         leadId: clientData.leadId || clientData.originalLeadId || null,
@@ -621,6 +578,7 @@ const useClients = () => {
         
         // Versão da estrutura
         structureVersion: '3.1',
+        isMultiTenant: true,
         
         // Metadados técnicos
         sourceDetails: {
@@ -633,24 +591,24 @@ const useClients = () => {
         }
       };
 
-      // 5. INSERIR NO FIREBASE (usando subcoleção do utilizador)
-      const result = await crudHelpers.create(newClient);
+      // 5. CRIAR USANDO FIREBASESERVICE
+      const result = await fbService.createDocument(CLIENTS_SUBCOLLECTION, newClient);
       
-      if (result.success) {
+      if (result) {
         // 6. CRIAR OBJETO COMPLETO PARA RETORNO
         const createdClient = {
-          ...result.data,
+          ...result,
           clientId: result.id, // Atualizar referência própria
           
           // Dados enriquecidos para UI
-          clientTypeLabel: CLIENT_TYPE_LABELS[result.data.clientType],
-          interestTypeLabel: getInterestTypeLabel(result.data.interestType),
-          budgetRangeLabel: getBudgetRangeLabel(result.data.budgetRange),
-          budgetDisplay: formatCurrency(result.data.estimatedBudget),
-          statusColor: CLIENT_STATUS_COLORS[result.data.status],
+          clientTypeLabel: CLIENT_TYPE_LABELS[result.clientType],
+          interestTypeLabel: getInterestTypeLabel(result.interestType),
+          budgetRangeLabel: getBudgetRangeLabel(result.budgetRange),
+          budgetDisplay: formatCurrency(result.estimatedBudget),
+          statusColor: CLIENT_STATUS_COLORS[result.status],
           ageInDays: 0,
           isRecentlyActive: true,
-          dataCompleteness: calculateDataCompleteness(result.data),
+          dataCompleteness: calculateDataCompleteness(result),
           nextAction: 'Primeiro contacto'
         };
 
@@ -664,435 +622,150 @@ const useClients = () => {
           client: createdClient,
           message: 'Cliente criado com sucesso!'
         };
+      } else {
+        throw new Error('Falha ao criar cliente');
       }
-
+      
     } catch (err) {
       console.error('❌ Erro ao criar cliente:', err);
       setError(err.message);
-      
-      return {
-        success: false,
-        error: err.message,
-        message: `Erro ao criar cliente: ${err.message}`
-      };
+      throw err;
     } finally {
       setCreating(false);
     }
-  }, [isUserReady, checkForDuplicates, crudHelpers]);
+  }, [isUserReady, user, userProfile, fbService, checkForDuplicates, applyCoreStructure, getBudgetRangeMiddleValue, calculateDataCompleteness, calculateNextFollowUp, isHighValueClient]);
 
   // ✏️ ATUALIZAR CLIENTE (MULTI-TENANT)
-  const updateClient = useCallback(async (clientId, clientData) => {
-    if (!isUserReady) return;
-
-    setUpdating(true);
-    setError(null);
-
+  const updateClient = useCallback(async (clientId, updates) => {
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     try {
-      console.log(`✏️ Atualizando cliente ${clientId}:`, clientData);
+      console.log('✏️ Atualizando cliente:', clientId);
 
-      // 1. VALIDAR ATUALIZAÇÕES (se campos críticos mudaram)
-      if (clientData.primaryEmail || clientData.primaryPhone || clientData.nif) {
-        const validation = validateClient({ ...clientData });
-        if (!validation.isValid && validation.errors.some(e => e.includes('obrigatório'))) {
-          throw new Error(`Dados inválidos: ${validation.errors.join(', ')}`);
-        }
-      }
-
-      // 2. PREPARAR DADOS DE ATUALIZAÇÃO
+      // Preparar dados para atualização
       const updateData = {
-        ...clientData,
-        
-        // Normalizar dados se necessário
-        ...(clientData.primaryPhone && { 
-          phoneNormalized: clientData.primaryPhone.replace(/\s|-/g, '')
-        }),
-        ...(clientData.primaryEmail && { 
-          primaryEmail: clientData.primaryEmail.toLowerCase().trim()
-        }),
-        ...(clientData.secondaryEmail && { 
-          secondaryEmail: clientData.secondaryEmail.toLowerCase().trim()
-        }),
-        
-        // Recalcular campos dependentes
-        ...(clientData.budgetRange && { 
-          estimatedBudget: getBudgetRangeMiddleValue(clientData.budgetRange),
-          isHighValue: isHighValueClient(clientData.budgetRange, clientData.interestType)
-        }),
-        
-        // Atualizar última atividade
-        lastActivity: new Date(),
-        
-        // Recalcular client score se dados relevantes mudaram
-        ...(clientData.interestType || clientData.budgetRange || clientData.priority) && {
-          clientScore: calculateClientScore({
-            interestType: clientData.interestType,
-            budgetRange: clientData.budgetRange,
-            priority: clientData.priority
-          })
-        }
+        ...updates,
+        updatedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        structureVersion: '3.1'
       };
 
-      const result = await crudHelpers.update(clientId, updateData);
-
-      if (result.success) {
-        // Atualizar lista local
-        setClients(prev => prev.map(client => {
-          if (client.id === clientId) {
-            const updatedClient = {
-              ...client,
-              ...updateData,
-              updatedAt: new Date(),
-              // Recalcular dados enriquecidos
-              clientTypeLabel: CLIENT_TYPE_LABELS[updateData.clientType || client.clientType],
-              interestTypeLabel: getInterestTypeLabel(updateData.interestType || client.interestType),
-              budgetRangeLabel: getBudgetRangeLabel(updateData.budgetRange || client.budgetRange),
-              budgetDisplay: formatCurrency(updateData.estimatedBudget || client.estimatedBudget),
-              statusColor: CLIENT_STATUS_COLORS[updateData.status || client.status],
-              dataCompleteness: calculateDataCompleteness({...client, ...updateData})
-            };
-            return updatedClient;
-          }
-          return client;
-        }));
-
-        console.log('✅ Cliente atualizado com sucesso:', clientId);
-
-        return {
-          success: true,
-          message: 'Cliente atualizado com sucesso!'
-        };
+      // Normalizar campos se fornecidos
+      if (updates.primaryEmail) {
+        updateData.primaryEmail = updates.primaryEmail.toLowerCase().trim();
       }
 
+      if (updates.alternativeEmail) {
+        updateData.alternativeEmail = updates.alternativeEmail.toLowerCase().trim();
+      }
+
+      // Recalcular dados derivados se necessário
+      if (updates.budgetRange) {
+        updateData.estimatedBudget = getBudgetRangeMiddleValue(updates.budgetRange);
+      }
+
+      // Recalcular completude se dados pessoais mudaram
+      const currentClient = clients.find(client => client.id === clientId);
+      if (currentClient) {
+        const updatedClientData = { ...currentClient, ...updateData };
+        updateData.dataCompleteness = calculateDataCompleteness(updatedClientData);
+      }
+
+      const result = await fbService.updateDocument(CLIENTS_SUBCOLLECTION, clientId, updateData);
+      
+      if (result) {
+        // Atualizar lista local
+        setClients(prev => prev.map(client => 
+          client.id === clientId 
+            ? { 
+                ...client, 
+                ...updateData, 
+                id: clientId,
+                budgetRangeLabel: updates.budgetRange ? getBudgetRangeLabel(updates.budgetRange) : client.budgetRangeLabel,
+                interestTypeLabel: updates.interestType ? getInterestTypeLabel(updates.interestType) : client.interestTypeLabel,
+                clientTypeLabel: updates.clientType ? CLIENT_TYPE_LABELS[updates.clientType] : client.clientTypeLabel,
+                statusColor: updates.status ? CLIENT_STATUS_COLORS[updates.status] : client.statusColor
+              }
+            : client
+        ));
+
+        console.log('✅ Cliente atualizado com sucesso');
+        return { success: true, message: 'Cliente atualizado com sucesso!' };
+      } else {
+        throw new Error('Falha ao atualizar cliente');
+      }
+      
     } catch (err) {
       console.error('❌ Erro ao atualizar cliente:', err);
       setError(err.message);
       return { success: false, error: err.message };
-    } finally {
-      setUpdating(false);
     }
-  }, [isUserReady, crudHelpers]);
+  }, [isUserReady, user, fbService, clients, getBudgetRangeMiddleValue, calculateDataCompleteness]);
 
-  // 🔄 ATUALIZAR STATUS DO CLIENTE COM AUDITORIA
-  const updateClientStatus = useCallback(async (clientId, newStatus, notes = '') => {
-    if (!isUserReady) return;
-
-    try {
-      // Validar se o status é válido
-      if (!Object.values(UNIFIED_CLIENT_STATUS).includes(newStatus)) {
-        throw new Error(`Status inválido: ${newStatus}`);
-      }
-
-      const updateData = {
-        status: newStatus,
-        lastStatusChange: new Date()
-      };
-
-      // Adicionar auditoria de mudança de status
-      if (notes.trim()) {
-        updateData.statusChangeNote = notes.trim();
-        updateData[`statusHistory.change_${Date.now()}`] = {
-          from: '', // Poderia ser obtido do cliente atual
-          to: newStatus,
-          changedBy: activeUser.uid,
-          changedAt: new Date().toISOString(),
-          notes: notes.trim(),
-          userAgent: navigator.userAgent
-        };
-      }
-
-      const result = await crudHelpers.update(clientId, updateData);
-
-      if (result.success) {
-        // Atualizar lista local
-        setClients(prev => 
-          prev.map(client => 
-            client.id === clientId 
-              ? { 
-                  ...client, 
-                  status: newStatus, 
-                  statusColor: CLIENT_STATUS_COLORS[newStatus],
-                  updatedAt: new Date() 
-                }
-              : client
-          )
-        );
-
-        console.log(`✅ Status do cliente ${clientId} atualizado para: ${newStatus}`);
-        
-        return { 
-          success: true, 
-          message: `Status atualizado para ${getStatusLabel(newStatus)}!` 
-        };
-      }
-
-    } catch (err) {
-      console.error('❌ Erro ao atualizar status:', err);
-      return { success: false, error: err.message };
-    }
-  }, [isUserReady, activeUser, crudHelpers]);
-
-  // 🔄 CONVERTER CLIENTE PARA OPORTUNIDADE COMPLETO (MULTI-TENANT)
-  const convertClientToOpportunity = useCallback(async (clientId, opportunityData = {}) => {
-    if (!isUserReady || !activeUser?.uid || !clientId) {
-      setError('Dados inválidos para conversão');
-      return { success: false, message: 'Dados inválidos' };
-    }
-
-    setConverting(true);
-    setError(null);
-
-    try {
-      console.log(`🔄 Convertendo cliente ${clientId} para oportunidade`);
-
-      // 1. BUSCAR DADOS DO CLIENTE
-      const clientResult = await crudHelpers.readOne(clientId);
-      
-      if (!clientResult.success) {
-        throw new Error('Cliente não encontrado');
-      }
-
-      const clientData = clientResult.data;
-
-      // 2. VALIDAR DADOS MÍNIMOS PARA OPORTUNIDADE
-      if (!opportunityData.interestType) {
-        throw new Error('Tipo de interesse é obrigatório para criar oportunidade');
-      }
-
-      if (!opportunityData.budgetRange) {
-        throw new Error('Faixa de orçamento é obrigatória para criar oportunidade');
-      }
-
-      // Usar transação para garantir consistência
-      const result = await fbService.runTransaction(async (transaction, service) => {
-        // 3. PREPARAR DADOS DA OPORTUNIDADE
-        const baseOpportunityData = {
-          // Dados do cliente
-          clientId: clientId,
-          clientName: clientData.name,
-          clientPhone: clientData.primaryPhone || clientData.phone,
-          clientEmail: clientData.primaryEmail || clientData.email,
-          
-          // Dados da oportunidade
-          title: opportunityData.title || `Oportunidade ${opportunityData.interestType} - ${clientData.name}`,
-          description: opportunityData.description || `Oportunidade criada para cliente ${clientData.name}`,
-          
-          // Classificação da oportunidade
-          interestType: opportunityData.interestType,
-          budgetRange: opportunityData.budgetRange,
-          priority: opportunityData.priority || clientData.priority || 'normal',
-          status: opportunityData.status || 'identificacao', // 10% inicial
-          
-          // Dados financeiros
-          estimatedValue: opportunityData.estimatedValue || getBudgetRangeMiddleValue(opportunityData.budgetRange),
-          probability: opportunityData.probability || 10, // 10% inicial
-          commissionPercentage: opportunityData.commissionPercentage || 2.5,
-          
-          // Datas
-          expectedCloseDate: opportunityData.expectedCloseDate || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 dias
-          
-          // Localização e preferências
-          location: opportunityData.location || clientData.address?.city || '',
-          propertyType: opportunityData.propertyType || '',
-          
-          // Notas e observações
-          notes: opportunityData.notes || `Oportunidade criada a partir do cliente ${clientData.name}`,
-          
-          // Rastreamento
-          source: `converted_from_client_${clientId}`,
-          originalClientId: clientId,
-          convertedAt: new Date(),
-          
-          // Metadados
-          metadata: {
-            convertedFromClient: true,
-            conversionDate: new Date().toISOString(),
-            userAgent: navigator.userAgent
-          }
-        };
-
-        // 4. CRIAR OPORTUNIDADE NA SUBCOLEÇÃO
-        const opportunityResult = await service.createDocument(OPPORTUNITIES_SUBCOLLECTION, baseOpportunityData);
-
-        // 5. ATUALIZAR CLIENTE COM REFERÊNCIA À OPORTUNIDADE
-        await service.updateDocument(CLIENTS_SUBCOLLECTION, clientId, {
-          hasOpportunities: true,
-          lastOpportunityId: opportunityResult.id,
-          lastOpportunityCreated: new Date(),
-          // Array de oportunidades (garantir que existe)
-          opportunityIds: [...(clientData.opportunityIds || []), opportunityResult.id]
-        });
-
-        return {
-          opportunityId: opportunityResult.id,
-          opportunity: opportunityResult.data
-        };
-      });
-
-      // 6. ATUALIZAR LISTA LOCAL DE CLIENTES
-      setClients(prev => 
-        prev.map(client => 
-          client.id === clientId 
-            ? { 
-                ...client, 
-                hasOpportunities: true,
-                lastOpportunityId: result.result.opportunityId,
-                lastOpportunityCreated: new Date(),
-                updatedAt: new Date()
-              }
-            : client
-        )
-      );
-
-      setConverting(false);
-      
-      console.log(`✅ Cliente ${clientId} convertido para oportunidade ${result.result.opportunityId}`);
-      
-      return {
-        success: true,
-        clientId: clientId,
-        opportunityId: result.result.opportunityId,
-        opportunity: result.result.opportunity,
-        message: `Cliente convertido para oportunidade com sucesso!`
-      };
-
-    } catch (err) {
-      console.error('❌ Erro ao converter cliente para oportunidade:', err);
-      setError(err.message || 'Erro ao converter cliente');
-      setConverting(false);
-      
-      return {
-        success: false,
-        message: err.message || 'Erro ao converter cliente para oportunidade'
-      };
-    }
-  }, [isUserReady, activeUser?.uid, crudHelpers, fbService]);
-
-  // 🗑️ ELIMINAR CLIENTE (SOFT DELETE)
+  // 🗑️ ELIMINAR CLIENTE (SOFT DELETE MULTI-TENANT)
   const deleteClient = useCallback(async (clientId, hardDelete = false) => {
-    if (!isUserReady) return;
-
+    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
+    
     try {
-      console.log(`🗑️ Eliminando cliente ${clientId} (hard: ${hardDelete})`);
+      console.log('🗑️ Eliminando cliente:', clientId);
 
-      const result = await crudHelpers.delete(clientId, hardDelete);
-      
-      if (result.success) {
-        // Remover da lista local ou marcar como inativo
-        if (hardDelete) {
+      if (hardDelete) {
+        // Eliminação definitiva
+        const result = await fbService.deleteDocument(CLIENTS_SUBCOLLECTION, clientId);
+        
+        if (result) {
+          // Remover da lista local
           setClients(prev => prev.filter(client => client.id !== clientId));
-        } else {
-          setClients(prev => prev.map(client => 
-            client.id === clientId 
-              ? { 
-                  ...client, 
-                  isActive: false, 
-                  status: UNIFIED_CLIENT_STATUS.INATIVO,
-                  deletedAt: new Date() 
-                }
-              : client
-          ));
+          console.log(`Cliente ${clientId} eliminado permanentemente`);
         }
+      } else {
+        // Soft delete (recomendado)
+        const result = await fbService.updateDocument(CLIENTS_SUBCOLLECTION, clientId, {
+          isActive: false,
+          status: UNIFIED_CLIENT_STATUS.INATIVO,
+          deletedAt: serverTimestamp(),
+          deletedBy: user.uid,
+          updatedAt: serverTimestamp()
+        });
         
-        console.log(`✅ Cliente ${clientId} ${hardDelete ? 'eliminado permanentemente' : 'marcado como inativo'}`);
-        
-        return { 
-          success: true, 
-          message: hardDelete ? 'Cliente eliminado permanentemente!' : 'Cliente removido da lista!' 
-        };
+        if (result) {
+          // Remover da lista local (filtro por isActive)
+          setClients(prev => prev.filter(client => client.id !== clientId));
+          console.log(`Cliente ${clientId} marcado como inativo`);
+        }
       }
+        
+      console.log(`Cliente ${clientId} ${hardDelete ? 
+        'eliminado permanentemente' : 'marcado como inativo'}`);
+        
+      return { 
+        success: true, 
+        message: hardDelete ? 'Cliente eliminado permanentemente!' : 'Cliente removido da lista!' 
+      };
 
     } catch (err) {
       console.error('❌ Erro ao eliminar cliente:', err);
-      setError(err.message);
       return { success: false, error: err.message };
     }
-  }, [isUserReady, crudHelpers]);
+  }, [isUserReady, user, fbService]);
 
-  // 💬 ADICIONAR INTERAÇÃO COM AUDITORIA COMPLETA
-  const addInteraction = useCallback(async (clientId, interactionData) => {
-    if (!isUserReady) return;
 
-    try {
-      // Ler cliente atual
-      const clientResult = await crudHelpers.readOne(clientId);
-      
-      if (!clientResult.success) {
-        throw new Error('Cliente não encontrado');
-      }
 
-      const client = clientResult.data;
-      const currentInteractions = client.interactions || {};
-      const currentStats = client.stats || { totalInteractions: 0 };
-      
-      const interaction = {
-        id: Date.now().toString(),
-        type: interactionData.type || CONTACT_TYPES.OUTRO,
-        title: interactionData.title?.trim() || '',
-        description: interactionData.description?.trim() || '',
-        outcome: interactionData.outcome?.trim() || '',
-        nextAction: interactionData.nextAction?.trim() || '',
-        followUpRequired: interactionData.followUpRequired || false,
-        followUpDate: interactionData.followUpDate || null,
-        duration: interactionData.duration || null, // em minutos
-        rating: interactionData.rating || null, // 1-5
-        createdAt: new Date().toISOString(),
-        userId: activeUser.uid,
-        userEmail: activeUser.email,
-        structureVersion: '3.1'
-      };
-
-      const updatedInteractions = { ...currentInteractions, [interaction.id]: interaction };
-      
-      const updateData = {
-        interactions: updatedInteractions,
-        lastInteraction: new Date(),
-        stats: {
-          ...currentStats,
-          totalInteractions: (currentStats.totalInteractions || 0) + 1,
-          lastContactDate: new Date(),
-          nextFollowUpDate: interaction.followUpDate ? new Date(interaction.followUpDate) : currentStats.nextFollowUpDate
-        },
-        requiresFollowUp: interaction.followUpRequired
-      };
-
-      const result = await crudHelpers.update(clientId, updateData);
-
-      if (result.success) {
-        // Atualizar lista local
-        setClients(prev => 
-          prev.map(client => 
-            client.id === clientId 
-              ? { 
-                  ...client, 
-                  ...updateData,
-                  updatedAt: new Date(),
-                  isRecentlyActive: true,
-                  nextAction: interaction.nextAction || suggestNextAction({...client, ...updateData})
-                }
-              : client
-          )
-        );
-
-        console.log(`💬 Interação adicionada ao cliente ${clientId}`);
-        
-        return { success: true, interaction, message: 'Interação registada com sucesso!' };
-      }
-
-      return { success: false, error: 'Falha ao registrar interação' };
-
-    } catch (err) {
-      console.error('❌ Erro ao adicionar interação:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    }
-  }, [isUserReady, activeUser, crudHelpers]);
-
-  // 🔍 BUSCAR CLIENTES COM FILTROS
+  // 🔍 PESQUISAR CLIENTES - OTIMIZADO
   const searchClients = useCallback((searchTerm) => {
     setFilters(prev => ({ ...prev, searchTerm }));
-  }, []);
+    
+    // Debounce para evitar múltiplas queries
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    
+    fetchTimeoutRef.current = setTimeout(() => {
+      fetchClients(true); // Force refresh com novos filtros
+    }, 500);
+  }, [fetchClients]);
 
-  // 📊 ESTATÍSTICAS UNIFICADAS COMPLETAS
+  // 📊 OBTER ESTATÍSTICAS DOS CLIENTES
   const getClientStats = useCallback(() => {
     const stats = {
       total: clients.length,
@@ -1101,93 +774,68 @@ const useClients = () => {
       byInterestType: {},
       byBudgetRange: {},
       byPriority: {},
-      recentInteractions: 0,
-      withOpportunities: 0,
-      highValue: 0,
-      averageDataCompleteness: 0
+      averageDataCompleteness: 0,
+      highValueClients: 0,
+      recentlyActive: 0
     };
 
-    clients.forEach(client => {
-      // Por status unificado
-      stats.byStatus[client.status] = (stats.byStatus[client.status] || 0) + 1;
-      
-      // Por tipo de cliente
-      stats.byClientType[client.clientType] = (stats.byClientType[client.clientType] || 0) + 1;
-      
-      // Por tipo de interesse unificado
-      stats.byInterestType[client.interestType] = (stats.byInterestType[client.interestType] || 0) + 1;
-      
-      // Por faixa de orçamento unificada
-      stats.byBudgetRange[client.budgetRange] = (stats.byBudgetRange[client.budgetRange] || 0) + 1;
-      
-      // Por prioridade
-      stats.byPriority[client.priority] = (stats.byPriority[client.priority] || 0) + 1;
-      
-      // Flags especiais
-      if (client.hasOpportunities) stats.withOpportunities++;
-      if (client.isHighValue) stats.highValue++;
-      if (client.isRecentlyActive) stats.recentInteractions++;
-      
-      // Completude média dos dados
-      stats.averageDataCompleteness += client.dataCompleteness || 0;
+    if (clients.length === 0) return stats;
+
+    // Estatísticas por status
+    Object.values(UNIFIED_CLIENT_STATUS).forEach(status => {
+      stats.byStatus[status] = clients.filter(client => client.status === status).length;
     });
 
-    if (clients.length > 0) {
-      stats.averageDataCompleteness = Math.round(stats.averageDataCompleteness / clients.length);
-    }
+    // Estatísticas por tipo de cliente
+    Object.values(CLIENT_TYPES).forEach(type => {
+      stats.byClientType[type] = clients.filter(client => client.clientType === type).length;
+    });
+
+    // Cálculos adicionais
+    const totalCompleteness = clients.reduce((sum, client) => sum + (client.dataCompleteness || 0), 0);
+    stats.averageDataCompleteness = Math.round(totalCompleteness / clients.length);
+    
+    stats.highValueClients = clients.filter(client => client.isHighValue).length;
+    stats.recentlyActive = clients.filter(client => client.isRecentlyActive).length;
 
     return stats;
   }, [clients]);
 
-  // 📊 OBTER CLIENTES POR CRITÉRIO
-  const getClientsByStatus = useCallback((status) => {
-    return clients.filter(client => client.status === status);
-  }, [clients]);
-
-  const getClientsByType = useCallback((clientType) => {
-    return clients.filter(client => client.clientType === clientType);
-  }, [clients]);
-
-  const getHighValueClients = useCallback(() => {
-    return clients.filter(client => client.isHighValue);
-  }, [clients]);
-
-  const getClientsRequiringFollowUp = useCallback(() => {
-    return clients.filter(client => client.requiresFollowUp);
-  }, [clients]);
-
-  // 🏠 OBTER DIAGNÓSTICO DA SUBCOLEÇÃO
-  const getDiagnostics = useCallback(async () => {
-    if (!activeUser) return null;
-    
-    try {
-      return await fbService.diagnoseSubcollection(CLIENTS_SUBCOLLECTION);
-    } catch (error) {
-      console.error('❌ Erro ao obter diagnósticos:', error);
-      return null;
-    }
-  }, [activeUser, fbService]);
-
-  // 🔧 FUNÇÕES AUXILIARES
-  const getStatusLabel = (status) => {
-    const labels = {
-      [UNIFIED_CLIENT_STATUS.ATIVO]: 'Ativo',
-      [UNIFIED_CLIENT_STATUS.INATIVO]: 'Inativo',
-      [UNIFIED_CLIENT_STATUS.PROSPETO]: 'Prospeto',
-      [UNIFIED_CLIENT_STATUS.EX_CLIENTE]: 'Ex-Cliente',
-      [UNIFIED_CLIENT_STATUS.SUSPENSO]: 'Suspenso'
-    };
-    return labels[status] || status;
-  };
-
-  // 🔄 EFFECTS
+  // 🎯 EFFECT PRINCIPAL - CARREGAR DADOS COM DEBOUNCE OTIMIZADO
   useEffect(() => {
     if (isUserReady) {
-      console.log('useClients: Utilizador pronto, carregando clientes...');
-      fetchClients();
+      // Apenas carrega na primeira vez ou quando user muda
+      if (clients.length === 0 && !mountedRef.current) {
+        mountedRef.current = true;
+        fetchClients(true);
+      }
+    } else {
+      setClients([]);
+      setLoading(false);
     }
-  }, [isUserReady, fetchClients]);
+  }, [isUserReady]); // Removido fetchClients das dependências para evitar loop
 
+  // 🎯 EFFECT PARA FILTROS - SEPARADO E OTIMIZADO
+  useEffect(() => {
+    if (isUserReady && clients.length > 0) {
+      // Trigger fetch apenas se filtros mudaram de facto
+      const currentFiltersString = JSON.stringify(filters);
+      if (lastFetchFilters.current !== currentFiltersString) {
+        console.log('🔍 Filtros de clientes alterados, refrescando dados...');
+        
+        // Debounce para evitar múltiplas queries
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+        
+        fetchTimeoutRef.current = setTimeout(() => {
+          fetchClients(true);
+        }, 300);
+      }
+    }
+  }, [filters, isUserReady, clients.length]);
+
+  // 🧹 LIMPAR ERRO APÓS 5 SEGUNDOS
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 5000);
@@ -1195,40 +843,22 @@ const useClients = () => {
     }
   }, [error]);
 
-  // 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO COMPLETA
+  // 🧹 LIMPEZA
   useEffect(() => {
-    const handleCrmSync = (event) => {
-      console.log('useClients: Sincronização recebida', event.detail);
-      if (event.detail.type === 'lead-conversion') {
-        console.log('Refrescando lista de clientes após conversão...');
-        fetchClients();
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
       }
     };
+  }, []);
 
-    // Criar função global para refresh
-    window.refreshClients = async () => {
-      console.log('RefreshClients chamada globalmente');
-      await fetchClients();
-    };
-
-    // Adicionar listener
-    window.addEventListener('crm-data-sync', handleCrmSync);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('crm-data-sync', handleCrmSync);
-      delete window.refreshClients;
-    };
-  }, [fetchClients]);
-
-  // 📤 RETORNO DO HOOK UNIFICADO COMPLETO
+  // 📤 RETORNO DO HOOK MULTI-TENANT COMPLETO
   return {
-    // Estados
+    // Estados principais
     clients,
     loading,
     error,
     creating,
-    updating,
     converting,
     duplicateCheck,
     filters,
@@ -1236,10 +866,7 @@ const useClients = () => {
     // Ações principais
     createClient,
     updateClient,
-    updateClientStatus,
-    convertClientToOpportunity,
     deleteClient,
-    addInteraction,
     
     // Busca e filtros
     fetchClients,
@@ -1249,214 +876,33 @@ const useClients = () => {
     
     // Estatísticas
     getClientStats,
-    getClientsByStatus,
-    getClientsByType,
-    getHighValueClients,
-    getClientsRequiringFollowUp,
     
-    // Diagnóstico
-    getDiagnostics,
-    
-    // Constantes unificadas (compatibilidade)
-    CLIENT_STATUS: UNIFIED_CLIENT_STATUS,
+    // Constantes unificadas
     CLIENT_TYPES,
     CLIENT_TYPE_LABELS,
-    CLIENT_BUDGET_RANGES: UNIFIED_BUDGET_RANGES,
-    PROPERTY_INTERESTS: UNIFIED_INTEREST_TYPES,
     CLIENT_STATUS_COLORS,
-    CONTACT_TYPES,
-    CONTACT_TYPE_LABELS,
-    
-    // Novos: constantes unificadas
     UNIFIED_CLIENT_STATUS,
     UNIFIED_INTEREST_TYPES,
     UNIFIED_BUDGET_RANGES,
     UNIFIED_PRIORITIES,
     UNIFIED_CONTACT_TIMES,
     
-    // Helpers unificados
-    isValidEmail: validateEmail,
-    isValidPhone: validatePortuguesePhone,
-    isValidNIF: validateNIF,
-    isValidPostalCode: validatePostalCode,
-    normalizePhone: (phone) => phone?.replace(/\s|-/g, '') || '',
+    // Helpers
     getInterestTypeLabel,
     getBudgetRangeLabel,
     formatCurrency,
-    getStatusLabel,
+    calculateDataCompleteness,
+    isHighValueClient,
     
     // Estado de conectividade
-    isConnected: isUserReady && !error,
+    isConnected: !loading && !error,
     isUserReady,
-    authStatus: {
-      isAuthenticated,
-      hasUser: !!activeUser,
-      userId: activeUser?.uid,
-      authLoading
-    },
     
-    // Informações da estrutura
-    structureVersion: '3.1',
-    isUnified: true,
-    isMultiTenant: true
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    structureVersion: '3.1-multi-tenant'
   };
-};
-
-// 🎯 HELPER FUNCTIONS COMPLETAS
-// =============================
-
-/**
- * Calcular completude dos dados do cliente (0-100%)
- */
-const calculateDataCompleteness = (clientData) => {
-  const fields = [
-    'name', 'primaryEmail', 'primaryPhone', 'nif', 'cc',
-    'address.street', 'address.city', 'address.postalCode',
-    'interestType', 'budgetRange', 'preferredLocation',
-    'profession', 'maritalStatus'
-  ];
-  
-  let completedFields = 0;
-  
-  fields.forEach(field => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      if (clientData[parent] && clientData[parent][child]) {
-        completedFields++;
-      }
-    } else {
-      if (clientData[field]) {
-        completedFields++;
-      }
-    }
-  });
-  
-  return Math.round((completedFields / fields.length) * 100);
-};
-
-/**
- * Verificar se cliente é de alto valor
- */
-const isHighValueClient = (budgetRange, interestType) => {
-  const highValueRanges = [
-    UNIFIED_BUDGET_RANGES.DE_500K_750K,
-    UNIFIED_BUDGET_RANGES.DE_750K_1M,
-    UNIFIED_BUDGET_RANGES.ACIMA_1M
-  ];
-  
-  const isHighBudget = highValueRanges.includes(budgetRange);
-  const isCommercialInterest = interestType?.includes('comercial');
-  
-  return isHighBudget || isCommercialInterest;
-};
-
-/**
- * Verificar se cliente está recentemente ativo
- */
-const isRecentlyActive = (lastInteraction, createdAt) => {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const lastActivity = lastInteraction || createdAt;
-  if (!lastActivity) return false;
-  
-  const activityDate = new Date(lastActivity);
-  return activityDate >= thirtyDaysAgo;
-};
-
-/**
- * Sugerir próxima ação para o cliente
- */
-const suggestNextAction = (clientData) => {
-  if (!clientData.interactions || Object.keys(clientData.interactions).length === 0) {
-    return 'Primeiro contacto';
-  }
-  
-  const interactions = Object.values(clientData.interactions);
-  const lastInteraction = interactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-  
-  if (!lastInteraction) return 'Primeiro contacto';
-  
-  const daysSinceLastContact = Math.floor(
-    (new Date() - new Date(lastInteraction.createdAt)) / (1000 * 60 * 60 * 24)
-  );
-  
-  if (daysSinceLastContact > 14) {
-    return 'Follow-up necessário';
-  }
-  
-  if (clientData.requiresFollowUp) {
-    return 'Follow-up agendado';
-  }
-  
-  if (!clientData.hasOpportunities) {
-    return 'Criar oportunidade';
-  }
-  
-  return 'Contacto regular';
-};
-
-/**
- * Obter valor médio da faixa de orçamento
- */
-const getBudgetRangeMiddleValue = (budgetRange) => {
-  const values = {
-    [UNIFIED_BUDGET_RANGES.ATE_50K]: 35000,
-    [UNIFIED_BUDGET_RANGES.DE_50K_100K]: 75000,
-    [UNIFIED_BUDGET_RANGES.DE_100K_200K]: 150000,
-    [UNIFIED_BUDGET_RANGES.DE_200K_300K]: 250000,
-    [UNIFIED_BUDGET_RANGES.DE_300K_500K]: 400000,
-    [UNIFIED_BUDGET_RANGES.DE_500K_750K]: 625000,
-    [UNIFIED_BUDGET_RANGES.DE_750K_1M]: 875000,
-    [UNIFIED_BUDGET_RANGES.ACIMA_1M]: 1250000,
-    [UNIFIED_BUDGET_RANGES.INDEFINIDO]: 200000
-  };
-  
-  return values[budgetRange] || 200000;
-};
-
-/**
- * Calcular score inicial do cliente
- */
-const calculateInitialClientScore = (clientData) => {
-  let score = 50; // Base score
-  
-  // Bonus por orçamento mais alto
-  if (clientData.budgetRange === UNIFIED_BUDGET_RANGES.ACIMA_1M) score += 30;
-  else if (clientData.budgetRange === UNIFIED_BUDGET_RANGES.DE_500K_750K) score += 20;
-  else if (clientData.budgetRange === UNIFIED_BUDGET_RANGES.DE_300K_500K) score += 15;
-  
-  // Bonus por prioridade
-  if (clientData.priority === UNIFIED_PRIORITIES.ALTA) score += 20;
-  else if (clientData.priority === UNIFIED_PRIORITIES.MEDIA) score += 10;
-  
-  // Bonus por completude dos dados
-  const completeness = calculateDataCompleteness(clientData);
-  score += Math.floor(completeness / 10); // 10 pontos por cada 10% de completude
-  
-  return Math.min(100, Math.max(0, score));
-};
-
-/**
- * Calcular score do cliente (versão completa)
- */
-const calculateClientScore = (clientData) => {
-  return calculateInitialClientScore(clientData);
-};
-
-/**
- * Calcular próximo follow-up
- */
-const calculateNextFollowUp = (priority) => {
-  const now = new Date();
-  switch (priority) {
-    case UNIFIED_PRIORITIES.ALTA:
-      return new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 dias
-    case UNIFIED_PRIORITIES.MEDIA:
-      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 dias
-    default:
-      return new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 dias
-  }
 };
 
 export default useClients;

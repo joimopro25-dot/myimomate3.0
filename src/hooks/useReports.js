@@ -129,51 +129,51 @@ const useReports = () => {
         dealsResult,
         tasksResult
       ] = await Promise.all([
-        fbService.getDocuments(LEADS_SUBCOLLECTION, { limit: 1000 }),
-        fbService.getDocuments(CLIENTS_SUBCOLLECTION, { limit: 1000 }),
-        fbService.getDocuments(VISITS_SUBCOLLECTION, { limit: 1000 }),
-        fbService.getDocuments(OPPORTUNITIES_SUBCOLLECTION, { limit: 1000 }),
-        fbService.getDocuments(DEALS_SUBCOLLECTION, { limit: 1000 }),
-        fbService.getDocuments(TASKS_SUBCOLLECTION, { limit: 1000 })
+        fbService.readDocuments(LEADS_SUBCOLLECTION, { limitCount: 1000 }),
+        fbService.readDocuments(CLIENTS_SUBCOLLECTION, { limitCount: 1000 }),
+        fbService.readDocuments(VISITS_SUBCOLLECTION, { limitCount: 1000 }),
+        fbService.readDocuments(OPPORTUNITIES_SUBCOLLECTION, { limitCount: 1000 }),
+        fbService.readDocuments(DEALS_SUBCOLLECTION, { limitCount: 1000 }),
+        fbService.readDocuments(TASKS_SUBCOLLECTION, { limitCount: 1000 })
       ]);
 
       // Processar dados com datas convertidas
       const processedData = {
-        leads: (leadsResult.docs || []).map(doc => ({
+        leads: (leadsresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
           updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
           lastContactDate: doc.lastContactDate?.toDate?.() || doc.lastContactDate
         })),
-        clients: (clientsResult.docs || []).map(doc => ({
+        clients: (clientsresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
           updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt
         })),
-        visits: (visitsResult.docs || []).map(doc => ({
+        visits: (visitsresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           scheduledDate: doc.scheduledDate?.toDate?.() || doc.scheduledDate,
           createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
           completedAt: doc.completedAt?.toDate?.() || doc.completedAt
         })),
-        opportunities: (opportunitiesResult.docs || []).map(doc => ({
+        opportunities: (opportunitiesresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
           updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
           expectedCloseDate: doc.expectedCloseDate?.toDate?.() || doc.expectedCloseDate
         })),
-        deals: (dealsResult.docs || []).map(doc => ({
+        deals: (dealsresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
           updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
           closedAt: doc.closedAt?.toDate?.() || doc.closedAt
         })),
-        tasks: (tasksResult.docs || []).map(doc => ({
+        tasks: (tasksresult.data || []).map(doc => ({
           id: doc.id,
           ...doc,
           dueDate: doc.dueDate?.toDate?.() || doc.dueDate,

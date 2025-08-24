@@ -133,7 +133,7 @@ const useTasks = () => {
       // Construir query multi-tenant
       const queryOptions = {
         orderBy: [{ field: 'dueDate', direction: 'asc' }],
-        limit: 200
+        limitCount: 200
       };
 
       // Aplicar filtros específicos
@@ -158,9 +158,9 @@ const useTasks = () => {
       }
 
       // Executar query usando FirebaseService
-      const result = await fbService.getDocuments(TASKS_SUBCOLLECTION, queryOptions);
+      const result = await fbService.readDocuments(TASKS_SUBCOLLECTION, queryOptions);
       
-      let fetchedTasks = result.docs || [];
+      let fetchedTasks = result.data || [];
 
       // Aplicar migração automática se necessário
       fetchedTasks = fetchedTasks.map(task => {

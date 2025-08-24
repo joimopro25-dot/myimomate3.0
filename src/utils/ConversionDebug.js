@@ -391,7 +391,7 @@ export class ConversionDebugger {
       return {
         used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
         total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
-        limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+        limitCount: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
       };
     }
     return null;

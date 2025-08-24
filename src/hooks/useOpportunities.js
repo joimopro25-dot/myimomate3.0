@@ -246,7 +246,7 @@ const useOpportunities = () => {
       // Construir query multi-tenant
       const queryOptions = {
         orderBy: [{ field: activeFilters.sortBy, direction: activeFilters.sortOrder }],
-        limit: FETCH_LIMIT
+        limitCount: FETCH_LIMIT
       };
 
       // Aplicar filtros específicos
@@ -276,9 +276,9 @@ const useOpportunities = () => {
       }
 
       // Executar query usando FirebaseService
-      const result = await fbService.getDocuments(OPPORTUNITIES_SUBCOLLECTION, queryOptions);
+      const result = await fbService.readDocuments(OPPORTUNITIES_SUBCOLLECTION, queryOptions);
       
-      let fetchedOpportunities = result.docs || [];
+      let fetchedOpportunities = result.data || [];
 
       // Aplicar filtros locais (pesquisa de texto, ranges de budget)
       if (activeFilters.searchTerm) {

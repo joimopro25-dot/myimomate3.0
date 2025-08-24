@@ -201,13 +201,13 @@ const useDeals = () => {
       // Construir query multi-tenant
       const queryOptions = {
         orderBy: [{ field: 'createdAt', direction: 'desc' }],
-        limit: FETCH_LIMIT
+        limitCount: FETCH_LIMIT
       };
 
       // Executar query usando FirebaseService
-      const result = await fbService.getDocuments(DEALS_SUBCOLLECTION, queryOptions);
+      const result = await fbService.readDocuments(DEALS_SUBCOLLECTION, queryOptions);
       
-      let fetchedDeals = result.docs || [];
+      let fetchedDeals = result.data || [];
 
       // Aplicar migração automática se necessário
       fetchedDeals = fetchedDeals.map(deal => {

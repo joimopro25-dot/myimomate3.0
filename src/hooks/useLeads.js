@@ -233,7 +233,7 @@ const useLeads = () => {
       // Preparar condições de query baseadas nos filtros ativos
       const queryOptions = {
         orderBy: [{ field: 'createdAt', direction: 'desc' }],
-        limit: FETCH_LIMIT
+        limitCount: FETCH_LIMIT
       };
 
       // Aplicar filtros ao nível da query (mais eficiente)
@@ -260,13 +260,13 @@ const useLeads = () => {
       }
 
       // Executar query usando FirebaseService multi-tenant
-      const result = await fbService.getDocuments(LEADS_SUBCOLLECTION, queryOptions);
+      const result = await fbService.readDocuments(LEADS_SUBCOLLECTION, queryOptions);
 
-      if (result.success && Array.isArray(result.docs)) {
-        console.log(`📊 Encontrados ${result.docs.length} leads brutos`);
+      if (result.success && Array.isArray(result.data)) {
+        console.log(`📊 Encontrados ${result.data.length} leads brutos`);
 
         // Processar e enriquecer dados
-        let leadsData = result.docs.map(leadDoc => {
+        let leadsData = result.data.map(leadDoc => {
           const migratedData = migrateLead(leadDoc);
           
           return {
@@ -367,28 +367,28 @@ const useLeads = () => {
       const duplicates = [];
       
       if (phone) {
-        const phoneResult = await fbService.getDocuments(LEADS_SUBCOLLECTION, {
+        const phoneResult = await fbService.readDocuments(LEADS_SUBCOLLECTION, {
           where: [{ field: 'phoneNormalized', operator: '==', value: phone.replace(/\s|-/g, '') }],
-          limit: 1
+          limitCount: 1
         });
         
-        if (phoneResult.success && phoneResult.docs.length > 0) {
+        if (phoneResult.success && phoneresult.data.length > 0) {
           duplicates.push({
-            ...phoneResult.docs[0],
+            ...phoneresult.data[0],
             duplicateField: 'phone'
           });
         }
       }
       
       if (email && duplicates.length === 0) {
-        const emailResult = await fbService.getDocuments(LEADS_SUBCOLLECTION, {
+        const emailResult = await fbService.readDocuments(LEADS_SUBCOLLECTION, {
           where: [{ field: 'email', operator: '==', value: email.toLowerCase().trim() }],
-          limit: 1
+          limitCount: 1
         });
         
-        if (emailResult.success && emailResult.docs.length > 0) {
+        if (emailResult.success && emailresult.data.length > 0) {
           duplicates.push({
-            ...emailResult.docs[0],
+            ...emailresult.data[0],
             duplicateField: 'email'
           });
         }

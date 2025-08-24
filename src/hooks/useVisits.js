@@ -169,7 +169,7 @@ const useVisits = () => {
       // Construir query multi-tenant
       const queryOptions = {
         orderBy: [{ field: 'scheduledDate', direction: 'desc' }],
-        limit: FETCH_LIMIT
+        limitCount: FETCH_LIMIT
       };
 
       // Aplicar filtros específicos
@@ -189,9 +189,9 @@ const useVisits = () => {
       }
 
       // Executar query usando FirebaseService
-      const result = await fbService.getDocuments(VISITS_SUBCOLLECTION, queryOptions);
+      const result = await fbService.readDocuments(VISITS_SUBCOLLECTION, queryOptions);
       
-      let fetchedVisits = result.docs || [];
+      let fetchedVisits = result.data || [];
 
       // Aplicar migração automática se necessário
       fetchedVisits = fetchedVisits.map(visit => {

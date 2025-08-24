@@ -923,7 +923,7 @@ const useIntegrations = () => {
    */
   const removeWebhook = useCallback(async (integrationType) => {
     try {
-      const webhooks = await fbService.getDocuments(SUBCOLLECTIONS.WEBHOOKS, [
+      const webhooks = await fbService.readDocuments(SUBCOLLECTIONS.WEBHOOKS, [
         ['integrationType', '==', integrationType]
       ]);
 
@@ -946,7 +946,7 @@ const useIntegrations = () => {
    */
   const loadWebhooks = useCallback(async () => {
     try {
-      const webhooksData = await fbService.getDocuments(SUBCOLLECTIONS.WEBHOOKS, [
+      const webhooksData = await fbService.readDocuments(SUBCOLLECTIONS.WEBHOOKS, [
         ['status', '==', 'active']
       ]);
 
@@ -962,7 +962,7 @@ const useIntegrations = () => {
    */
   const loadSyncLogs = useCallback(async () => {
     try {
-      const logsData = await fbService.getDocuments(SUBCOLLECTIONS.INTEGRATION_LOGS, [
+      const logsData = await fbService.readDocuments(SUBCOLLECTIONS.INTEGRATION_LOGS, [
         ['timestamp', '>=', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)] // Últimos 7 dias
       ]);
 
