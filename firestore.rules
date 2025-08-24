@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 🔐 REGRAS MULTI-TENANT - MyImoMate 3.0
+    // =====================================
+    
+    // 👤 Perfis de utilizador - apenas o próprio pode aceder
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // 📋 SUBCOLEÇÕES ISOLADAS POR UTILIZADOR
+      // ====================================
+      
+      // Leads - isolamento total por utilizador
+      match /leads/{leadId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Clientes - isolamento total por utilizador
+      match /clients/{clientId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Visitas - isolamento total por utilizador
+      match /visits/{visitId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Tarefas - isolamento total por utilizador
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Negócios - isolamento total por utilizador
+      match /deals/{dealId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Oportunidades - isolamento total por utilizador
+      match /opportunities/{opportunityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Relatórios - isolamento total por utilizador
+      match /reports/{reportId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Analytics - isolamento total por utilizador
+      match /analytics/{analyticsId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Automações - isolamento total por utilizador
+      match /automations/{automationId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Integrações - isolamento total por utilizador
+      match /integrations/{integrationId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Eventos de calendário - isolamento total por utilizador
+      match /calendar_events/{eventId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Lembretes - isolamento total por utilizador
+      match /reminders/{reminderId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Logs de atividade - isolamento total por utilizador
+      match /activity_logs/{logId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Logs de automação - isolamento total por utilizador
+      match /automation_logs/{logId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Logs de integração - isolamento total por utilizador
+      match /integration_logs/{logId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Notificações - isolamento total por utilizador
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Webhooks - isolamento total por utilizador
+      match /webhooks/{webhookId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Configurações do utilizador - isolamento total por utilizador
+      match /user_settings/{settingId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Templates - isolamento total por utilizador
+      match /templates/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // 🚫 NEGAÇÃO EXPLÍCITA - Todas as outras operações negadas
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
