@@ -1022,6 +1022,25 @@ const getBudgetRangeMiddleValue = (range) => {
     }
   }, [error]);
 
+    // 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR AQUI
+  useEffect(() => {
+    const handleCrmSync = (event) => {
+      console.log('useClients: Sincronização recebida', event.detail);
+      if (event.detail.type === 'lead-conversion') {
+        console.log('Atualizando lista de clientes após conversão...');
+        fetchClients();
+      }
+    };
+
+    window.refreshClients = fetchClients;
+    window.addEventListener('crm-data-sync', handleCrmSync);
+
+    return () => {
+      window.removeEventListener('crm-data-sync', handleCrmSync);
+      delete window.refreshClients;
+    };
+  }, [fetchClients]);
+
   // 📤 RETORNO DO HOOK UNIFICADO
   // ============================
   return {

@@ -1,8 +1,7 @@
-// src/pages/leads/LeadsPage.jsx - VERSÃO ESTÁVEL ATUALIZADA
+// src/pages/leads/LeadsPage.jsx - VERSÃO ESTÁVEL COM CORREÇÃO DE SINCRONIZAÇÃO
 // ✅ Mantém TODAS as funcionalidades existentes (100%)
-// ✅ APENAS ALTERAÇÃO: Small cards "Qualificados" → "Mornos", "Pendentes" → "Frios"
-// ✅ Layout harmonioso e botões de visualização funcionais
-// ✅ Syntax corrigida - sem erros
+// ✅ CORREÇÃO: Sincronização pós-conversão com clientes e oportunidades
+// ✅ Small cards "Mornos" e "Frios" funcionais
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -31,8 +30,8 @@ import {
   PencilIcon,
   TrashIcon,
   ArrowRightIcon,
-  FireIcon,        // ✅ NOVO: Para "Mornos" (era "Qualificados")
-  CloudIcon        // ✅ NOVO: Para "Frios" (era "Pendentes")
+  FireIcon,        // Para "Mornos" (era "Qualificados")
+  CloudIcon        // Para "Frios" (era "Pendentes")
 } from '@heroicons/react/24/outline';
 
 // Componente de Métrica Compacta - Padrão do Sistema
@@ -44,8 +43,8 @@ const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) 
     green: isDark() ? 'from-green-600 to-green-700' : 'from-green-500 to-green-600',
     yellow: isDark() ? 'from-yellow-600 to-yellow-700' : 'from-yellow-500 to-yellow-600',
     purple: isDark() ? 'from-purple-600 to-purple-700' : 'from-purple-500 to-purple-600',
-    orange: isDark() ? 'from-orange-600 to-orange-700' : 'from-orange-500 to-orange-600', // ✅ NOVO: Para "Mornos"
-    slate: isDark() ? 'from-slate-600 to-slate-700' : 'from-slate-500 to-slate-600',     // ✅ NOVO: Para "Frios"
+    orange: isDark() ? 'from-orange-600 to-orange-700' : 'from-orange-500 to-orange-600', // Para "Mornos"
+    slate: isDark() ? 'from-slate-600 to-slate-700' : 'from-slate-500 to-slate-600',     // Para "Frios"
     red: isDark() ? 'from-red-600 to-red-700' : 'from-red-500 to-red-600'
   };
 
@@ -110,8 +109,6 @@ const LeadsPage = () => {
   // Funções
   const stats = getLeadStats();
 
-  
-
   const handleCreateSubmit = async (leadData) => {
     try {
       const result = await createLead(leadData);
@@ -172,8 +169,9 @@ const LeadsPage = () => {
     }
   };
 
+  // CORREÇÃO: Handler com sincronização pós-conversão
   const handleModalConvert = async (conversionData) => {
-    console.log('🚀 Iniciando conversão do modal:', conversionData);
+    console.log('Iniciando conversão do modal:', conversionData);
     
     try {
       setIsModalConverting(true);
@@ -187,11 +185,11 @@ const LeadsPage = () => {
         throw new Error('Dados do lead em falta');
       }
 
-      console.log('📋 Chamando processLeadConversion...');
+      console.log('Chamando processLeadConversion...');
       
       const result = await processLeadConversion(conversionData);
       
-      console.log('✅ Resultado da conversão:', result);
+      console.log('Resultado da conversão:', result);
 
       if (result && result.success) {
         setFeedbackMessage(
@@ -199,22 +197,50 @@ const LeadsPage = () => {
         );
         setFeedbackType('success');
         
+        // NOVA FUNCIONALIDADE: Sincronização forçada
+        console.log('Sincronizando dados após conversão...');
+        
+        // Atualizar lista de leads
+        if (fetchLeads) {
+          await fetchLeads();
+        }
+        
+        // Forçar atualização de clientes via função global
+        if (typeof window.refreshClients === 'function') {
+          console.log('Atualizando lista de clientes...');
+          await window.refreshClients();
+        }
+        
+        // Forçar atualização de oportunidades via função global
+        if (typeof window.refreshOpportunities === 'function') {
+          console.log('Atualizando lista de oportunidades...');
+          await window.refreshOpportunities();
+        }
+        
+        // Broadcast event para sincronização global
+        const syncEvent = new CustomEvent('crm-data-sync', {
+          detail: {
+            type: 'lead-conversion',
+            leadId: conversionData.leadId,
+            clientId: result.clientId,
+            opportunityId: result.opportunityId,
+            timestamp: new Date().toISOString()
+          }
+        });
+        window.dispatchEvent(syncEvent);
+        
         if (closeConversionModal) {
           closeConversionModal();
         }
         
-        if (fetchLeads) {
-          fetchLeads();
-        }
-        
-        console.log('🎉 Conversão concluída com sucesso!');
+        console.log('Conversão e sincronização concluídas com sucesso!');
         
       } else {
         throw new Error(result?.error || 'Erro desconhecido na conversão');
       }
       
     } catch (error) {
-      console.error('❌ Erro na conversão:', error);
+      console.error('Erro na conversão:', error);
       
       setFeedbackMessage(
         `Erro na conversão: ${error.message}`
@@ -227,7 +253,7 @@ const LeadsPage = () => {
   };
 
   const handleModalClose = () => {
-    console.log('🚪 Fechando modal de conversão');
+    console.log('Fechando modal de conversão');
     
     if (closeConversionModal) {
       closeConversionModal();
@@ -292,7 +318,7 @@ const LeadsPage = () => {
             </div>
           )}
 
-          {/* ✅ MÉTRICAS ATUALIZADAS - Apenas mudança de nomes */}
+          {/* Small Cards Atualizados - Mornos e Frios */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <CompactMetricCard
               title="Total"
@@ -308,7 +334,7 @@ const LeadsPage = () => {
               color="green"
               onClick={() => handleMetricClick('status', 'novo')}
             />
-            {/* ✅ ALTERAÇÃO: "Qualificados" → "Mornos" */}
+            {/* ALTERAÇÃO: "Qualificados" → "Mornos" */}
             <CompactMetricCard
               title="Mornos"
               value={stats.qualificados || 0}
@@ -317,7 +343,7 @@ const LeadsPage = () => {
               color="orange"
               onClick={() => handleMetricClick('status', 'qualificado')}
             />
-            {/* ✅ ALTERAÇÃO: "Pendentes" → "Frios" */}
+            {/* ALTERAÇÃO: "Pendentes" → "Frios" */}
             <CompactMetricCard
               title="Frios"
               value={stats.pendentes || 0}
@@ -420,7 +446,7 @@ const LeadsPage = () => {
             </div>
           )}
 
-          {/* Modal de Conversão */}
+          {/* Modal de Conversão com sincronização */}
           {conversionModal && conversionModal.isOpen && (
             <SimpleConversionModal
               isOpen={conversionModal.isOpen}

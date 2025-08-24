@@ -1092,6 +1092,25 @@ const createInitialDealTasks = async (dealId, dealData) => {
     }
   }, [error]);
 
+  // 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR AQUI
+useEffect(() => {
+  const handleCrmSync = (event) => {
+    console.log('useOpportunities: Sincronização recebida', event.detail);
+    if (event.detail.type === 'lead-conversion') {
+      console.log('Atualizando lista de oportunidades após conversão...');
+      fetchOpportunities();
+    }
+  };
+
+  window.refreshOpportunities = fetchOpportunities;
+  window.addEventListener('crm-data-sync', handleCrmSync);
+
+  return () => {
+    window.removeEventListener('crm-data-sync', handleCrmSync);
+    delete window.refreshOpportunities;
+  };
+}, [fetchOpportunities]);
+
   // 📤 RETORNO DO HOOK UNIFICADO
   // ============================
   return {
