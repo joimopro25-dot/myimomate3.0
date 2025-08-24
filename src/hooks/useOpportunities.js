@@ -1,29 +1,30 @@
 // src/hooks/useOpportunities.js
-// 🎯 HOOK UNIFICADO PARA GESTÃO DE OPORTUNIDADES - MyImoMate 3.0
-// ==============================================================
-// VERSÃO UNIFICADA com estrutura padronizada
-// Funcionalidades: Pipeline de Vendas, CRUD, Validações Unificadas, Estrutura Base
+// 🎯 HOOK UNIFICADO PARA GESTÃO DE OPORTUNIDADES - MyImoMate 3.0 MULTI-TENANT COMPLETO
+// ===================================================================================
+// VERSÃO HÍBRIDA: Multi-tenant + Todas as funcionalidades avançadas
+// Inclui: Pipeline Kanban, sistema probabilidades, conversão negócio, comissões, atividades
+// Data: Agosto 2025 | Versão: 3.1 Multi-Tenant Complete
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
+  serverTimestamp,
   getDoc,
-  doc, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  serverTimestamp
+  doc,
+  updateDoc,
+  writeBatch,
+  runTransaction
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
+// 🏗️ IMPORTS DO SISTEMA MULTI-TENANT
+import firebaseService, { 
+  SUBCOLLECTIONS, 
+  createCRUDHelpers,
+  useFirebaseService 
+} from '../utils/FirebaseService';
+
 // 📚 IMPORTS DA ESTRUTURA UNIFICADA
-// =================================
 import {
   UNIFIED_INTEREST_TYPES,
   UNIFIED_BUDGET_RANGES,
@@ -53,12 +54,12 @@ import {
   validateCommissionPercentage
 } from '../constants/validations.js';
 
-// 🔧 CONFIGURAÇÕES DO HOOK
-// ========================
-const OPPORTUNITIES_COLLECTION = 'opportunities';
-const CLIENTS_COLLECTION = 'clients';
-const DEALS_COLLECTION = 'deals';
-const FETCH_LIMIT = 100;
+// 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
+const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
+const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
+const DEALS_SUBCOLLECTION = SUBCOLLECTIONS.DEALS;
+const crudHelpers = createCRUDHelpers(OPPORTUNITIES_SUBCOLLECTION);
+const FETCH_LIMIT = 50;
 
 // 🎯 TIPOS DE OPORTUNIDADE ESPECÍFICOS
 export const OPPORTUNITY_TYPES = {
@@ -92,7 +93,7 @@ export const OPPORTUNITY_STATUS_COLORS = {
   [UNIFIED_OPPORTUNITY_STATUS.PAUSADO]: 'bg-gray-100 text-gray-800 border-gray-200'
 };
 
-// 📊 TIPOS DE ATIVIDADE
+// 🏃‍♂️ TIPOS DE ATIVIDADE
 export const ACTIVITY_TYPES = {
   CHAMADA: 'chamada',
   EMAIL: 'email',
@@ -100,27 +101,30 @@ export const ACTIVITY_TYPES = {
   VISITA: 'visita',
   PROPOSTA: 'proposta',
   NEGOCIACAO: 'negociacao',
-  FOLLOW_UP: 'follow_up',
-  DOCUMENTO: 'documento',
-  OUTRO: 'outro'
+  CONTRATO: 'contrato',
+  FOLLOWUP: 'followup',
+  NOTA: 'nota'
 };
 
 export const ACTIVITY_TYPE_LABELS = {
   [ACTIVITY_TYPES.CHAMADA]: 'Chamada',
   [ACTIVITY_TYPES.EMAIL]: 'Email',
   [ACTIVITY_TYPES.REUNIAO]: 'Reunião',
-  [ACTIVITY_TYPES.VISITA]: 'Visita a Imóvel',
-  [ACTIVITY_TYPES.PROPOSTA]: 'Proposta Enviada',
+  [ACTIVITY_TYPES.VISITA]: 'Visita',
+  [ACTIVITY_TYPES.PROPOSTA]: 'Proposta',
   [ACTIVITY_TYPES.NEGOCIACAO]: 'Negociação',
-  [ACTIVITY_TYPES.FOLLOW_UP]: 'Follow-up',
-  [ACTIVITY_TYPES.DOCUMENTO]: 'Documento',
-  [ACTIVITY_TYPES.OUTRO]: 'Outro'
+  [ACTIVITY_TYPES.CONTRATO]: 'Contrato',
+  [ACTIVITY_TYPES.FOLLOWUP]: 'Follow-up',
+  [ACTIVITY_TYPES.NOTA]: 'Nota'
 };
 
-// 🎯 HOOK PRINCIPAL UNIFICADO
-// ===========================
+// 🎯 HOOK PRINCIPAL MULTI-TENANT COMPLETO
 const useOpportunities = () => {
-  // Estados principais
+  // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
+  const { currentUser: user, userProfile } = useAuth();
+  const fbService = useFirebaseService(user);
+  
+  // 📊 STATES PRINCIPAIS
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -128,158 +132,30 @@ const useOpportunities = () => {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Estados de filtros expandidos
+  // 🔍 STATES DE FILTROS E PESQUISA
   const [filters, setFilters] = useState({
     status: '',
     opportunityType: '',
-    priority: '',
     interestType: '',
-    budgetRange: '',
+    priority: '',
     clientId: '',
-    propertyType: '',
+    searchTerm: '',
     dateRange: 'all',
-    searchTerm: ''
+    budgetMin: null,
+    budgetMax: null,
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
   });
 
-  // Context de autenticação
-  const { user } = useAuth();
-  const isUserReady = !!user;
+  // 📊 STATES DE CACHE E PERFORMANCE
+  const [lastFetchTime, setLastFetchTime] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  // 📥 BUSCAR TODAS AS OPORTUNIDADES COM ESTRUTURA UNIFICADA
-  // =======================================================
-  const fetchOpportunities = useCallback(async () => {
-    if (!isUserReady) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Query simplificada para evitar problemas de índice
-      let oppQuery = query(
-        collection(db, OPPORTUNITIES_COLLECTION),
-        where('userId', '==', user.uid),
-        limit(FETCH_LIMIT)
-      );
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
 
-      const querySnapshot = await getDocs(oppQuery);
-      const oppsData = querySnapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          
-          // Aplicar migração automática se necessário
-          const migratedData = migrateOpportunityData(data);
-          
-          return {
-            id: doc.id,
-            ...migratedData,
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-            expectedCloseDate: data.expectedCloseDate?.toDate(),
-            actualCloseDate: data.actualCloseDate?.toDate(),
-            lastActivityDate: data.lastActivityDate?.toDate()
-          };
-        })
-        .filter(opp => opp.isActive !== false) // Filtrar inativos
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // Ordenar por data
-
-      // Aplicar filtros client-side
-      let filteredOpportunities = oppsData;
-      
-      if (filters.status && Object.values(UNIFIED_OPPORTUNITY_STATUS).includes(filters.status)) {
-        filteredOpportunities = filteredOpportunities.filter(opp => opp.status === filters.status);
-      }
-      
-      if (filters.opportunityType) {
-        filteredOpportunities = filteredOpportunities.filter(opp => opp.opportunityType === filters.opportunityType);
-      }
-      
-      if (filters.priority && Object.values(UNIFIED_PRIORITIES).includes(filters.priority)) {
-        filteredOpportunities = filteredOpportunities.filter(opp => opp.priority === filters.priority);
-      }
-      
-      if (filters.searchTerm) {
-        const term = filters.searchTerm.toLowerCase();
-        filteredOpportunities = filteredOpportunities.filter(opp => 
-          opp.title?.toLowerCase().includes(term) ||
-          opp.description?.toLowerCase().includes(term) ||
-          opp.clientName?.toLowerCase().includes(term) ||
-          opp.propertyAddress?.toLowerCase().includes(term)
-        );
-      }
-
-      setOpportunities(filteredOpportunities);
-      console.log(`Carregadas ${filteredOpportunities.length} oportunidades com estrutura unificada`);
-      
-    } catch (err) {
-      console.error('Erro ao buscar oportunidades:', err);
-      setError(`Erro ao carregar oportunidades: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [isUserReady, user, filters]);
-
-  // 🔄 MIGRAÇÃO AUTOMÁTICA DE DADOS ANTIGOS
-  // =======================================
-  const migrateOpportunityData = useCallback((oldData) => {
-    // Se já tem estrutura nova, retornar como está
-    if (oldData.structureVersion === '3.0') {
-      return oldData;
-    }
-
-    // Mapear campos antigos para novos
-    const migrated = {
-      ...oldData,
-      
-      // Garantir estrutura base obrigatória
-      isActive: oldData.isActive !== undefined ? oldData.isActive : true,
-      priority: oldData.priority || UNIFIED_PRIORITIES.NORMAL,
-      
-      // Migrar status de oportunidade
-      status: migrateOpportunityStatus(oldData.status),
-      
-      // Migrar tipos de interesse
-      interestType: migrateInterestType(oldData.interestType),
-      
-      // Migrar faixas de orçamento
-      budgetRange: migrateBudgetRange(oldData.budgetRange),
-      
-      // Atualizar probabilidade baseada no status
-      probability: getOpportunityProbability(oldData.status) || oldData.probability || 10,
-      
-      // Garantir campos obrigatórios
-      title: oldData.title || oldData.name || 'Oportunidade sem título',
-      
-      // Adicionar campos novos
-      structureVersion: '3.0',
-      migratedAt: new Date().toISOString(),
-      
-      // Garantir referências cruzadas
-      leadId: oldData.leadId || null,
-      clientId: oldData.clientId || null,
-      opportunityId: oldData.id || null,
-      dealId: oldData.dealId || null
-    };
-
-    return migrated;
-  }, []);
-
-  // 🔄 FUNÇÕES DE MIGRAÇÃO ESPECÍFICAS
-  // ==================================
-  const migrateOpportunityStatus = (oldStatus) => {
-    const statusMap = {
-      'identificacao': UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO,
-      'qualificacao': UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO,
-      'apresentacao': UNIFIED_OPPORTUNITY_STATUS.APRESENTACAO,
-      'negociacao': UNIFIED_OPPORTUNITY_STATUS.NEGOCIACAO,
-      'proposta': UNIFIED_OPPORTUNITY_STATUS.PROPOSTA,
-      'contrato': UNIFIED_OPPORTUNITY_STATUS.CONTRATO,
-      'fechado_ganho': UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
-      'fechado_perdido': UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO,
-      'pausado': UNIFIED_OPPORTUNITY_STATUS.PAUSADO
-    };
-    return statusMap[oldStatus] || UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO;
-  };
-
+  // 🎯 HELPER: MIGRAÇÃO DE DADOS LEGADOS (COMPATIBILIDADE)
   const migrateInterestType = (oldType) => {
     const typeMap = {
       'compra_casa': UNIFIED_INTEREST_TYPES.COMPRA_CASA,
@@ -305,8 +181,119 @@ const useOpportunities = () => {
     return rangeMap[oldRange] || UNIFIED_BUDGET_RANGES.INDEFINIDO;
   };
 
-  // ➕ CRIAR NOVA OPORTUNIDADE COM ESTRUTURA UNIFICADA
-  // =================================================
+  // 📥 BUSCAR OPORTUNIDADES COM FILTROS AVANÇADOS (MULTI-TENANT)
+  const fetchOpportunities = useCallback(async (additionalFilters = {}) => {
+    if (!isUserReady) {
+      console.log('❌ User não pronto para fetch');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Buscando oportunidades multi-tenant...');
+
+      // Combinar filtros
+      const activeFilters = { ...filters, ...additionalFilters };
+      
+      // Construir query multi-tenant
+      const queryOptions = {
+        orderBy: [{ field: activeFilters.sortBy, direction: activeFilters.sortOrder }],
+        limit: FETCH_LIMIT
+      };
+
+      // Aplicar filtros específicos
+      if (activeFilters.status) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'status', operator: '==', value: activeFilters.status });
+      }
+
+      if (activeFilters.opportunityType) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'opportunityType', operator: '==', value: activeFilters.opportunityType });
+      }
+
+      if (activeFilters.interestType) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'interestType', operator: '==', value: activeFilters.interestType });
+      }
+
+      if (activeFilters.priority) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'priority', operator: '==', value: activeFilters.priority });
+      }
+
+      if (activeFilters.clientId) {
+        queryOptions.where = queryOptions.where || [];
+        queryOptions.where.push({ field: 'clientId', operator: '==', value: activeFilters.clientId });
+      }
+
+      // Executar query usando FirebaseService
+      const result = await fbService.getDocuments(OPPORTUNITIES_SUBCOLLECTION, queryOptions);
+      
+      let fetchedOpportunities = result.docs || [];
+
+      // Aplicar filtros locais (pesquisa de texto, ranges de budget)
+      if (activeFilters.searchTerm) {
+        const searchTerm = activeFilters.searchTerm.toLowerCase();
+        fetchedOpportunities = fetchedOpportunities.filter(opp => 
+          opp.title?.toLowerCase().includes(searchTerm) ||
+          opp.clientName?.toLowerCase().includes(searchTerm) ||
+          opp.description?.toLowerCase().includes(searchTerm) ||
+          opp.propertyReference?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      if (activeFilters.budgetMin || activeFilters.budgetMax) {
+        fetchedOpportunities = fetchedOpportunities.filter(opp => {
+          const value = opp.estimatedValue || 0;
+          const meetsMin = !activeFilters.budgetMin || value >= activeFilters.budgetMin;
+          const meetsMax = !activeFilters.budgetMax || value <= activeFilters.budgetMax;
+          return meetsMin && meetsMax;
+        });
+      }
+
+      // Filtro por data
+      if (activeFilters.dateRange !== 'all') {
+        const now = new Date();
+        const daysAgo = {
+          'today': 0,
+          'week': 7,
+          'month': 30,
+          'quarter': 90
+        }[activeFilters.dateRange] || 0;
+
+        if (daysAgo > 0) {
+          const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+          fetchedOpportunities = fetchedOpportunities.filter(opp => 
+            opp.createdAt && new Date(opp.createdAt.seconds * 1000) >= cutoffDate
+          );
+        } else if (activeFilters.dateRange === 'today') {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          fetchedOpportunities = fetchedOpportunities.filter(opp => 
+            opp.createdAt && new Date(opp.createdAt.seconds * 1000) >= today
+          );
+        }
+      }
+
+      setOpportunities(fetchedOpportunities);
+      setTotalCount(fetchedOpportunities.length);
+      setLastFetchTime(Date.now());
+
+      console.log(`✅ ${fetchedOpportunities.length} oportunidades carregadas`);
+
+    } catch (err) {
+      console.error('❌ Erro ao buscar oportunidades:', err);
+      setError(`Erro ao carregar oportunidades: ${err.message}`);
+      setOpportunities([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [isUserReady, fbService, filters]);
+
+  // ➕ CRIAR NOVA OPORTUNIDADE COM ESTRUTURA UNIFICADA (MULTI-TENANT)
   const createOpportunity = useCallback(async (opportunityData) => {
     if (!isUserReady) {
       throw new Error('Utilizador não autenticado');
@@ -316,6 +303,8 @@ const useOpportunities = () => {
     setError(null);
 
     try {
+      console.log('➕ Criando nova oportunidade multi-tenant...');
+
       // 1. VALIDAÇÃO BÁSICA
       if (!opportunityData.title?.trim()) {
         throw new Error('Título é obrigatório');
@@ -389,449 +378,421 @@ const useOpportunities = () => {
         
         // Datas importantes
         expectedCloseDate: opportunityData.expectedCloseDate || null,
-        lastActivityDate: null,
-        actualCloseDate: null,
+        lastContactDate: opportunityData.lastContactDate || null,
+        nextFollowUpDate: opportunityData.nextFollowUpDate || null,
         
-        // Atividades e histórico
-        activities: [],
-        documents: [],
-        notes: opportunityData.notes?.trim() || '',
-        
-        // Dados de auditoria obrigatórios
+        // Dados de sistema e auditoria
         userId: user.uid,
-        userEmail: user.email,
+        consultantId: user.uid,
+        consultantName: userProfile?.displayName || user.displayName || 'Consultor',
+        
+        // Sistema de atividades
+        activities: [],
+        activitiesCount: 0,
+        lastActivity: null,
+        
+        // Metadados
+        tags: opportunityData.tags || [],
+        notes: opportunityData.notes || '',
+        source: opportunityData.source || 'manual',
+        
+        // Timestamps
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         
-        // Flags de controlo
-        isActive: true,
-        isConverted: false,
+        // Aplicar estrutura core
+        ...applyCoreStructure(OPPORTUNITY_TEMPLATE)
+      };
+
+      // 4. USAR TRANSAÇÃO PARA CRIAR OPORTUNIDADE + ATUALIZAR CLIENTE
+      const result = await runTransaction(db, async (transaction) => {
+        // Criar oportunidade usando FirebaseService
+        const createdDoc = await fbService.createDocument(OPPORTUNITIES_SUBCOLLECTION, newOpportunity);
         
-        // Referências cruzadas
-        leadId: opportunityData.leadId || null,
-        clientId: opportunityData.clientId,
-        opportunityId: null, // Auto-preenchido após criação
-        dealId: null,
+        // Atualizar contador de oportunidades no cliente
+        const clientRef = fbService.getDocumentRef(CLIENTS_SUBCOLLECTION, opportunityData.clientId);
+        const clientDoc = await transaction.get(clientRef);
         
-        // Fonte e rastreamento
-        source: opportunityData.source || 'manual',
-        
-        // Versão da estrutura
-        structureVersion: '3.0',
-        
-        // Metadados técnicos
-        userAgent: navigator.userAgent,
-        source_details: {
-          created_via: 'web_form',
-          form_version: '3.0',
-          timestamp: new Date().toISOString()
+        if (clientDoc.exists()) {
+          const currentCount = clientDoc.data().opportunityCount || 0;
+          transaction.update(clientRef, {
+            opportunityCount: currentCount + 1,
+            lastOpportunityDate: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
         }
-      };
 
-      // 4. INSERIR NO FIREBASE
-      const docRef = await addDoc(collection(db, OPPORTUNITIES_COLLECTION), newOpportunity);
-      
-      // 5. CRIAR OBJETO COMPLETO PARA RETORNO
-      const createdOpportunity = {
-        id: docRef.id,
-        ...newOpportunity,
-        opportunityId: docRef.id, // Atualizar referência própria
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+        return createdDoc;
+      });
 
-      // 6. ATUALIZAR LISTA LOCAL
-      setOpportunities(prev => [createdOpportunity, ...prev]);
+      // 5. ATUALIZAR STATE LOCAL
+      setOpportunities(prev => [result, ...prev]);
+      setTotalCount(prev => prev + 1);
 
-      // 7. ATUALIZAR CONTADOR DO CLIENTE
-      if (opportunityData.clientId) {
-        await updateClientOpportunityCount(opportunityData.clientId, 'increment');
-      }
-
-      console.log('Oportunidade criada com estrutura unificada:', docRef.id);
-      
-      return {
-        success: true,
-        opportunity: createdOpportunity,
-        message: 'Oportunidade criada com sucesso!'
-      };
+      console.log('✅ Oportunidade criada com sucesso:', result.id);
+      return { success: true, data: result };
 
     } catch (err) {
-      console.error('Erro ao criar oportunidade:', err);
-      setError(err.message);
-      
-      return {
-        success: false,
-        error: err.message,
-        message: `Erro ao criar oportunidade: ${err.message}`
-      };
+      console.error('❌ Erro ao criar oportunidade:', err);
+      setError(`Erro ao criar oportunidade: ${err.message}`);
+      throw err;
     } finally {
       setCreating(false);
     }
-  }, [isUserReady, user]);
+  }, [isUserReady, fbService, user, userProfile]);
 
-  // 🔄 ATUALIZAR OPORTUNIDADE
-  // =========================
+  // ✏️ ATUALIZAR OPORTUNIDADE (MULTI-TENANT)
   const updateOpportunity = useCallback(async (opportunityId, updates) => {
-    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-    
+    if (!isUserReady || !opportunityId) {
+      throw new Error('Dados inválidos para atualização');
+    }
+
     setUpdating(true);
     setError(null);
-    
+
     try {
-      // Preparar dados para atualização
+      console.log('✏️ Atualizando oportunidade:', opportunityId);
+
+      // Preparar dados de atualização
       const updateData = {
         ...updates,
-        updatedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        structureVersion: '3.0'
+        updatedAt: serverTimestamp()
       };
 
-      // Atualizar probabilidade se status mudou
-      if (updates.status) {
-        updateData.probability = getOpportunityProbability(updates.status) || updateData.probability;
-      }
-
-      // Recalcular valores monetários se necessário
+      // Se atualizando dados financeiros, recalcular métricas
       if (updates.estimatedValue !== undefined || updates.commissionPercentage !== undefined) {
-        const currentOpp = opportunities.find(opp => opp.id === opportunityId);
-        const estimatedValue = parseFloat(updates.estimatedValue) || currentOpp?.estimatedValue || 0;
-        const commissionPercentage = parseFloat(updates.commissionPercentage) || currentOpp?.commissionPercentage || 2.5;
-        
-        updateData.estimatedValue = estimatedValue;
-        updateData.commissionPercentage = commissionPercentage;
-        updateData.commissionValue = (estimatedValue * commissionPercentage) / 100;
-        updateData.pipelineValue = (estimatedValue * updateData.probability) / 100;
+        const opportunity = opportunities.find(o => o.id === opportunityId);
+        if (opportunity) {
+          const estimatedValue = parseFloat(updates.estimatedValue || opportunity.estimatedValue) || 0;
+          const commissionPercentage = parseFloat(updates.commissionPercentage || opportunity.commissionPercentage) || 2.5;
+          const commissionValue = (estimatedValue * commissionPercentage) / 100;
+          const status = updates.status || opportunity.status;
+          const probability = getOpportunityProbability(status);
+          const pipelineValue = (estimatedValue * probability) / 100;
+
+          updateData.estimatedValue = estimatedValue;
+          updateData.commissionPercentage = commissionPercentage;
+          updateData.commissionValue = commissionValue;
+          updateData.probability = probability;
+          updateData.pipelineValue = pipelineValue;
+        }
       }
 
-      // Atualizar na base de dados
-      const oppRef = doc(db, OPPORTUNITIES_COLLECTION, opportunityId);
-      await updateDoc(oppRef, updateData);
-      
-      // Atualizar lista local
-      setOpportunities(prev => prev.map(opp => 
-        opp.id === opportunityId 
-          ? { ...opp, ...updateData, updatedAt: new Date() }
-          : opp
-      ));
+      // Atualizar usando FirebaseService
+      await fbService.updateDocument(OPPORTUNITIES_SUBCOLLECTION, opportunityId, updateData);
 
-      console.log(`Oportunidade ${opportunityId} atualizada`);
-      
-      return { success: true, message: 'Oportunidade atualizada com sucesso!' };
-      
+      // Atualizar state local
+      setOpportunities(prev => 
+        prev.map(opportunity => 
+          opportunity.id === opportunityId 
+            ? { ...opportunity, ...updateData, id: opportunityId }
+            : opportunity
+        )
+      );
+
+      console.log('✅ Oportunidade atualizada com sucesso');
+      return { success: true };
+
     } catch (err) {
-      console.error('Erro ao atualizar oportunidade:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
+      console.error('❌ Erro ao atualizar oportunidade:', err);
+      setError(`Erro ao atualizar oportunidade: ${err.message}`);
+      throw err;
     } finally {
       setUpdating(false);
     }
-  }, [isUserReady, user, opportunities]);
+  }, [isUserReady, fbService, opportunities]);
 
-  // 🔄 ATUALIZAR STATUS DA OPORTUNIDADE COM AUDITORIA
-  // =================================================
-  const updateOpportunityStatus = useCallback(async (opportunityId, newStatus, reason = '') => {
-    if (!isUserReady) return;
+  // 📊 ATUALIZAR STATUS COM PIPELINE AUTOMÁTICO
+  const updateOpportunityStatus = useCallback(async (opportunityId, newStatus, additionalData = {}) => {
+    if (!isUserReady || !opportunityId || !newStatus) {
+      throw new Error('Dados inválidos para atualização de status');
+    }
 
     try {
-      // Validar se o status é válido
-      if (!Object.values(UNIFIED_OPPORTUNITY_STATUS).includes(newStatus)) {
-        throw new Error(`Status inválido: ${newStatus}`);
+      console.log('📊 Atualizando status da oportunidade:', opportunityId, newStatus);
+
+      const opportunity = opportunities.find(o => o.id === opportunityId);
+      if (!opportunity) {
+        throw new Error('Oportunidade não encontrada');
       }
 
-      const updates = { 
+      // Calcular nova probabilidade baseada no status
+      const newProbability = getOpportunityProbability(newStatus);
+      const newPipelineValue = (opportunity.estimatedValue || 0) * (newProbability / 100);
+
+      // Preparar dados de atualização
+      const updateData = {
         status: newStatus,
-        probability: getOpportunityProbability(newStatus) || 0,
-        statusChangeReason: reason.trim(),
+        probability: newProbability,
+        pipelineValue: newPipelineValue,
+        ...additionalData,
+        updatedAt: serverTimestamp()
+      };
+
+      // Se status é "fechado ganho", preparar para conversão em negócio
+      if (newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO) {
+        updateData.closedAt = serverTimestamp();
+        updateData.wonAt = serverTimestamp();
+      } else if (newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO) {
+        updateData.closedAt = serverTimestamp();
+        updateData.lostAt = serverTimestamp();
+        updateData.lostReason = additionalData.lostReason || '';
+      }
+
+      await updateOpportunity(opportunityId, updateData);
+
+      // Adicionar atividade automática de mudança de status
+      await addActivity(opportunityId, {
+        type: ACTIVITY_TYPES.NOTA,
+        title: 'Status alterado',
+        description: `Status alterado para: ${newStatus}`,
+        isSystemGenerated: true
+      });
+
+      return { success: true };
+
+    } catch (err) {
+      console.error('❌ Erro ao atualizar status:', err);
+      throw err;
+    }
+  }, [isUserReady, opportunities, updateOpportunity, addActivity]);
+
+  // 🔄 CONVERTER OPORTUNIDADE PARA DEAL/NEGÓCIO (VERSÃO COMPLETA MULTI-TENANT)
+  const convertOpportunityToDeal = useCallback(async (opportunityId, dealData = {}) => {
+    if (!isUserReady || !user?.uid || !opportunityId) {
+      setError('Dados inválidos para conversão');
+      return { success: false, message: 'Dados inválidos' };
+    }
+
+    setUpdating(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Convertendo oportunidade para negócio (multi-tenant):', opportunityId);
+
+      // 1. BUSCAR DADOS DA OPORTUNIDADE (MULTI-TENANT)
+      const opportunity = await fbService.getDocument(OPPORTUNITIES_SUBCOLLECTION, opportunityId);
+      
+      if (!opportunity) {
+        throw new Error('Oportunidade não encontrada');
+      }
+
+      // 2. VERIFICAR SE JÁ FOI CONVERTIDA
+      if (opportunity.isConverted) {
+        throw new Error('Oportunidade já foi convertida para negócio');
+      }
+
+      // 3. VALIDAR DADOS MÍNIMOS PARA DEAL
+      if (!dealData.propertyAddress && !dealData.propertyId && !opportunity.propertyReference) {
+        throw new Error('Endereço ou referência da propriedade é obrigatório para criar negócio');
+      }
+
+      if (!dealData.dealValue && !opportunity.estimatedValue) {
+        throw new Error('Valor do negócio é obrigatório');
+      }
+
+      // 4. PREPARAR DADOS DO DEAL/NEGÓCIO COM MULTI-TENANT
+      const baseDealData = {
+        // Referências da oportunidade
+        opportunityId: opportunityId,
+        clientId: opportunity.clientId,
+        clientName: opportunity.clientName,
+        clientPhone: opportunity.clientPhone,
+        clientEmail: opportunity.clientEmail,
         
-        // Auditoria de mudança de status
-        [`statusHistory.change_${Date.now()}`]: {
-          to: newStatus,
-          changedBy: user.uid,
-          changedAt: new Date().toISOString(),
-          reason: reason.trim(),
+        // Dados do negócio
+        title: dealData.title || `Negócio ${opportunity.interestType} - ${opportunity.clientName}`,
+        description: dealData.description || `Negócio criado a partir da oportunidade: ${opportunity.title}`,
+        
+        // Tipo e categoria
+        dealType: dealData.dealType || getDealTypeFromInterest(opportunity.interestType),
+        interestType: opportunity.interestType,
+        category: dealData.category || 'residencial',
+        
+        // Status e pipeline
+        status: dealData.status || 'proposta',
+        priority: dealData.priority || opportunity.priority || UNIFIED_PRIORITIES.NORMAL,
+        
+        // Dados financeiros
+        dealValue: dealData.dealValue || opportunity.estimatedValue,
+        commissionPercentage: dealData.commissionPercentage || opportunity.commissionPercentage || 2.5,
+        commissionValue: 0, // Calculado automaticamente
+        expectedCommission: 0, // Calculado automaticamente
+        
+        // Dados da propriedade
+        propertyId: dealData.propertyId || '',
+        propertyReference: opportunity.propertyReference || '',
+        propertyAddress: opportunity.propertyAddress || dealData.propertyAddress || '',
+        propertyType: dealData.propertyType || opportunity.propertyType || '',
+        propertyFeatures: opportunity.propertyFeatures || {},
+        
+        // Datas importantes
+        proposalDate: dealData.proposalDate || new Date(),
+        expectedClosingDate: dealData.expectedClosingDate || opportunity.expectedCloseDate || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+        
+        // Financiamento (se aplicável)
+        financing: {
+          required: dealData.financingRequired || false,
+          bank: dealData.financingBank || '',
+          amount: dealData.financingAmount || 0,
+          status: dealData.financingStatus || 'pendente',
+          preApproved: dealData.preApproved || false
+        },
+        
+        // Partes envolvidas
+        buyerName: dealData.buyerName || (opportunity.interestType?.includes('compra') ? opportunity.clientName : ''),
+        sellerName: dealData.sellerName || (opportunity.interestType?.includes('venda') ? opportunity.clientName : ''),
+        
+        // Documentação
+        documentsRequired: dealData.documentsRequired || getRequiredDocuments(opportunity.interestType),
+        documentsStatus: 'pendente',
+        
+        // Notas e observações
+        notes: dealData.notes || `Negócio criado a partir da oportunidade: ${opportunity.title}`,
+        internalNotes: dealData.internalNotes || '',
+        
+        // Rastreamento
+        source: `converted_from_opportunity_${opportunityId}`,
+        originalOpportunityId: opportunityId,
+        convertedAt: serverTimestamp(),
+        
+        // Campos de auditoria MULTI-TENANT
+        userId: user.uid,
+        userEmail: user.email,
+        consultantId: user.uid,
+        consultantName: userProfile?.displayName || user.displayName || 'Consultor',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: user.uid,
+        lastModifiedBy: user.uid,
+        
+        // Estrutura e metadados
+        structureVersion: '3.1',
+        isMultiTenant: true,
+        metadata: {
+          convertedFromOpportunity: true,
+          conversionDate: new Date().toISOString(),
+          opportunityTitle: opportunity.title,
+          opportunityValue: opportunity.estimatedValue,
           userAgent: navigator.userAgent
         }
       };
 
-      // Se fechou (ganho ou perdido), adicionar data de fecho
-      if (newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO || 
-          newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO) {
-        updates.actualCloseDate = serverTimestamp();
-        updates.isConverted = newStatus === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO;
+      // 5. CALCULAR COMISSÕES AUTOMATICAMENTE
+      if (baseDealData.dealValue && baseDealData.commissionPercentage) {
+        baseDealData.commissionValue = (baseDealData.dealValue * baseDealData.commissionPercentage) / 100;
+        baseDealData.expectedCommission = baseDealData.commissionValue;
       }
 
-      const result = await updateOpportunity(opportunityId, updates);
+      // 6. USAR TRANSAÇÃO ATÓMICA MULTI-TENANT
+      const result = await runTransaction(db, async (transaction) => {
+        // Criar deal usando FirebaseService
+        const dealDocRef = await fbService.createDocument(DEALS_SUBCOLLECTION, baseDealData);
+
+        // Atualizar oportunidade como convertida
+        const opportunityRef = fbService.getDocumentRef(OPPORTUNITIES_SUBCOLLECTION, opportunityId);
+        transaction.update(opportunityRef, {
+          status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
+          isConverted: true,
+          convertedAt: serverTimestamp(),
+          convertedToDealId: dealDocRef.id,
+          updatedAt: serverTimestamp(),
+          lastModifiedBy: user.uid,
+          
+          // Auditoria da conversão
+          conversionAudit: {
+            convertedBy: user.uid,
+            convertedAt: new Date().toISOString(),
+            dealId: dealDocRef.id,
+            dealValue: baseDealData.dealValue,
+            userAgent: navigator.userAgent
+          }
+        });
+
+        return dealDocRef;
+      });
+
+      // 7. CRIAR TAREFAS AUTOMÁTICAS INICIAIS PARA O DEAL (MULTI-TENANT)
+      const initialTasks = await createInitialDealTasks(result.id, baseDealData);
+
+      // 8. ATUALIZAR LISTA LOCAL DE OPORTUNIDADES
+      setOpportunities(prev => 
+        prev.map(opp => 
+          opp.id === opportunityId 
+            ? { 
+                ...opp, 
+                status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
+                isConverted: true,
+                convertedAt: new Date(),
+                convertedToDealId: result.id,
+                updatedAt: new Date()
+              }
+            : opp
+        )
+      );
+
+      console.log(`✅ Oportunidade ${opportunityId} convertida para deal ${result.id} (multi-tenant)`);
       
-      if (result.success) {
-        console.log(`Status da oportunidade ${opportunityId} atualizado para: ${newStatus}`);
-      }
-      
-      return result;
+      return {
+        success: true,
+        opportunityId: opportunityId,
+        dealId: result.id,
+        tasksCreated: initialTasks.length,
+        message: `Oportunidade convertida para negócio com sucesso! ${initialTasks.length} tarefas iniciais criadas.`
+      };
 
     } catch (err) {
-      console.error('Erro ao atualizar status:', err);
-      return { success: false, error: err.message };
+      console.error('❌ Erro ao converter oportunidade para deal:', err);
+      setError(err.message || 'Erro ao converter oportunidade');
+      
+      return {
+        success: false,
+        message: err.message || 'Erro ao converter oportunidade para negócio'
+      };
+    } finally {
+      setUpdating(false);
     }
-  }, [isUserReady, user, updateOpportunity]);
+  }, [isUserReady, user, userProfile, fbService]);
 
-// 🔄 CONVERTER OPORTUNIDADE PARA DEAL/NEGÓCIO (FASE 3)
-// ====================================================
-const convertOpportunityToDeal = useCallback(async (opportunityId, dealData = {}) => {
-  if (!isUserReady || !user?.uid || !opportunityId) {
-    setError('Dados inválidos para conversão');
-    return { success: false, message: 'Dados inválidos' };
-  }
+  // FUNÇÕES AUXILIARES PARA CONVERSÃO (MULTI-TENANT)
+  const getDealTypeFromInterest = (interestType) => {
+    if (interestType?.includes('venda')) return 'venda';
+    if (interestType?.includes('compra')) return 'compra';
+    if (interestType?.includes('arrendamento')) return 'arrendamento';
+    if (interestType?.includes('aluguer')) return 'aluguer';
+    return 'venda';
+  };
 
-  setUpdating(true); // Usar setUpdating em vez de setConverting
-  setError(null);
-
-  try {
-    // 1. BUSCAR DADOS DA OPORTUNIDADE
-    const opportunityRef = doc(db, OPPORTUNITIES_COLLECTION, opportunityId);
-    const opportunitySnap = await getDoc(opportunityRef);
+  const getRequiredDocuments = (interestType) => {
+    const baseDocuments = ['documento_identidade', 'nif'];
     
-    if (!opportunitySnap.exists()) {
-      throw new Error('Oportunidade não encontrada');
+    if (interestType?.includes('venda')) {
+      return [...baseDocuments, 'certidao_predial', 'licenca_habitacao', 'certidao_energetica'];
     }
-
-    const opportunityData = opportunitySnap.data();
-
-    // 2. VERIFICAR SE JÁ FOI CONVERTIDA
-    if (opportunityData.isConverted) {
-      throw new Error('Oportunidade já foi convertida para negócio');
-    }
-
-    // 3. VALIDAR DADOS MÍNIMOS PARA DEAL
-    if (!dealData.propertyAddress && !dealData.propertyId) {
-      throw new Error('Endereço ou ID da propriedade é obrigatório para criar negócio');
-    }
-
-    if (!dealData.dealValue && !opportunityData.estimatedValue) {
-      throw new Error('Valor do negócio é obrigatório');
-    }
-
-    // 4. PREPARAR DADOS DO DEAL/NEGÓCIO
-    const baseDealData = {
-      // Referências da oportunidade
-      opportunityId: opportunityId,
-      clientId: opportunityData.clientId,
-      clientName: opportunityData.clientName,
-      clientPhone: opportunityData.clientPhone,
-      clientEmail: opportunityData.clientEmail,
-      
-      // Dados do negócio
-      title: dealData.title || `Negócio ${opportunityData.interestType} - ${opportunityData.clientName}`,
-      description: dealData.description || `Negócio criado a partir da oportunidade: ${opportunityData.title}`,
-      
-      // Tipo e categoria
-      dealType: dealData.dealType || getDealTypeFromInterest(opportunityData.interestType),
-      interestType: opportunityData.interestType,
-      category: dealData.category || 'residencial',
-      
-      // Status e pipeline
-      status: dealData.status || 'proposta', // Status inicial do deal
-      priority: dealData.priority || opportunityData.priority || 'normal',
-      
-      // Dados financeiros
-      dealValue: dealData.dealValue || opportunityData.estimatedValue,
-      commissionPercentage: dealData.commissionPercentage || opportunityData.commissionPercentage || 2.5,
-      commissionValue: 0, // Calculado automaticamente
-      expectedCommission: 0, // Calculado automaticamente
-      
-      // Dados da propriedade
-      propertyId: dealData.propertyId || '',
-      propertyAddress: dealData.propertyAddress || '',
-      propertyType: dealData.propertyType || opportunityData.propertyType || '',
-      propertySize: dealData.propertySize || '',
-      propertyCondition: dealData.propertyCondition || 'bom',
-      
-      // Datas importantes
-      proposalDate: dealData.proposalDate || new Date(),
-      expectedClosingDate: dealData.expectedClosingDate || opportunityData.expectedCloseDate || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 dias
-      
-      // Financiamento (se aplicável)
-      financing: {
-        required: dealData.financingRequired || false,
-        bank: dealData.financingBank || '',
-        amount: dealData.financingAmount || 0,
-        status: dealData.financingStatus || 'pendente',
-        preApproved: dealData.preApproved || false
-      },
-      
-      // Partes envolvidas
-      buyerName: dealData.buyerName || (opportunityData.interestType && opportunityData.interestType.includes('compra') ? opportunityData.clientName : ''),
-      sellerName: dealData.sellerName || (opportunityData.interestType && opportunityData.interestType.includes('venda') ? opportunityData.clientName : ''),
-      
-      // Documentação
-      documentsRequired: dealData.documentsRequired || getRequiredDocuments(opportunityData.interestType),
-      documentsStatus: 'pendente',
-      
-      // Notas e observações
-      notes: dealData.notes || `Negócio criado a partir da oportunidade: ${opportunityData.title}`,
-      internalNotes: dealData.internalNotes || '',
-      
-      // Rastreamento
-      source: `converted_from_opportunity_${opportunityId}`,
-      originalOpportunityId: opportunityId,
-      convertedAt: serverTimestamp(),
-      
-      // Campos de auditoria
-      userId: user.uid,
-      userEmail: user.email,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      createdBy: user.uid,
-      lastModifiedBy: user.uid,
-      
-      // Estrutura e metadados
-      structureVersion: '3.0',
-      metadata: {
-        convertedFromOpportunity: true,
-        conversionDate: new Date().toISOString(),
-        opportunityTitle: opportunityData.title,
-        opportunityValue: opportunityData.estimatedValue,
-        userAgent: navigator.userAgent
-      }
-    };
-
-    // 5. CALCULAR COMISSÕES AUTOMATICAMENTE
-    if (baseDealData.dealValue && baseDealData.commissionPercentage) {
-      baseDealData.commissionValue = (baseDealData.dealValue * baseDealData.commissionPercentage) / 100;
-      baseDealData.expectedCommission = baseDealData.commissionValue;
-    }
-
-    // 6. CRIAR DEAL/NEGÓCIO NO FIREBASE
-    const dealDocRef = await addDoc(collection(db, DEALS_COLLECTION), baseDealData);
-
-    // 7. ATUALIZAR OPORTUNIDADE COMO CONVERTIDA
-    await updateDoc(opportunityRef, {
-      status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO, // Oportunidade fechada com sucesso
-      isConverted: true,
-      convertedAt: serverTimestamp(),
-      convertedToDealId: dealDocRef.id,
-      updatedAt: serverTimestamp(),
-      lastModifiedBy: user.uid,
-      
-      // Auditoria da conversão
-      conversionAudit: {
-        convertedBy: user.uid,
-        convertedAt: new Date().toISOString(),
-        dealId: dealDocRef.id,
-        dealValue: baseDealData.dealValue,
-        userAgent: navigator.userAgent
-      }
-    });
-
-    // 8. CRIAR TAREFAS AUTOMÁTICAS INICIAIS PARA O DEAL
-    const initialTasks = await createInitialDealTasks(dealDocRef.id, baseDealData);
-
-    // 9. ATUALIZAR LISTA LOCAL DE OPORTUNIDADES
-    setOpportunities(prev => 
-      prev.map(opp => 
-        opp.id === opportunityId 
-          ? { 
-              ...opp, 
-              status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO,
-              isConverted: true,
-              convertedAt: new Date(),
-              convertedToDealId: dealDocRef.id,
-              updatedAt: new Date()
-            }
-          : opp
-      )
-    );
-
-    setUpdating(false); // Usar setUpdating
     
-    console.log(`Oportunidade ${opportunityId} convertida para deal ${dealDocRef.id}`);
+    if (interestType?.includes('compra')) {
+      return [...baseDocuments, 'comprovativo_rendimentos', 'declaracao_financeira'];
+    }
     
-    return {
-      success: true,
-      opportunityId: opportunityId,
-      dealId: dealDocRef.id,
-      tasksCreated: initialTasks.length,
-      message: `Oportunidade convertida para negócio com sucesso! ${initialTasks.length} tarefas iniciais criadas.`
-    };
-
-  } catch (err) {
-    console.error('Erro ao converter oportunidade para deal:', err);
-    setError(err.message || 'Erro ao converter oportunidade');
-    setUpdating(false); // Usar setUpdating
+    if (interestType?.includes('arrendamento')) {
+      return [...baseDocuments, 'contrato_arrendamento', 'comprovativo_seguros'];
+    }
     
-    return {
-      success: false,
-      message: err.message || 'Erro ao converter oportunidade para negócio'
-    };
-  }
-}, [isUserReady, user?.uid, user?.email]);
+    return baseDocuments;
+  };
 
-// FUNÇÕES AUXILIARES PARA CONVERSÃO (inalteradas)
-
-// Determinar tipo de deal baseado no interesse
-const getDealTypeFromInterest = (interestType) => {
-  if (interestType && interestType.includes('venda')) return 'venda';
-  if (interestType && interestType.includes('compra')) return 'compra';
-  if (interestType && interestType.includes('arrendamento')) return 'arrendamento';
-  if (interestType && interestType.includes('aluguer')) return 'aluguer';
-  return 'venda'; // padrão
-};
-
-// Obter documentos obrigatórios por tipo de interesse
-const getRequiredDocuments = (interestType) => {
-  const baseDocuments = ['documento_identidade', 'nif'];
-  
-  if (interestType && interestType.includes('venda')) {
-    return [...baseDocuments, 'certidao_predial', 'licenca_habitacao', 'certidao_energetica'];
-  }
-  
-  if (interestType && interestType.includes('compra')) {
-    return [...baseDocuments, 'comprovativo_rendimentos', 'declaracao_financeira'];
-  }
-  
-  if (interestType && interestType.includes('arrendamento')) {
-    return [...baseDocuments, 'contrato_arrendamento', 'comprovativo_seguros'];
-  }
-  
-  return baseDocuments;
-};
-
-// Criar tarefas iniciais para o deal
-const createInitialDealTasks = async (dealId, dealData) => {
-  const tasks = [];
-  
-  try {
-    // Tarefa 1: Preparar documentação
-    const docTask = {
-      title: 'Preparar documentação do negócio',
-      description: 'Recolher e validar toda a documentação necessária',
-      type: 'documentos',
-      priority: 'alta',
-      status: 'pendente',
-      dueDate: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), // 3 dias
-      associatedTo: 'negocio',
-      associatedId: dealId,
-      associatedName: dealData.title,
-      dealId: dealId,
-      clientId: dealData.clientId,
-      userId: dealData.userId,
-      userEmail: dealData.userEmail,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
+  const createInitialDealTasks = async (dealId, dealData) => {
+    const tasks = [];
     
-    const docTaskRef = await addDoc(collection(db, 'tasks'), docTask);
-    tasks.push({ id: docTaskRef.id, ...docTask });
-
-    // Tarefa 2: Agendar visita (se necessário)
-    if (dealData.propertyAddress) {
-      const visitTask = {
-        title: 'Agendar visita à propriedade',
-        description: `Agendar visita para ${dealData.propertyAddress}`,
-        type: 'visita',
-        priority: 'alta',
+    try {
+      // Tarefa 1: Preparar documentação
+      const docTask = {
+        title: 'Preparar documentação do negócio',
+        description: 'Recolher e validar toda a documentação necessária',
+        type: 'documentos',
+        priority: UNIFIED_PRIORITIES.ALTA,
         status: 'pendente',
-        dueDate: Timestamp.fromDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)), // 5 dias
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
         associatedTo: 'negocio',
         associatedId: dealId,
         associatedName: dealData.title,
@@ -840,150 +801,171 @@ const createInitialDealTasks = async (dealId, dealData) => {
         userId: dealData.userId,
         userEmail: dealData.userEmail,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        structureVersion: '3.1'
       };
       
-      const visitTaskRef = await addDoc(collection(db, 'tasks'), visitTask);
-      tasks.push({ id: visitTaskRef.id, ...visitTask });
-    }
+      const docTaskRef = await fbService.createDocument(SUBCOLLECTIONS.TASKS, docTask);
+      tasks.push({ id: docTaskRef.id, ...docTask });
 
-    // Tarefa 3: Follow-up com cliente
-    const followUpTask = {
-      title: 'Follow-up - Confirmação de interesse',
-      description: `Contactar ${dealData.clientName} para confirmar interesse no negócio`,
-      type: 'follow_up',
-      priority: 'media',
-      status: 'pendente',
-      dueDate: Timestamp.fromDate(new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)), // 1 dia
-      associatedTo: 'negocio',
-      associatedId: dealId,
-      associatedName: dealData.title,
-      dealId: dealId,
-      clientId: dealData.clientId,
-      userId: dealData.userId,
-      userEmail: dealData.userEmail,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    
-    const followUpTaskRef = await addDoc(collection(db, 'tasks'), followUpTask);
-    tasks.push({ id: followUpTaskRef.id, ...followUpTask });
-
-    console.log(`${tasks.length} tarefas iniciais criadas para deal ${dealId}`);
-    
-  } catch (err) {
-    console.warn('Erro ao criar tarefas iniciais:', err);
-  }
-  
-  return tasks;
-};
-
-
-  // 🗑️ ELIMINAR OPORTUNIDADE (SOFT DELETE)
-  // ======================================
-  const deleteOpportunity = useCallback(async (opportunityId, hardDelete = false) => {
-    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-    
-    setDeleting(true);
-    setError(null);
-    
-    try {
-      const opportunity = opportunities.find(opp => opp.id === opportunityId);
-      const oppRef = doc(db, OPPORTUNITIES_COLLECTION, opportunityId);
-      
-      if (hardDelete) {
-        // Eliminação definitiva
-        await deleteDoc(oppRef);
-        console.log(`Oportunidade ${opportunityId} eliminada permanentemente`);
-      } else {
-        // Soft delete (recomendado)
-        await updateDoc(oppRef, {
-          isActive: false,
-          status: UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO,
-          deletedAt: serverTimestamp(),
-          deletedBy: user.uid,
-          updatedAt: serverTimestamp()
-        });
-        console.log(`Oportunidade ${opportunityId} marcada como inativa`);
-      }
-      
-      // Remover da lista local
-      setOpportunities(prev => prev.filter(opp => opp.id !== opportunityId));
-      
-      // Atualizar contador do cliente
-      if (opportunity?.clientId) {
-        await updateClientOpportunityCount(opportunity.clientId, 'decrement');
+      // Tarefa 2: Agendar visita
+      if (dealData.propertyAddress || dealData.propertyReference) {
+        const visitTask = {
+          title: 'Agendar visita à propriedade',
+          description: `Agendar visita para ${dealData.propertyAddress || dealData.propertyReference}`,
+          type: 'visita',
+          priority: UNIFIED_PRIORITIES.ALTA,
+          status: 'pendente',
+          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          associatedTo: 'negocio',
+          associatedId: dealId,
+          dealId: dealId,
+          clientId: dealData.clientId,
+          userId: dealData.userId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          structureVersion: '3.1'
+        };
+        
+        const visitTaskRef = await fbService.createDocument(SUBCOLLECTIONS.TASKS, visitTask);
+        tasks.push({ id: visitTaskRef.id, ...visitTask });
       }
 
-      return { 
-        success: true, 
-        message: hardDelete ? 'Oportunidade eliminada permanentemente!' : 'Oportunidade removida da lista!' 
+      // Tarefa 3: Follow-up
+      const followUpTask = {
+        title: 'Follow-up - Confirmação de interesse',
+        description: `Contactar ${dealData.clientName} para confirmar interesse no negócio`,
+        type: 'follow_up',
+        priority: UNIFIED_PRIORITIES.NORMAL,
+        status: 'pendente',
+        dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+        associatedTo: 'negocio',
+        associatedId: dealId,
+        dealId: dealId,
+        clientId: dealData.clientId,
+        userId: dealData.userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        structureVersion: '3.1'
       };
+      
+      const followUpTaskRef = await fbService.createDocument(SUBCOLLECTIONS.TASKS, followUpTask);
+      tasks.push({ id: followUpTaskRef.id, ...followUpTask });
+
+      console.log(`${tasks.length} tarefas iniciais criadas para deal ${dealId} (multi-tenant)`);
       
     } catch (err) {
-      console.error('Erro ao eliminar oportunidade:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
+      console.warn('Erro ao criar tarefas iniciais:', err);
+    }
+    
+    return tasks;
+  };
+
+  // 🗑️ ELIMINAR OPORTUNIDADE (MULTI-TENANT)
+  const deleteOpportunity = useCallback(async (opportunityId) => {
+    if (!isUserReady || !opportunityId) {
+      throw new Error('ID da oportunidade é obrigatório');
+    }
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      console.log('🗑️ Eliminando oportunidade:', opportunityId);
+
+      const opportunity = opportunities.find(o => o.id === opportunityId);
+      if (!opportunity) {
+        throw new Error('Oportunidade não encontrada');
+      }
+
+      // Usar transação para atualizar cliente também
+      await runTransaction(db, async (transaction) => {
+        // Eliminar oportunidade
+        await fbService.deleteDocument(OPPORTUNITIES_SUBCOLLECTION, opportunityId);
+        
+        // Atualizar contador no cliente
+        if (opportunity.clientId) {
+          const clientRef = fbService.getDocumentRef(CLIENTS_SUBCOLLECTION, opportunity.clientId);
+          const clientDoc = await transaction.get(clientRef);
+          
+          if (clientDoc.exists()) {
+            const currentCount = clientDoc.data().opportunityCount || 0;
+            transaction.update(clientRef, {
+              opportunityCount: Math.max(0, currentCount - 1),
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+      });
+
+      // Atualizar state local
+      setOpportunities(prev => prev.filter(opportunity => opportunity.id !== opportunityId));
+      setTotalCount(prev => Math.max(0, prev - 1));
+
+      console.log('✅ Oportunidade eliminada com sucesso');
+      return { success: true };
+
+    } catch (err) {
+      console.error('❌ Erro ao eliminar oportunidade:', err);
+      setError(`Erro ao eliminar oportunidade: ${err.message}`);
+      throw err;
     } finally {
       setDeleting(false);
     }
-  }, [isUserReady, user, opportunities]);
+  }, [isUserReady, fbService, opportunities]);
 
-  // 📞 ADICIONAR ATIVIDADE À OPORTUNIDADE
-  // ====================================
+  // 🏃‍♂️ ADICIONAR ATIVIDADE À OPORTUNIDADE
   const addActivity = useCallback(async (opportunityId, activityData) => {
-    if (!isUserReady) return { success: false, error: 'Utilizador não autenticado' };
-    
-    try {
-      const activity = {
-        id: Date.now().toString(),
-        type: activityData.type || ACTIVITY_TYPES.OUTRO,
-        title: activityData.title?.trim() || '',
-        description: activityData.description?.trim() || '',
-        outcome: activityData.outcome?.trim() || '',
-        nextAction: activityData.nextAction?.trim() || '',
-        duration: activityData.duration || null,
-        cost: activityData.cost || null,
-        createdAt: serverTimestamp(),
-        userId: user.uid,
-        userEmail: user.email,
-        structureVersion: '3.0'
-      };
+    if (!isUserReady || !opportunityId || !activityData) {
+      throw new Error('Dados inválidos para atividade');
+    }
 
-      // Encontrar a oportunidade
-      const opportunity = opportunities.find(opp => opp.id === opportunityId);
+    try {
+      console.log('🏃‍♂️ Adicionando atividade:', opportunityId);
+
+      const opportunity = opportunities.find(o => o.id === opportunityId);
       if (!opportunity) {
-        return { success: false, error: 'Oportunidade não encontrada' };
+        throw new Error('Oportunidade não encontrada');
       }
 
-      const activities = [...(opportunity.activities || []), activity];
-      
-      const updateData = {
-        activities,
-        lastActivityDate: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      // Preparar dados da atividade
+      const newActivity = {
+        id: Date.now().toString(),
+        type: activityData.type || ACTIVITY_TYPES.NOTA,
+        title: activityData.title?.trim() || 'Nova atividade',
+        description: activityData.description?.trim() || '',
+        date: activityData.date || new Date().toISOString(),
+        userId: user.uid,
+        userName: userProfile?.displayName || user.displayName || 'Consultor',
+        isSystemGenerated: activityData.isSystemGenerated || false,
+        createdAt: new Date().toISOString()
       };
 
-      await updateOpportunity(opportunityId, updateData);
-
-      console.log(`Atividade adicionada à oportunidade ${opportunityId}`);
+      // Atualizar oportunidade com nova atividade
+      const updatedActivities = [...(opportunity.activities || []), newActivity];
       
-      return { success: true, activity, message: 'Atividade registada com sucesso!' };
+      await updateOpportunity(opportunityId, {
+        activities: updatedActivities,
+        activitiesCount: updatedActivities.length,
+        lastActivity: newActivity,
+        lastContactDate: serverTimestamp()
+      });
+
+      console.log('✅ Atividade adicionada com sucesso');
+      return { success: true, activity: newActivity };
       
     } catch (err) {
-      console.error('Erro ao adicionar atividade:', err);
+      console.error('❌ Erro ao adicionar atividade:', err);
       return { success: false, error: err.message };
     }
-  }, [isUserReady, user, opportunities, updateOpportunity]);
+  }, [isUserReady, user, userProfile, opportunities, updateOpportunity]);
 
   // 🔍 PESQUISAR OPORTUNIDADES
-  // ==========================
   const searchOpportunities = useCallback((searchTerm) => {
     setFilters(prev => ({ ...prev, searchTerm }));
   }, []);
 
-  // 📊 ESTATÍSTICAS UNIFICADAS
-  // ==========================
+  // 📊 ESTATÍSTICAS UNIFICADAS E AVANÇADAS
   const getOpportunityStats = useCallback(() => {
     const stats = {
       total: opportunities.length,
@@ -996,9 +978,25 @@ const createInitialDealTasks = async (dealId, dealData) => {
         totalCommission: 0,
         pipelineValue: 0,
         averageValue: 0,
-        conversionRate: 0
+        conversionRate: 0,
+        averageDealSize: 0,
+        totalWonValue: 0,
+        totalLostValue: 0
+      },
+      pipeline: {
+        totalOpportunities: 0,
+        weightedValue: 0,
+        averageProbability: 0
+      },
+      timeMetrics: {
+        averageTimeToClose: 0,
+        averageTimeInStage: {},
+        oldestOpportunity: null,
+        newestOpportunity: null
       }
     };
+
+    if (opportunities.length === 0) return stats;
 
     // Contar por status unificado
     Object.values(UNIFIED_OPPORTUNITY_STATUS).forEach(status => {
@@ -1020,113 +1018,145 @@ const createInitialDealTasks = async (dealId, dealData) => {
       stats.byPriority[priority] = opportunities.filter(opp => opp.priority === priority).length;
     });
 
-    // Calcular métricas financeiras
+    // Calcular métricas financeiras avançadas
     const totalValue = opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0);
     const totalCommission = opportunities.reduce((sum, opp) => sum + (opp.commissionValue || 0), 0);
     const pipelineValue = opportunities.reduce((sum, opp) => sum + (opp.pipelineValue || 0), 0);
     
-    const wonCount = stats.byStatus[UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO] || 0;
-    const lostCount = stats.byStatus[UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO] || 0;
-    const totalClosed = wonCount + lostCount;
+    const wonOpportunities = opportunities.filter(opp => opp.status === UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO);
+    const lostOpportunities = opportunities.filter(opp => opp.status === UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO);
+    const totalClosed = wonOpportunities.length + lostOpportunities.length;
     
+    const totalWonValue = wonOpportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0);
+    const totalLostValue = lostOpportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0);
+
     stats.financials = {
       totalValue,
       totalCommission,
       pipelineValue,
       averageValue: stats.total > 0 ? totalValue / stats.total : 0,
-      conversionRate: totalClosed > 0 ? (wonCount / totalClosed * 100).toFixed(1) : 0
+      conversionRate: totalClosed > 0 ? (wonOpportunities.length / totalClosed * 100).toFixed(1) : 0,
+      averageDealSize: wonOpportunities.length > 0 ? totalWonValue / wonOpportunities.length : 0,
+      totalWonValue,
+      totalLostValue
     };
+
+    // Métricas de pipeline
+    const activeOpportunities = opportunities.filter(opp => 
+      opp.status !== UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO && 
+      opp.status !== UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO
+    );
+    
+    const totalProbabilities = activeOpportunities.reduce((sum, opp) => sum + (opp.probability || 0), 0);
+    
+    stats.pipeline = {
+      totalOpportunities: activeOpportunities.length,
+      weightedValue: pipelineValue,
+      averageProbability: activeOpportunities.length > 0 ? totalProbabilities / activeOpportunities.length : 0
+    };
+
+    // Métricas de tempo
+    const opportunitiesWithDates = opportunities.filter(opp => opp.createdAt);
+    if (opportunitiesWithDates.length > 0) {
+      const dates = opportunitiesWithDates.map(opp => new Date(opp.createdAt.seconds * 1000));
+      stats.timeMetrics.oldestOpportunity = new Date(Math.min(...dates));
+      stats.timeMetrics.newestOpportunity = new Date(Math.max(...dates));
+    }
 
     return stats;
   }, [opportunities]);
 
-  // 🔧 FUNÇÕES AUXILIARES
-  // =====================
-  const updateClientOpportunityCount = async (clientId, action) => {
-    try {
-      const clientRef = doc(db, CLIENTS_COLLECTION, clientId);
-      const clientDoc = await getDoc(clientRef);
-      
-      if (clientDoc.exists()) {
-        const currentCount = clientDoc.data().opportunityCount || 0;
-        const newCount = action === 'increment' ? currentCount + 1 : Math.max(0, currentCount - 1);
-        
-        await updateDoc(clientRef, {
-          opportunityCount: newCount,
-          updatedAt: serverTimestamp()
-        });
-      }
-    } catch (err) {
-      console.warn('Erro ao atualizar contador do cliente:', err);
-    }
-  };
+  // 📈 OBTER DADOS PARA PIPELINE VISUAL
+  const getPipelineData = useCallback(() => {
+    const pipeline = {};
+    
+    // Inicializar pipeline com todos os status
+    Object.values(UNIFIED_OPPORTUNITY_STATUS).forEach(status => {
+      pipeline[status] = {
+        opportunities: [],
+        count: 0,
+        totalValue: 0,
+        totalCommission: 0,
+        pipelineValue: 0
+      };
+    });
 
-  const getStatusLabel = (status) => {
-    const labels = {
+    // Agrupar oportunidades por status
+    opportunities.forEach(opportunity => {
+      const status = opportunity.status || UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO;
+      if (pipeline[status]) {
+        pipeline[status].opportunities.push(opportunity);
+        pipeline[status].count++;
+        pipeline[status].totalValue += opportunity.estimatedValue || 0;
+        pipeline[status].totalCommission += opportunity.commissionValue || 0;
+        pipeline[status].pipelineValue += opportunity.pipelineValue || 0;
+      }
+    });
+
+    return pipeline;
+  }, [opportunities]);
+
+  // 📊 OBTER OPORTUNIDADES POR CLIENTE
+  const getOpportunitiesByClient = useCallback((clientId) => {
+    if (!clientId) return [];
+    return opportunities.filter(opp => opp.clientId === clientId);
+  }, [opportunities]);
+
+  // 🔄 CARREGAR DADOS INICIAIS
+  useEffect(() => {
+    if (isUserReady) {
+      console.log('🔄 Carregando oportunidades iniciais...');
+      fetchOpportunities();
+    }
+  }, [isUserReady, fetchOpportunities]);
+
+  // 🔄 RECARREGAR QUANDO FILTROS MUDAM
+  useEffect(() => {
+    if (isUserReady && lastFetchTime) {
+      console.log('🔍 Aplicando filtros...');
+      fetchOpportunities();
+    }
+  }, [filters.status, filters.opportunityType, filters.interestType, filters.priority, filters.clientId, filters.dateRange]);
+
+  // 🎯 FUNÇÃO AUXILIAR: OBTER LABEL DE STATUS
+  const getStatusLabel = useCallback((status) => {
+    const statusLabels = {
       [UNIFIED_OPPORTUNITY_STATUS.IDENTIFICACAO]: 'Identificação',
       [UNIFIED_OPPORTUNITY_STATUS.QUALIFICACAO]: 'Qualificação',
       [UNIFIED_OPPORTUNITY_STATUS.APRESENTACAO]: 'Apresentação',
       [UNIFIED_OPPORTUNITY_STATUS.NEGOCIACAO]: 'Negociação',
       [UNIFIED_OPPORTUNITY_STATUS.PROPOSTA]: 'Proposta',
       [UNIFIED_OPPORTUNITY_STATUS.CONTRATO]: 'Contrato',
-      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO]: 'Fechado Ganho',
-      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO]: 'Fechado Perdido',
+      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_GANHO]: 'Fechado (Ganho)',
+      [UNIFIED_OPPORTUNITY_STATUS.FECHADO_PERDIDO]: 'Fechado (Perdido)',
       [UNIFIED_OPPORTUNITY_STATUS.PAUSADO]: 'Pausado'
     };
-    return labels[status] || status;
-  };
+    return statusLabels[status] || status;
+  }, []);
 
-  // 🔄 EFFECTS
-  // ==========
-  useEffect(() => {
-    if (isUserReady) {
-      console.log('useOpportunities: Utilizador pronto, carregando oportunidades...');
-      fetchOpportunities();
-    }
-  }, [isUserReady, fetchOpportunities]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-useEffect(() => {
-  if (error) {
-    const timer = setTimeout(() => setError(null), 5000);
-    return () => clearTimeout(timer);
-  }
-}, [error]);
-
-// 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR ESTE BLOCO AQUI
-useEffect(() => {
-  const handleCrmSync = (event) => {
-    console.log('useOpportunities: Sincronização recebida', event.detail);
-    if (event.detail.type === 'lead-conversion') {
-      console.log('Refrescando lista de oportunidades após conversão...');
-      fetchOpportunities();
+  // 🎯 FUNÇÃO AUXILIAR: ATUALIZAR CONTADOR DE OPORTUNIDADES DO CLIENTE
+  const updateClientOpportunityCount = async (clientId, action) => {
+    try {
+      const clientRef = fbService.getDocumentRef(CLIENTS_SUBCOLLECTION, clientId);
+      const clientDoc = await fbService.getDocument(CLIENTS_SUBCOLLECTION, clientId);
+      
+      if (clientDoc) {
+        const currentCount = clientDoc.opportunityCount || 0;
+        const newCount = action === 'increment' ? currentCount + 1 : Math.max(0, currentCount - 1);
+        
+        await fbService.updateDocument(CLIENTS_SUBCOLLECTION, clientId, {
+          opportunityCount: newCount,
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (err) {
+      console.error('❌ Erro ao atualizar contador do cliente:', err);
     }
   };
 
-  window.refreshOpportunities = async () => {
-    console.log('RefreshOpportunities chamada globalmente');
-    await fetchOpportunities();
-  };
-
-  window.addEventListener('crm-data-sync', handleCrmSync);
-
-  return () => {
-    window.removeEventListener('crm-data-sync', handleCrmSync);
-    delete window.refreshOpportunities;
-  };
-}, [fetchOpportunities]);
-
-
-  // 📤 RETORNO DO HOOK UNIFICADO
-  // ============================
+  // 🎯 RETORNO DO HOOK - INTERFACE COMPLETA
   return {
-    // Estados
+    // Estados principais
     opportunities,
     loading,
     error,
@@ -1135,11 +1165,13 @@ useEffect(() => {
     deleting,
     filters,
 
-    // Ações principais
+    // Ações principais (CRUD)
     createOpportunity,
     updateOpportunity,
     updateOpportunityStatus,
     deleteOpportunity,
+    convertToDeal,
+    convertOpportunityToDeal,
     addActivity,
     
     // Busca e filtros
@@ -1147,16 +1179,23 @@ useEffect(() => {
     searchOpportunities,
     setFilters,
     
-    // Estatísticas
+    // Estatísticas e analytics
     getOpportunityStats,
+    getPipelineData,
+    getOpportunitiesByClient,
     
-    // Constantes unificadas (compatibilidade)
+    // Dados computados
+    totalCount,
+    hasMore,
+    lastFetchTime,
+    
+    // Constantes e helpers
     OPPORTUNITY_STATUS: UNIFIED_OPPORTUNITY_STATUS,
     OPPORTUNITY_TYPES,
     ACTIVITY_TYPES,
     OPPORTUNITY_STATUS_COLORS,
     
-    // Novos: constantes unificadas
+    // Constantes unificadas (exportar para compatibilidade)
     UNIFIED_OPPORTUNITY_STATUS,
     UNIFIED_OPPORTUNITY_PROBABILITIES,
     UNIFIED_INTEREST_TYPES,
@@ -1165,7 +1204,7 @@ useEffect(() => {
     OPPORTUNITY_TYPE_LABELS,
     ACTIVITY_TYPE_LABELS,
     
-    // Helpers unificados
+    // Funções auxiliares
     getInterestTypeLabel,
     getBudgetRangeLabel,
     formatCurrency,
@@ -1176,9 +1215,11 @@ useEffect(() => {
     isConnected: isUserReady && !error,
     isUserReady,
     
-    // Informações da estrutura
-    structureVersion: '3.0',
-    isUnified: true
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    isUnified: true,
+    structureVersion: '3.1-multi-tenant'
   };
 };
 
