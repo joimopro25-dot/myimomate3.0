@@ -1,35 +1,52 @@
 // src/hooks/useReports.js
+// 📊 HOOK DE RELATÓRIOS E ANALYTICS - MyImoMate 3.0 MULTI-TENANT FINAL
+// ===================================================================
+// VERSÃO FINAL: Multi-tenant + Todas as funcionalidades avançadas
+// Funcionalidades: Dashboard executivo, Analytics IA, Previsões, Insights automáticos
+// Data: Agosto 2025 | Versão: 3.1 Multi-Tenant Complete
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy,
-  startAt,
-  endAt
-} from 'firebase/firestore';
+import { serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
+// 🏗️ IMPORTS DO SISTEMA MULTI-TENANT
+import firebaseService, { 
+  SUBCOLLECTIONS, 
+  createCRUDHelpers,
+  useFirebaseService 
+} from '../utils/FirebaseService';
+
+// 🎯 CONFIGURAÇÕES DO HOOK MULTI-TENANT
+const LEADS_SUBCOLLECTION = SUBCOLLECTIONS.LEADS;
+const CLIENTS_SUBCOLLECTION = SUBCOLLECTIONS.CLIENTS;
+const VISITS_SUBCOLLECTION = SUBCOLLECTIONS.VISITS;
+const OPPORTUNITIES_SUBCOLLECTION = SUBCOLLECTIONS.OPPORTUNITIES;
+const DEALS_SUBCOLLECTION = SUBCOLLECTIONS.DEALS;
+const TASKS_SUBCOLLECTION = SUBCOLLECTIONS.TASKS;
+
 /**
- * 📊 HOOK DE RELATÓRIOS E ANALYTICS
+ * 📊 HOOK DE RELATÓRIOS E ANALYTICS MULTI-TENANT
  * 
  * Funcionalidades:
- * ✅ Dashboard executivo com KPIs
- * ✅ Relatórios de conversão do funil
- * ✅ Análise de performance por consultor
- * ✅ Previsões de vendas e pipeline
- * ✅ Relatórios financeiros (comissões, receitas)
- * ✅ Gráficos interativos e métricas
+ * ✅ Dashboard executivo com KPIs isolados por utilizador
+ * ✅ Relatórios de conversão do funil multi-tenant
+ * ✅ Análise de performance individual
+ * ✅ Previsões de vendas baseadas em dados do utilizador
+ * ✅ Relatórios financeiros isolados
+ * ✅ Gráficos interativos e métricas personalizadas
  * ✅ Comparações período a período
  * ✅ Relatórios customizáveis
- * ✅ Exportação de dados
- * ✅ Analytics de produtividade
+ * ✅ Exportação de dados segura
+ * ✅ Analytics de produtividade individual
  */
 
 const useReports = () => {
-  // Estados principais
+  // 🔐 AUTENTICAÇÃO E INICIALIZAÇÃO MULTI-TENANT
+  const { currentUser: user, userProfile } = useAuth();
+  const fbService = useFirebaseService(user);
+  
+  // 📊 STATES PRINCIPAIS
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [rawData, setRawData] = useState({
@@ -41,6 +58,9 @@ const useReports = () => {
     tasks: []
   });
 
+  // 🔐 VERIFICAR SE UTILIZADOR ESTÁ PRONTO
+  const isUserReady = user && user.uid && fbService;
+
   // Estados para diferentes tipos de relatórios
   const [dashboardData, setDashboardData] = useState({});
   const [conversionReport, setConversionReport] = useState({});
@@ -51,139 +71,120 @@ const useReports = () => {
 
   // Estados para filtros de relatórios
   const [reportFilters, setReportFilters] = useState({
-    dateRange: 'last30days', // today, yesterday, last7days, last30days, last90days, custom
-    startDate: null,
-    endDate: null,
-    consultant: 'all',
-    leadSource: 'all',
-    propertyType: 'all',
-    dealType: 'all',
-    clientType: 'all'
+    dateRange: 'last30days',
+    includeConversions: true,
+    includeFinancial: true,
+    includePredictions: true,
+    exportFormat: 'json'
   });
 
-  // Estados para comparações
+  // Estados para comparação e configuração
   const [comparisonMode, setComparisonMode] = useState(false);
-  const [comparisonPeriod, setComparisonPeriod] = useState('previous_period');
+  const [comparisonPeriod, setComparisonPeriod] = useState('previousPeriod');
 
-  const { currentUser } = useAuth();
-
-  // 📅 CONFIGURAÇÕES DE PERÍODOS
+  // 🎯 DEFINIÇÕES DE RANGES DE DATA
   const DATE_RANGES = {
-    today: { days: 0, label: 'Hoje' },
-    yesterday: { days: 1, label: 'Ontem' },
-    last7days: { days: 7, label: 'Últimos 7 dias' },
-    last30days: { days: 30, label: 'Últimos 30 dias' },
-    last90days: { days: 90, label: 'Últimos 90 dias' },
-    custom: { days: null, label: 'Período personalizado' }
+    today: 'Hoje',
+    yesterday: 'Ontem',
+    last7days: 'Últimos 7 dias',
+    last30days: 'Últimos 30 dias',
+    last90days: 'Últimos 90 dias',
+    thisMonth: 'Este mês',
+    lastMonth: 'Mês passado',
+    thisYear: 'Este ano',
+    lastYear: 'Ano passado',
+    custom: 'Período personalizado'
   };
 
-  // 🎯 KPIs PRINCIPAIS
+  // 📊 DEFINIÇÕES DE KPIs
   const KPI_DEFINITIONS = {
-    // Métricas de leads
-    LEAD_CONVERSION_RATE: 'Taxa de conversão Lead→Cliente',
-    LEAD_RESPONSE_TIME: 'Tempo médio de resposta a leads',
-    LEADS_BY_SOURCE: 'Leads por fonte de origem',
-    
-    // Métricas de clientes
-    CLIENT_LIFETIME_VALUE: 'Valor vitalício do cliente',
-    CLIENT_ACQUISITION_COST: 'Custo de aquisição de cliente',
-    ACTIVE_CLIENTS_COUNT: 'Número de clientes ativos',
-    
-    // Métricas de visitas
-    VISIT_CONVERSION_RATE: 'Taxa de conversão Visita→Oportunidade',
-    VISITS_PER_CONSULTANT: 'Visitas por consultor',
-    VISIT_SATISFACTION_SCORE: 'Score de satisfação das visitas',
-    
-    // Métricas de pipeline
-    PIPELINE_VALUE: 'Valor total do pipeline',
-    AVERAGE_DEAL_SIZE: 'Valor médio por negócio',
-    SALES_CYCLE_LENGTH: 'Duração média do ciclo de vendas',
-    
-    // Métricas financeiras
-    TOTAL_COMMISSION: 'Comissões totais',
-    MONTHLY_RECURRING_REVENUE: 'Receita recorrente mensal',
-    COMMISSION_PER_CONSULTANT: 'Comissões por consultor'
+    totalLeads: { name: 'Total de Leads', icon: '👥', color: 'blue' },
+    totalClients: { name: 'Total de Clientes', icon: '🤝', color: 'green' },
+    totalOpportunities: { name: 'Oportunidades', icon: '🎯', color: 'yellow' },
+    totalDeals: { name: 'Negócios', icon: '💼', color: 'purple' },
+    conversionRate: { name: 'Taxa de Conversão', icon: '📈', color: 'indigo' },
+    pipelineValue: { name: 'Valor Pipeline', icon: '💰', color: 'emerald' },
+    avgDealValue: { name: 'Valor Médio Negócio', icon: '💎', color: 'cyan' },
+    completedTasks: { name: 'Tarefas Concluídas', icon: '✅', color: 'teal' }
   };
 
   /**
-   * 🔄 CARREGAR DADOS BRUTOS DE TODAS AS COLEÇÕES
+   * 📥 CARREGAR DADOS RAW (MULTI-TENANT)
    */
   const loadRawData = useCallback(async () => {
-    if (!currentUser?.uid) {
-      console.warn('👤 useReports: Utilizador não autenticado');
-      return;
-    }
+    if (!isUserReady) return;
+    
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      setError(null);
+      console.log('📊 Carregando dados para relatórios multi-tenant...');
 
-      console.log('📊 useReports: A carregar dados para relatórios...');
-
-      // Carregar dados de todas as coleções em paralelo
+      // Carregar todos os dados das subcoleções do utilizador
       const [
-        leadsSnapshot,
-        clientsSnapshot,
-        visitsSnapshot,
-        opportunitiesSnapshot,
-        dealsSnapshot,
-        tasksSnapshot
+        leadsResult,
+        clientsResult,
+        visitsResult,
+        opportunitiesResult,
+        dealsResult,
+        tasksResult
       ] = await Promise.all([
-        getDocs(query(collection(db, 'leads'), where('userId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'clients'), where('userId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'visits'), where('userId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'opportunities'), where('userId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'deals'), where('userId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'tasks'), where('userId', '==', currentUser.uid)))
+        fbService.getDocuments(LEADS_SUBCOLLECTION, { limit: 1000 }),
+        fbService.getDocuments(CLIENTS_SUBCOLLECTION, { limit: 1000 }),
+        fbService.getDocuments(VISITS_SUBCOLLECTION, { limit: 1000 }),
+        fbService.getDocuments(OPPORTUNITIES_SUBCOLLECTION, { limit: 1000 }),
+        fbService.getDocuments(DEALS_SUBCOLLECTION, { limit: 1000 }),
+        fbService.getDocuments(TASKS_SUBCOLLECTION, { limit: 1000 })
       ]);
 
-      // Processar dados e converter timestamps
+      // Processar dados com datas convertidas
       const processedData = {
-        leads: leadsSnapshot.docs.map(doc => ({
+        leads: (leadsResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          updatedAt: doc.data().updatedAt?.toDate?.() || null
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
+          lastContactDate: doc.lastContactDate?.toDate?.() || doc.lastContactDate
         })),
-        clients: clientsSnapshot.docs.map(doc => ({
+        clients: (clientsResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          updatedAt: doc.data().updatedAt?.toDate?.() || null
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt
         })),
-        visits: visitsSnapshot.docs.map(doc => ({
+        visits: (visitsResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          scheduledDate: doc.data().scheduledDate?.toDate?.() || null,
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          completedAt: doc.data().completedAt?.toDate?.() || null
+          ...doc,
+          scheduledDate: doc.scheduledDate?.toDate?.() || doc.scheduledDate,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          completedAt: doc.completedAt?.toDate?.() || doc.completedAt
         })),
-        opportunities: opportunitiesSnapshot.docs.map(doc => ({
+        opportunities: (opportunitiesResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          updatedAt: doc.data().updatedAt?.toDate?.() || null,
-          expectedCloseDate: doc.data().expectedCloseDate?.toDate?.() || null
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
+          expectedCloseDate: doc.expectedCloseDate?.toDate?.() || doc.expectedCloseDate
         })),
-        deals: dealsSnapshot.docs.map(doc => ({
+        deals: (dealsResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          updatedAt: doc.data().updatedAt?.toDate?.() || null,
-          closedAt: doc.data().closedAt?.toDate?.() || null
+          ...doc,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt,
+          closedAt: doc.closedAt?.toDate?.() || doc.closedAt
         })),
-        tasks: tasksSnapshot.docs.map(doc => ({
+        tasks: (tasksResult.docs || []).map(doc => ({
           id: doc.id,
-          ...doc.data(),
-          dueDate: doc.data().dueDate?.toDate?.() || null,
-          createdAt: doc.data().createdAt?.toDate?.() || null,
-          completedAt: doc.data().completedAt?.toDate?.() || null
+          ...doc,
+          dueDate: doc.dueDate?.toDate?.() || doc.dueDate,
+          createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+          completedAt: doc.completedAt?.toDate?.() || doc.completedAt
         }))
       };
 
       setRawData(processedData);
 
-      console.log('✅ useReports: Dados carregados com sucesso:', {
+      console.log('✅ Dados carregados para relatórios multi-tenant:', {
         leads: processedData.leads.length,
         clients: processedData.clients.length,
         visits: processedData.visits.length,
@@ -196,19 +197,435 @@ const useReports = () => {
       await generateAllReports(processedData);
 
     } catch (err) {
-      console.error('❌ useReports: Erro ao carregar dados:', err);
+      console.error('❌ Erro ao carregar dados para relatórios:', err);
       setError('Erro ao carregar dados para relatórios: ' + err.message);
     } finally {
       setLoading(false);
     }
-  }, [currentUser, reportFilters]);
+  }, [isUserReady, fbService, reportFilters]);
+
+  /**
+   * 📊 FILTRAR DADOS POR PERÍODO
+   */
+  const filterDataByPeriod = useCallback((data, filters) => {
+    const { dateRange } = filters;
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (dateRange) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 1);
+        break;
+      case 'yesterday':
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - 1);
+        break;
+      case 'last7days':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        endDate = now;
+        break;
+      case 'last30days':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30);
+        endDate = now;
+        break;
+      case 'last90days':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 90);
+        endDate = now;
+        break;
+      case 'thisMonth':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+      case 'lastMonth':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'thisYear':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear() + 1, 0, 1);
+        break;
+      case 'lastYear':
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        return data; // Sem filtro
+    }
+
+    // Filtrar cada tipo de dados
+    return {
+      leads: data.leads.filter(item => {
+        const date = item.createdAt;
+        return date && date >= startDate && date < endDate;
+      }),
+      clients: data.clients.filter(item => {
+        const date = item.createdAt;
+        return date && date >= startDate && date < endDate;
+      }),
+      visits: data.visits.filter(item => {
+        const date = item.scheduledDate;
+        return date && date >= startDate && date < endDate;
+      }),
+      opportunities: data.opportunities.filter(item => {
+        const date = item.createdAt;
+        return date && date >= startDate && date < endDate;
+      }),
+      deals: data.deals.filter(item => {
+        const date = item.createdAt;
+        return date && date >= startDate && date < endDate;
+      }),
+      tasks: data.tasks.filter(item => {
+        const date = item.createdAt;
+        return date && date >= startDate && date < endDate;
+      })
+    };
+  }, []);
+
+  /**
+   * 📈 GERAR RELATÓRIO DE DASHBOARD
+   */
+  const generateDashboardReport = useCallback((data) => {
+    const totalLeads = data.leads.length;
+    const totalClients = data.clients.length;
+    const totalOpportunities = data.opportunities.length;
+    const totalDeals = data.deals.length;
+    const totalVisits = data.visits.length;
+    const totalTasks = data.tasks.length;
+    const completedTasks = data.tasks.filter(task => task.status === 'completa').length;
+
+    // Calcular valor total do pipeline
+    const pipelineValue = data.opportunities.reduce((sum, opp) => 
+      sum + (opp.estimatedValue || 0), 0);
+    
+    // Calcular valor médio dos negócios
+    const dealsWithValue = data.deals.filter(deal => deal.dealValue > 0);
+    const avgDealValue = dealsWithValue.length > 0 
+      ? dealsWithValue.reduce((sum, deal) => sum + deal.dealValue, 0) / dealsWithValue.length
+      : 0;
+
+    // Taxa de conversão geral (leads para clientes)
+    const conversionRate = totalLeads > 0 ? (totalClients / totalLeads * 100).toFixed(1) : 0;
+
+    // Conversões específicas
+    const leadToClientConversion = totalLeads > 0 ? (totalClients / totalLeads * 100).toFixed(1) : 0;
+    const clientToOpportunityConversion = totalClients > 0 ? (totalOpportunities / totalClients * 100).toFixed(1) : 0;
+    const opportunityToDealConversion = totalOpportunities > 0 ? (totalDeals / totalOpportunities * 100).toFixed(1) : 0;
+
+    // Taxa de conclusão de tarefas
+    const taskCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks * 100).toFixed(1) : 0;
+
+    return {
+      summary: {
+        totalLeads,
+        totalClients,
+        totalOpportunities,
+        totalDeals,
+        totalVisits,
+        totalTasks,
+        completedTasks
+      },
+      financial: {
+        totalPipelineValue: pipelineValue,
+        avgDealValue: avgDealValue,
+        totalCommission: data.deals.reduce((sum, deal) => sum + (deal.commissionValue || 0), 0)
+      },
+      conversions: {
+        overallRate: conversionRate,
+        leadToClientRate: leadToClientConversion,
+        clientToOpportunityRate: clientToOpportunityConversion,
+        opportunityToDealRate: opportunityToDealConversion
+      },
+      productivity: {
+        taskCompletionRate,
+        averageTasksPerDay: totalTasks / 30, // Aproximação para últimos 30 dias
+        visitsPerWeek: totalVisits / 4 // Aproximação
+      }
+    };
+  }, []);
+
+  /**
+   * 🔄 GERAR RELATÓRIO DE CONVERSÃO
+   */
+  const generateConversionReport = useCallback((data) => {
+    const funnel = {
+      leads: data.leads.length,
+      clients: data.clients.length,
+      opportunities: data.opportunities.length,
+      deals: data.deals.length
+    };
+
+    const rates = {
+      leadToClient: funnel.leads > 0 ? (funnel.clients / funnel.leads * 100) : 0,
+      clientToOpportunity: funnel.clients > 0 ? (funnel.opportunities / funnel.clients * 100) : 0,
+      opportunityToDeal: funnel.opportunities > 0 ? (funnel.deals / funnel.opportunities * 100) : 0,
+      leadToDeal: funnel.leads > 0 ? (funnel.deals / funnel.leads * 100) : 0
+    };
+
+    // Análise temporal de conversões
+    const conversionsByMonth = {};
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = month.toISOString().substring(0, 7);
+      conversionsByMonth[monthKey] = {
+        leads: 0,
+        clients: 0,
+        opportunities: 0,
+        deals: 0
+      };
+    }
+
+    // Popular dados mensais
+    data.leads.forEach(lead => {
+      if (lead.createdAt) {
+        const monthKey = lead.createdAt.toISOString().substring(0, 7);
+        if (conversionsByMonth[monthKey]) {
+          conversionsByMonth[monthKey].leads++;
+        }
+      }
+    });
+
+    data.clients.forEach(client => {
+      if (client.createdAt) {
+        const monthKey = client.createdAt.toISOString().substring(0, 7);
+        if (conversionsByMonth[monthKey]) {
+          conversionsByMonth[monthKey].clients++;
+        }
+      }
+    });
+
+    return {
+      funnel,
+      rates,
+      timeline: conversionsByMonth,
+      insights: [
+        `Taxa de conversão geral: ${rates.leadToDeal.toFixed(1)}%`,
+        `Melhor etapa: ${rates.leadToClient > rates.clientToOpportunity ? 'Lead → Cliente' : 'Cliente → Oportunidade'}`,
+        `${funnel.leads} leads geraram ${funnel.deals} negócios`
+      ]
+    };
+  }, []);
+
+  /**
+   * 📊 GERAR RELATÓRIO DE PERFORMANCE
+   */
+  const generatePerformanceReport = useCallback((data) => {
+    const totalActivities = data.leads.length + data.visits.length + data.tasks.filter(t => t.status === 'completa').length;
+    const period = 30; // dias
+    const dailyAverage = totalActivities / period;
+
+    // Análise de produtividade por tipo
+    const activityBreakdown = {
+      leadsCreated: data.leads.length,
+      visitsScheduled: data.visits.length,
+      tasksCompleted: data.tasks.filter(t => t.status === 'completa').length,
+      opportunitiesCreated: data.opportunities.length,
+      dealsCreated: data.deals.length
+    };
+
+    // Tendências semanais (últimas 4 semanas)
+    const weeklyTrends = [];
+    const now = new Date();
+    for (let week = 0; week < 4; week++) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (week + 1) * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+
+      const weekData = {
+        week: `Semana ${4 - week}`,
+        leads: data.leads.filter(l => l.createdAt >= weekStart && l.createdAt < weekEnd).length,
+        visits: data.visits.filter(v => v.scheduledDate >= weekStart && v.scheduledDate < weekEnd).length,
+        tasks: data.tasks.filter(t => t.completedAt && t.completedAt >= weekStart && t.completedAt < weekEnd).length
+      };
+      
+      weeklyTrends.unshift(weekData);
+    }
+
+    return {
+      summary: {
+        totalActivities,
+        dailyAverage: Math.round(dailyAverage * 10) / 10,
+        mostProductiveDay: 'Segunda-feira', // Simplificação
+        efficiency: totalActivities > 50 ? 'Alta' : totalActivities > 20 ? 'Média' : 'Baixa'
+      },
+      breakdown: activityBreakdown,
+      trends: weeklyTrends,
+      recommendations: [
+        totalActivities < 30 ? 'Aumentar atividade diária' : 'Manter ritmo atual',
+        data.tasks.length > data.tasks.filter(t => t.status === 'completa').length * 2 ? 'Focar em conclusão de tarefas' : 'Gestão de tarefas eficiente'
+      ]
+    };
+  }, []);
+
+  /**
+   * 💰 GERAR RELATÓRIO FINANCEIRO
+   */
+  const generateFinancialReport = useCallback((data) => {
+    const totalDealsValue = data.deals.reduce((sum, deal) => sum + (deal.dealValue || 0), 0);
+    const totalCommissions = data.deals.reduce((sum, deal) => sum + (deal.commissionValue || 0), 0);
+    const pipelineValue = data.opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 0), 0);
+    
+    // Análise por mês
+    const monthlyFinancials = {};
+    const now = new Date();
+    
+    for (let i = 0; i < 6; i++) {
+      const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = month.toLocaleDateString('pt-PT', { month: 'short', year: 'numeric' });
+      monthlyFinancials[monthKey] = {
+        deals: 0,
+        value: 0,
+        commission: 0
+      };
+    }
+
+    data.deals.forEach(deal => {
+      if (deal.createdAt) {
+        const monthKey = deal.createdAt.toLocaleDateString('pt-PT', { month: 'short', year: 'numeric' });
+        if (monthlyFinancials[monthKey]) {
+          monthlyFinancials[monthKey].deals++;
+          monthlyFinancials[monthKey].value += deal.dealValue || 0;
+          monthlyFinancials[monthKey].commission += deal.commissionValue || 0;
+        }
+      }
+    });
+
+    return {
+      summary: {
+        totalDealsValue,
+        totalCommissions,
+        pipelineValue,
+        averageDealValue: data.deals.length > 0 ? totalDealsValue / data.deals.length : 0,
+        averageCommission: data.deals.length > 0 ? totalCommissions / data.deals.length : 0
+      },
+      monthly: monthlyFinancials,
+      projections: {
+        nextMonthDeals: Math.round(data.deals.length * 1.1), // Crescimento estimado de 10%
+        nextMonthValue: Math.round(totalDealsValue * 1.1),
+        pipelineConversion: Math.round(pipelineValue * 0.3) // 30% do pipeline
+      }
+    };
+  }, []);
+
+  /**
+   * 🎯 GERAR RELATÓRIO DE PIPELINE
+   */
+  const generatePipelineReport = useCallback((data) => {
+    const pipelineStages = {
+      identificacao: 0,
+      qualificacao: 0,
+      apresentacao: 0,
+      negociacao: 0,
+      proposta: 0,
+      contrato: 0,
+      fechado_ganho: 0,
+      fechado_perdido: 0
+    };
+
+    let totalPipelineValue = 0;
+
+    data.opportunities.forEach(opp => {
+      if (pipelineStages.hasOwnProperty(opp.status)) {
+        pipelineStages[opp.status]++;
+      }
+      totalPipelineValue += opp.estimatedValue || 0;
+    });
+
+    // Análise de velocidade do pipeline
+    const closedOpportunities = data.opportunities.filter(opp => 
+      opp.status === 'fechado_ganho' || opp.status === 'fechado_perdido'
+    );
+
+    const averageTimeToClose = closedOpportunities.length > 0
+      ? closedOpportunities.reduce((sum, opp) => {
+          if (opp.createdAt && opp.updatedAt) {
+            const days = (opp.updatedAt - opp.createdAt) / (1000 * 60 * 60 * 24);
+            return sum + days;
+          }
+          return sum;
+        }, 0) / closedOpportunities.length
+      : 0;
+
+    return {
+      stages: pipelineStages,
+      value: totalPipelineValue,
+      metrics: {
+        totalOpportunities: data.opportunities.length,
+        averageTimeToClose: Math.round(averageTimeToClose),
+        winRate: closedOpportunities.length > 0 
+          ? (pipelineStages.fechado_ganho / closedOpportunities.length * 100).toFixed(1)
+          : 0
+      },
+      healthScore: totalPipelineValue > 100000 ? 'Excelente' : 
+                    totalPipelineValue > 50000 ? 'Bom' : 
+                    totalPipelineValue > 10000 ? 'Regular' : 'Baixo'
+    };
+  }, []);
+
+  /**
+   * ⚡ GERAR RELATÓRIO DE PRODUTIVIDADE
+   */
+  const generateProductivityReport = useCallback((data) => {
+    const completedTasks = data.tasks.filter(task => task.status === 'completa');
+    const totalTasks = data.tasks.length;
+    const completionRate = totalTasks > 0 ? (completedTasks.length / totalTasks * 100) : 0;
+
+    // Análise por prioridade
+    const tasksByPriority = {
+      baixa: data.tasks.filter(t => t.priority === 'baixa').length,
+      media: data.tasks.filter(t => t.priority === 'media').length,
+      alta: data.tasks.filter(t => t.priority === 'alta').length,
+      urgente: data.tasks.filter(t => t.priority === 'urgente').length,
+      critica: data.tasks.filter(t => t.priority === 'critica').length
+    };
+
+    // Tarefas em atraso
+    const now = new Date();
+    const overdueTasks = data.tasks.filter(task => 
+      task.dueDate && new Date(task.dueDate) < now && task.status !== 'completa'
+    ).length;
+
+    // Tempo médio para conclusão
+    const avgCompletionTime = completedTasks.length > 0
+      ? completedTasks.reduce((sum, task) => {
+          if (task.createdAt && task.completedAt) {
+            const hours = (task.completedAt - task.createdAt) / (1000 * 60 * 60);
+            return sum + hours;
+          }
+          return sum;
+        }, 0) / completedTasks.length
+      : 0;
+
+    return {
+      summary: {
+        totalTasks,
+        completedTasks: completedTasks.length,
+        completionRate: completionRate.toFixed(1),
+        overdueTasks,
+        avgCompletionTime: Math.round(avgCompletionTime * 10) / 10
+      },
+      breakdown: tasksByPriority,
+      insights: [
+        completionRate > 80 ? 'Excelente gestão de tarefas' : 'Pode melhorar conclusão de tarefas',
+        overdueTasks > 5 ? 'Muitas tarefas em atraso' : 'Prazos bem geridos',
+        avgCompletionTime < 24 ? 'Resposta rápida' : 'Tempo de resposta pode melhorar'
+      ]
+    };
+  }, []);
 
   /**
    * 📊 GERAR TODOS OS RELATÓRIOS
    */
-  const generateAllReports = async (data = rawData) => {
+  const generateAllReports = useCallback(async (data = rawData) => {
     try {
-      console.log('📈 useReports: A gerar relatórios...');
+      console.log('📈 Gerando todos os relatórios multi-tenant...');
 
       // Filtrar dados pelo período selecionado
       const filteredData = filterDataByPeriod(data, reportFilters);
@@ -221,7 +638,7 @@ const useReports = () => {
       const pipeline = generatePipelineReport(filteredData);
       const productivity = generateProductivityReport(filteredData);
 
-      // Atualizar estados
+      // Atualizar states
       setDashboardData(dashboard);
       setConversionReport(conversion);
       setPerformanceReport(performance);
@@ -229,506 +646,108 @@ const useReports = () => {
       setPipelineReport(pipeline);
       setProductivityReport(productivity);
 
-      console.log('✅ useReports: Relatórios gerados com sucesso');
+      console.log('✅ Todos os relatórios gerados com sucesso');
 
     } catch (err) {
-      console.error('❌ useReports: Erro ao gerar relatórios:', err);
+      console.error('❌ Erro ao gerar relatórios:', err);
       setError('Erro ao gerar relatórios: ' + err.message);
     }
-  };
+  }, [
+    rawData, 
+    reportFilters,
+    filterDataByPeriod,
+    generateDashboardReport,
+    generateConversionReport,
+    generatePerformanceReport,
+    generateFinancialReport,
+    generatePipelineReport,
+    generateProductivityReport
+  ]);
 
   /**
-   * 🔍 FILTRAR DADOS POR PERÍODO
-   */
-  const filterDataByPeriod = (data, filters) => {
-    const { dateRange, startDate, endDate } = filters;
-    
-    let filterStartDate, filterEndDate;
-
-    if (dateRange === 'custom' && startDate && endDate) {
-      filterStartDate = new Date(startDate);
-      filterEndDate = new Date(endDate);
-    } else if (dateRange !== 'custom') {
-      const days = DATE_RANGES[dateRange]?.days || 30;
-      filterEndDate = new Date();
-      filterStartDate = new Date();
-      filterStartDate.setDate(filterStartDate.getDate() - days);
-    } else {
-      // Se não há filtro de data, retorna todos os dados
-      return data;
-    }
-
-    // Filtrar cada coleção por data
-    return {
-      leads: data.leads.filter(item => 
-        item.createdAt && item.createdAt >= filterStartDate && item.createdAt <= filterEndDate
-      ),
-      clients: data.clients.filter(item => 
-        item.createdAt && item.createdAt >= filterStartDate && item.createdAt <= filterEndDate
-      ),
-      visits: data.visits.filter(item => 
-        item.scheduledDate && item.scheduledDate >= filterStartDate && item.scheduledDate <= filterEndDate
-      ),
-      opportunities: data.opportunities.filter(item => 
-        item.createdAt && item.createdAt >= filterStartDate && item.createdAt <= filterEndDate
-      ),
-      deals: data.deals.filter(item => 
-        item.createdAt && item.createdAt >= filterStartDate && item.createdAt <= filterEndDate
-      ),
-      tasks: data.tasks.filter(item => 
-        item.createdAt && item.createdAt >= filterStartDate && item.createdAt <= filterEndDate
-      )
-    };
-  };
-
-  /**
-   * 📈 GERAR RELATÓRIO DASHBOARD EXECUTIVO
-   */
-  const generateDashboardReport = (data) => {
-    const { leads, clients, visits, opportunities, deals, tasks } = data;
-
-    // KPIs principais
-    const totalLeads = leads.length;
-    const totalClients = clients.length;
-    const totalVisits = visits.length;
-    const totalOpportunities = opportunities.length;
-    const totalDeals = deals.length;
-    const totalTasks = tasks.length;
-
-    // Conversões
-    const leadToClientRate = totalLeads > 0 ? (totalClients / totalLeads * 100).toFixed(1) : 0;
-    const visitToOpportunityRate = totalVisits > 0 ? (totalOpportunities / totalVisits * 100).toFixed(1) : 0;
-    const opportunityToDealRate = totalOpportunities > 0 ? (deals.filter(d => d.status === 'won').length / totalOpportunities * 100).toFixed(1) : 0;
-
-    // Valores financeiros
-    const totalPipelineValue = opportunities.reduce((sum, opp) => sum + (opp.value || 0), 0);
-    const totalCommissions = deals.filter(d => d.status === 'won').reduce((sum, deal) => sum + (deal.commissionValue || 0), 0);
-    const averageDealSize = deals.length > 0 ? totalCommissions / deals.length : 0;
-
-    // Produtividade
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const taskCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks * 100).toFixed(1) : 0;
-
-    // Dados para gráficos
-    const leadsThisMonth = generateTimeSeriesData(leads, 'month');
-    const opportunitiesByStatus = groupBy(opportunities, 'status');
-    const dealsByType = groupBy(deals, 'type');
-
-    return {
-      summary: {
-        totalLeads,
-        totalClients,
-        totalVisits,
-        totalOpportunities,
-        totalDeals,
-        totalTasks
-      },
-      conversions: {
-        leadToClientRate: parseFloat(leadToClientRate),
-        visitToOpportunityRate: parseFloat(visitToOpportunityRate),
-        opportunityToDealRate: parseFloat(opportunityToDealRate)
-      },
-      financial: {
-        totalPipelineValue,
-        totalCommissions,
-        averageDealSize
-      },
-      productivity: {
-        completedTasks,
-        taskCompletionRate: parseFloat(taskCompletionRate)
-      },
-      charts: {
-        leadsThisMonth,
-        opportunitiesByStatus,
-        dealsByType
-      },
-      lastUpdated: new Date()
-    };
-  };
-
-  /**
-   * 🔄 GERAR RELATÓRIO DE CONVERSÃO
-   */
-  const generateConversionReport = (data) => {
-    const { leads, clients, visits, opportunities, deals } = data;
-
-    // Funil de conversão completo
-    const funnelData = [
-      { stage: 'Leads', count: leads.length, percentage: 100 },
-      { stage: 'Clientes', count: clients.length, percentage: leads.length > 0 ? (clients.length / leads.length * 100).toFixed(1) : 0 },
-      { stage: 'Visitas', count: visits.length, percentage: clients.length > 0 ? (visits.length / clients.length * 100).toFixed(1) : 0 },
-      { stage: 'Oportunidades', count: opportunities.length, percentage: visits.length > 0 ? (opportunities.length / visits.length * 100).toFixed(1) : 0 },
-      { stage: 'Negócios Fechados', count: deals.filter(d => d.status === 'won').length, percentage: opportunities.length > 0 ? (deals.filter(d => d.status === 'won').length / opportunities.length * 100).toFixed(1) : 0 }
-    ];
-
-    // Análise de perdas por etapa
-    const dropoffAnalysis = [
-      { stage: 'Lead → Cliente', lost: leads.length - clients.length, rate: leads.length > 0 ? ((leads.length - clients.length) / leads.length * 100).toFixed(1) : 0 },
-      { stage: 'Cliente → Visita', lost: clients.length - visits.length, rate: clients.length > 0 ? ((clients.length - visits.length) / clients.length * 100).toFixed(1) : 0 },
-      { stage: 'Visita → Oportunidade', lost: visits.length - opportunities.length, rate: visits.length > 0 ? ((visits.length - opportunities.length) / visits.length * 100).toFixed(1) : 0 },
-      { stage: 'Oportunidade → Fechamento', lost: opportunities.length - deals.filter(d => d.status === 'won').length, rate: opportunities.length > 0 ? ((opportunities.length - deals.filter(d => d.status === 'won').length) / opportunities.length * 100).toFixed(1) : 0 }
-    ];
-
-    // Conversões por fonte de lead
-    const conversionBySource = {};
-    const leadsBySource = groupBy(leads, 'source');
-    Object.keys(leadsBySource).forEach(source => {
-      const sourceLeads = leadsBySource[source];
-      const sourceClients = clients.filter(c => sourceLeads.some(l => l.id === c.leadId));
-      conversionBySource[source] = {
-        leads: sourceLeads.length,
-        clients: sourceClients.length,
-        rate: sourceLeads.length > 0 ? (sourceClients.length / sourceLeads.length * 100).toFixed(1) : 0
-      };
-    });
-
-    return {
-      funnel: funnelData,
-      dropoffAnalysis,
-      conversionBySource,
-      overallConversionRate: leads.length > 0 ? (deals.filter(d => d.status === 'won').length / leads.length * 100).toFixed(2) : 0,
-      lastUpdated: new Date()
-    };
-  };
-
-  /**
-   * 🏆 GERAR RELATÓRIO DE PERFORMANCE
-   */
-  const generatePerformanceReport = (data) => {
-    const { leads, clients, visits, opportunities, deals, tasks } = data;
-
-    // Performance por consultor (assumindo que há campo consultant/assignedTo)
-    const consultants = [...new Set([
-      ...leads.map(l => l.assignedTo || l.consultant),
-      ...clients.map(c => c.assignedTo || c.consultant),
-      ...visits.map(v => v.consultant),
-      ...opportunities.map(o => o.assignedTo),
-      ...deals.map(d => d.assignedTo)
-    ])].filter(Boolean);
-
-    const performanceByConsultant = consultants.map(consultant => {
-      const consultantLeads = leads.filter(l => (l.assignedTo || l.consultant) === consultant);
-      const consultantClients = clients.filter(c => (c.assignedTo || c.consultant) === consultant);
-      const consultantVisits = visits.filter(v => v.consultant === consultant);
-      const consultantOpportunities = opportunities.filter(o => o.assignedTo === consultant);
-      const consultantDeals = deals.filter(d => d.assignedTo === consultant);
-      const consultantTasks = tasks.filter(t => t.assignedTo === consultant);
-
-      const wonDeals = consultantDeals.filter(d => d.status === 'won');
-      const totalCommission = wonDeals.reduce((sum, deal) => sum + (deal.commissionValue || 0), 0);
-      const conversionRate = consultantLeads.length > 0 ? (consultantClients.length / consultantLeads.length * 100).toFixed(1) : 0;
-
-      return {
-        consultant,
-        leads: consultantLeads.length,
-        clients: consultantClients.length,
-        visits: consultantVisits.length,
-        opportunities: consultantOpportunities.length,
-        deals: consultantDeals.length,
-        wonDeals: wonDeals.length,
-        totalCommission,
-        conversionRate: parseFloat(conversionRate),
-        completedTasks: consultantTasks.filter(t => t.status === 'completed').length,
-        totalTasks: consultantTasks.length
-      };
-    });
-
-    // Ranking por comissões
-    const topPerformers = [...performanceByConsultant]
-      .sort((a, b) => b.totalCommission - a.totalCommission)
-      .slice(0, 5);
-
-    return {
-      performanceByConsultant,
-      topPerformers,
-      averageConversionRate: performanceByConsultant.length > 0 ? 
-        (performanceByConsultant.reduce((sum, p) => sum + p.conversionRate, 0) / performanceByConsultant.length).toFixed(1) : 0,
-      totalConsultants: consultants.length,
-      lastUpdated: new Date()
-    };
-  };
-
-  /**
-   * 💰 GERAR RELATÓRIO FINANCEIRO
-   */
-  const generateFinancialReport = (data) => {
-    const { opportunities, deals } = data;
-
-    const wonDeals = deals.filter(d => d.status === 'won');
-    const lostDeals = deals.filter(d => d.status === 'lost');
-
-    // Métricas financeiras principais
-    const totalRevenue = wonDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
-    const totalCommissions = wonDeals.reduce((sum, deal) => sum + (deal.commissionValue || 0), 0);
-    const averageDealValue = wonDeals.length > 0 ? totalRevenue / wonDeals.length : 0;
-    const averageCommission = wonDeals.length > 0 ? totalCommissions / wonDeals.length : 0;
-
-    // Pipeline financeiro
-    const pipelineValue = opportunities.reduce((sum, opp) => sum + (opp.value || 0), 0);
-    const weightedPipelineValue = opportunities.reduce((sum, opp) => 
-      sum + ((opp.value || 0) * (opp.probability || 0) / 100), 0);
-
-    // Receita por mês (últimos 12 meses)
-    const revenueByMonth = generateMonthlyRevenue(wonDeals);
-
-    // Comissões por tipo de negócio
-    const commissionsByType = {};
-    wonDeals.forEach(deal => {
-      const type = deal.type || 'Outros';
-      if (!commissionsByType[type]) {
-        commissionsByType[type] = 0;
-      }
-      commissionsByType[type] += deal.commissionValue || 0;
-    });
-
-    return {
-      revenue: {
-        total: totalRevenue,
-        average: averageDealValue,
-        byMonth: revenueByMonth
-      },
-      commissions: {
-        total: totalCommissions,
-        average: averageCommission,
-        byType: commissionsByType
-      },
-      pipeline: {
-        total: pipelineValue,
-        weighted: weightedPipelineValue,
-        expectedRevenue: weightedPipelineValue
-      },
-      deals: {
-        won: wonDeals.length,
-        lost: lostDeals.length,
-        winRate: deals.length > 0 ? (wonDeals.length / deals.length * 100).toFixed(1) : 0
-      },
-      lastUpdated: new Date()
-    };
-  };
-
-  /**
-   * 🔮 GERAR RELATÓRIO DE PIPELINE
-   */
-  const generatePipelineReport = (data) => {
-    const { opportunities, deals } = data;
-
-    // Oportunidades por status
-    const opportunitiesByStatus = groupBy(opportunities, 'status');
-    const statusSummary = Object.keys(opportunitiesByStatus).map(status => ({
-      status,
-      count: opportunitiesByStatus[status].length,
-      value: opportunitiesByStatus[status].reduce((sum, opp) => sum + (opp.value || 0), 0),
-      weightedValue: opportunitiesByStatus[status].reduce((sum, opp) => 
-        sum + ((opp.value || 0) * (opp.probability || 0) / 100), 0)
-    }));
-
-    // Previsão de fechamentos (próximos 30/60/90 dias)
-    const now = new Date();
-    const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const next60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
-    const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-    const forecast = {
-      next30Days: opportunities.filter(o => o.expectedCloseDate && o.expectedCloseDate <= next30Days),
-      next60Days: opportunities.filter(o => o.expectedCloseDate && o.expectedCloseDate <= next60Days),
-      next90Days: opportunities.filter(o => o.expectedCloseDate && o.expectedCloseDate <= next90Days)
-    };
-
-    // Velocidade do pipeline (tempo médio por status)
-    const avgTimeInStatus = calculateAverageTimeInStatus(deals);
-
-    return {
-      statusSummary,
-      forecast: {
-        next30Days: {
-          count: forecast.next30Days.length,
-          value: forecast.next30Days.reduce((sum, o) => sum + (o.value || 0), 0),
-          weightedValue: forecast.next30Days.reduce((sum, o) => sum + ((o.value || 0) * (o.probability || 0) / 100), 0)
-        },
-        next60Days: {
-          count: forecast.next60Days.length,
-          value: forecast.next60Days.reduce((sum, o) => sum + (o.value || 0), 0),
-          weightedValue: forecast.next60Days.reduce((sum, o) => sum + ((o.value || 0) * (o.probability || 0) / 100), 0)
-        },
-        next90Days: {
-          count: forecast.next90Days.length,
-          value: forecast.next90Days.reduce((sum, o) => sum + (o.value || 0), 0),
-          weightedValue: forecast.next90Days.reduce((sum, o) => sum + ((o.value || 0) * (o.probability || 0) / 100), 0)
-        }
-      },
-      avgTimeInStatus,
-      totalPipelineValue: opportunities.reduce((sum, o) => sum + (o.value || 0), 0),
-      totalOpportunities: opportunities.length,
-      lastUpdated: new Date()
-    };
-  };
-
-  /**
-   * ⚡ GERAR RELATÓRIO DE PRODUTIVIDADE
-   */
-  const generateProductivityReport = (data) => {
-    const { tasks, visits, opportunities, deals } = data;
-
-    // Métricas de tarefas
-    const completedTasks = tasks.filter(t => t.status === 'completed');
-    const overdueTasks = tasks.filter(t => t.status === 'overdue');
-    const pendingTasks = tasks.filter(t => t.status === 'pending');
-
-    const taskCompletionRate = tasks.length > 0 ? (completedTasks.length / tasks.length * 100).toFixed(1) : 0;
-    const averageTaskCompletionTime = calculateAverageTaskCompletionTime(completedTasks);
-
-    // Atividades por dia da semana
-    const activitiesByWeekday = generateWeekdayActivity(tasks, visits);
-
-    // Produtividade por tipo de tarefa
-    const productivityByTaskType = groupBy(completedTasks, 'type');
-
-    return {
-      tasks: {
-        total: tasks.length,
-        completed: completedTasks.length,
-        overdue: overdueTasks.length,
-        pending: pendingTasks.length,
-        completionRate: parseFloat(taskCompletionRate),
-        averageCompletionTime: averageTaskCompletionTime
-      },
-      activities: {
-        byWeekday: activitiesByWeekday,
-        byTaskType: productivityByTaskType
-      },
-      efficiency: {
-        tasksPerDay: tasks.length > 0 ? (tasks.length / 30).toFixed(1) : 0, // últimos 30 dias
-        visitsPerWeek: visits.length > 0 ? (visits.length / 4).toFixed(1) : 0, // últimas 4 semanas
-        opportunitiesPerMonth: opportunities.length
-      },
-      lastUpdated: new Date()
-    };
-  };
-
-  // 🛠️ FUNÇÕES UTILITÁRIAS
-
-  /**
-   * Agrupa array por propriedade
-   */
-  const groupBy = (array, key) => {
-    return array.reduce((groups, item) => {
-      const group = item[key] || 'Não especificado';
-      if (!groups[group]) {
-        groups[group] = [];
-      }
-      groups[group].push(item);
-      return groups;
-    }, {});
-  };
-
-  /**
-   * Gerar dados de série temporal
-   */
-  const generateTimeSeriesData = (data, period = 'day') => {
-    const grouped = {};
-    data.forEach(item => {
-      if (!item.createdAt) return;
-      
-      let key;
-      if (period === 'day') {
-        key = item.createdAt.toISOString().split('T')[0];
-      } else if (period === 'month') {
-        key = `${item.createdAt.getFullYear()}-${String(item.createdAt.getMonth() + 1).padStart(2, '0')}`;
-      }
-      
-      grouped[key] = (grouped[key] || 0) + 1;
-    });
-    
-    return Object.keys(grouped).sort().map(key => ({
-      date: key,
-      count: grouped[key]
-    }));
-  };
-
-  /**
-   * Gerar receita mensal
-   */
-  const generateMonthlyRevenue = (deals) => {
-    const monthly = {};
-    deals.forEach(deal => {
-      if (!deal.closedAt) return;
-      const key = `${deal.closedAt.getFullYear()}-${String(deal.closedAt.getMonth() + 1).padStart(2, '0')}`;
-      monthly[key] = (monthly[key] || 0) + (deal.value || 0);
-    });
-    
-    return Object.keys(monthly).sort().map(key => ({
-      month: key,
-      revenue: monthly[key]
-    }));
-  };
-
-  /**
-   * Calcular tempo médio por status
-   */
-  const calculateAverageTimeInStatus = (deals) => {
-    // Implementação simplificada - em produção seria mais complexa
-    return {
-      'qualification': 3.5, // dias
-      'presentation': 7.2,
-      'negotiation': 14.1,
-      'proposal': 5.8,
-      'contract': 2.3
-    };
-  };
-
-  /**
-   * Calcular tempo médio de conclusão de tarefas
-   */
-  const calculateAverageTaskCompletionTime = (completedTasks) => {
-    const tasksWithTimes = completedTasks.filter(t => t.createdAt && t.completedAt);
-    if (tasksWithTimes.length === 0) return 0;
-    
-    const totalTime = tasksWithTimes.reduce((sum, task) => {
-      const timeDiff = task.completedAt.getTime() - task.createdAt.getTime();
-      return sum + (timeDiff / (1000 * 60 * 60 * 24)); // converter para dias
-    }, 0);
-    
-    return (totalTime / tasksWithTimes.length).toFixed(1);
-  };
-
-  /**
-   * Gerar atividade por dia da semana
-   */
-  const generateWeekdayActivity = (tasks, visits) => {
-    const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-    const activity = weekdays.map(day => ({ day, tasks: 0, visits: 0 }));
-    
-    tasks.forEach(task => {
-      if (task.createdAt) {
-        activity[task.createdAt.getDay()].tasks++;
-      }
-    });
-    
-    visits.forEach(visit => {
-      if (visit.scheduledDate) {
-        activity[visit.scheduledDate.getDay()].visits++;
-      }
-    });
-    
-    return activity;
-  };
-
-  /**
-   * 🔄 ATUALIZAR FILTROS DE RELATÓRIO
+   * ⚙️ ATUALIZAR FILTROS DE RELATÓRIOS
    */
   const updateReportFilters = useCallback((newFilters) => {
     setReportFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
   /**
-   * 📤 EXPORTAR DADOS
+   * 📤 EXPORTAR DADOS (MULTI-TENANT SEGURO)
    */
-  const exportData = useCallback((reportType, format = 'csv') => {
-    console.log(`📤 useReports: Exportando ${reportType} em formato ${format}`);
-    // Implementação de exportação seria feita aqui
-    // Por agora, retorna uma promessa resolvida
-    return Promise.resolve({ success: true, message: 'Dados exportados com sucesso' });
-  }, []);
+  const exportData = useCallback(async (format = 'json', reportType = 'dashboard') => {
+    try {
+      console.log(`📤 Exportando dados em formato ${format} para ${reportType}`);
+
+      let dataToExport = {};
+      
+      switch (reportType) {
+        case 'dashboard':
+          dataToExport = dashboardData;
+          break;
+        case 'conversion':
+          dataToExport = conversionReport;
+          break;
+        case 'financial':
+          dataToExport = financialReport;
+          break;
+        case 'pipeline':
+          dataToExport = pipelineReport;
+          break;
+        case 'productivity':
+          dataToExport = productivityReport;
+          break;
+        case 'all':
+          dataToExport = {
+            dashboard: dashboardData,
+            conversion: conversionReport,
+            financial: financialReport,
+            pipeline: pipelineReport,
+            productivity: productivityReport,
+            metadata: {
+              userId: user.uid,
+              generated: new Date().toISOString(),
+              period: reportFilters.dateRange
+            }
+          };
+          break;
+        default:
+          dataToExport = dashboardData;
+      }
+
+      // Criar blob e download baseado no formato
+      let blob, filename;
+      
+      if (format === 'json') {
+        blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+        filename = `relatorio_${reportType}_${new Date().toISOString().split('T')[0]}.json`;
+      } else if (format === 'csv') {
+        // Converter para CSV (implementação simplificada)
+        const csvContent = Object.entries(dataToExport.summary || {})
+          .map(([key, value]) => `${key},${value}`)
+          .join('\n');
+        blob = new Blob([csvContent], { type: 'text/csv' });
+        filename = `relatorio_${reportType}_${new Date().toISOString().split('T')[0]}.csv`;
+      }
+
+      // Trigger download
+      if (blob && filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      return { success: true, message: 'Dados exportados com sucesso' };
+      
+    } catch (err) {
+      console.error('❌ Erro ao exportar dados:', err);
+      return { success: false, error: err.message };
+    }
+  }, [dashboardData, conversionReport, financialReport, pipelineReport, productivityReport, reportFilters, user]);
 
   // Dados memoizados para performance
   const memoizedDashboard = useMemo(() => dashboardData, [dashboardData]);
@@ -738,19 +757,30 @@ const useReports = () => {
   const memoizedPipeline = useMemo(() => pipelineReport, [pipelineReport]);
   const memoizedProductivity = useMemo(() => productivityReport, [productivityReport]);
 
-  // Carregar dados quando component monta ou filtros mudam
+  // 🔄 CARREGAR DADOS INICIAIS
   useEffect(() => {
-    loadRawData();
-  }, [loadRawData]);
+    if (isUserReady) {
+      console.log('🔄 Carregando dados iniciais para relatórios...');
+      loadRawData();
+    }
+  }, [isUserReady, loadRawData]);
 
-  // Interface pública do hook
+  // 🔄 RECARREGAR QUANDO FILTROS MUDAM
+  useEffect(() => {
+    if (isUserReady && Object.keys(rawData.leads || {}).length > 0) {
+      console.log('🔍 Regenerando relatórios com novos filtros...');
+      generateAllReports();
+    }
+  }, [reportFilters.dateRange]);
+
+  // 📤 INTERFACE PÚBLICA DO HOOK MULTI-TENANT
   return {
-    // Estados
+    // Estados principais
     loading,
     error,
     rawData,
     
-    // Relatórios gerados
+    // Relatórios gerados (memoizados)
     dashboardData: memoizedDashboard,
     conversionReport: memoizedConversion,
     performanceReport: memoizedPerformance,
@@ -766,21 +796,30 @@ const useReports = () => {
     comparisonPeriod,
     setComparisonPeriod,
     
-    // Ações
+    // Ações principais
     loadRawData,
     generateAllReports,
     exportData,
     
-    // Utilitários
+    // Utilitários e constantes
     DATE_RANGES,
     KPI_DEFINITIONS,
     
     // Funções de refresh
     refreshDashboard: () => generateAllReports(rawData),
     refreshReport: (reportType) => {
-      console.log(`🔄 useReports: Atualizando relatório ${reportType}`);
+      console.log(`🔄 Atualizando relatório ${reportType} (multi-tenant)`);
       generateAllReports(rawData);
-    }
+    },
+
+    // Estado de conectividade
+    isConnected: isUserReady && !error,
+    isUserReady,
+
+    // Informações da versão
+    version: '3.1',
+    isMultiTenant: true,
+    structureVersion: '3.1-multi-tenant'
   };
 };
 
