@@ -1092,17 +1092,28 @@ const createInitialDealTasks = async (dealId, dealData) => {
     }
   }, [error]);
 
-  // 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR AQUI
+useEffect(() => {
+  if (error) {
+    const timer = setTimeout(() => setError(null), 5000);
+    return () => clearTimeout(timer);
+  }
+}, [error]);
+
+// 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR ESTE BLOCO AQUI
 useEffect(() => {
   const handleCrmSync = (event) => {
     console.log('useOpportunities: Sincronização recebida', event.detail);
     if (event.detail.type === 'lead-conversion') {
-      console.log('Atualizando lista de oportunidades após conversão...');
+      console.log('Refrescando lista de oportunidades após conversão...');
       fetchOpportunities();
     }
   };
 
-  window.refreshOpportunities = fetchOpportunities;
+  window.refreshOpportunities = async () => {
+    console.log('RefreshOpportunities chamada globalmente');
+    await fetchOpportunities();
+  };
+
   window.addEventListener('crm-data-sync', handleCrmSync);
 
   return () => {
@@ -1110,6 +1121,7 @@ useEffect(() => {
     delete window.refreshOpportunities;
   };
 }, [fetchOpportunities]);
+
 
   // 📤 RETORNO DO HOOK UNIFICADO
   // ============================

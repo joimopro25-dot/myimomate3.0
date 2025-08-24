@@ -1023,23 +1023,30 @@ const getBudgetRangeMiddleValue = (range) => {
   }, [error]);
 
     // 🔄 SINCRONIZAÇÃO PÓS-CONVERSÃO - ADICIONAR AQUI
-  useEffect(() => {
-    const handleCrmSync = (event) => {
-      console.log('useClients: Sincronização recebida', event.detail);
-      if (event.detail.type === 'lead-conversion') {
-        console.log('Atualizando lista de clientes após conversão...');
-        fetchClients();
-      }
-    };
+useEffect(() => {
+  const handleCrmSync = (event) => {
+    console.log('useClients: Sincronização recebida', event.detail);
+    if (event.detail.type === 'lead-conversion') {
+      console.log('Refrescando lista de clientes após conversão...');
+      fetchClients();
+    }
+  };
 
-    window.refreshClients = fetchClients;
-    window.addEventListener('crm-data-sync', handleCrmSync);
+  // Criar função global para refresh
+  window.refreshClients = async () => {
+    console.log('RefreshClients chamada globalmente');
+    await fetchClients();
+  };
 
-    return () => {
-      window.removeEventListener('crm-data-sync', handleCrmSync);
-      delete window.refreshClients;
-    };
-  }, [fetchClients]);
+  // Adicionar listener
+  window.addEventListener('crm-data-sync', handleCrmSync);
+
+  // Cleanup
+  return () => {
+    window.removeEventListener('crm-data-sync', handleCrmSync);
+    delete window.refreshClients;
+  };
+}, [fetchClients]);
 
   // 📤 RETORNO DO HOOK UNIFICADO
   // ============================
