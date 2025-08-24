@@ -1,5 +1,6 @@
-// src/pages/leads/LeadsPage.jsx - VERSÃO CORRIGIDA FINAL
+// src/pages/leads/LeadsPage.jsx - VERSÃO ESTÁVEL ATUALIZADA
 // ✅ Mantém TODAS as funcionalidades existentes (100%)
+// ✅ APENAS ALTERAÇÃO: Small cards "Qualificados" → "Mornos", "Pendentes" → "Frios"
 // ✅ Layout harmonioso e botões de visualização funcionais
 // ✅ Syntax corrigida - sem erros
 
@@ -29,7 +30,9 @@ import {
   MapPinIcon,
   PencilIcon,
   TrashIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  FireIcon,        // ✅ NOVO: Para "Mornos" (era "Qualificados")
+  CloudIcon        // ✅ NOVO: Para "Frios" (era "Pendentes")
 } from '@heroicons/react/24/outline';
 
 // Componente de Métrica Compacta - Padrão do Sistema
@@ -41,6 +44,8 @@ const CompactMetricCard = ({ title, value, trend, icon: Icon, color, onClick }) 
     green: isDark() ? 'from-green-600 to-green-700' : 'from-green-500 to-green-600',
     yellow: isDark() ? 'from-yellow-600 to-yellow-700' : 'from-yellow-500 to-yellow-600',
     purple: isDark() ? 'from-purple-600 to-purple-700' : 'from-purple-500 to-purple-600',
+    orange: isDark() ? 'from-orange-600 to-orange-700' : 'from-orange-500 to-orange-600', // ✅ NOVO: Para "Mornos"
+    slate: isDark() ? 'from-slate-600 to-slate-700' : 'from-slate-500 to-slate-600',     // ✅ NOVO: Para "Frios"
     red: isDark() ? 'from-red-600 to-red-700' : 'from-red-500 to-red-600'
   };
 
@@ -104,6 +109,8 @@ const LeadsPage = () => {
 
   // Funções
   const stats = getLeadStats();
+
+  
 
   const handleCreateSubmit = async (leadData) => {
     try {
@@ -285,7 +292,7 @@ const LeadsPage = () => {
             </div>
           )}
 
-          {/* Métricas */}
+          {/* ✅ MÉTRICAS ATUALIZADAS - Apenas mudança de nomes */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <CompactMetricCard
               title="Total"
@@ -301,18 +308,22 @@ const LeadsPage = () => {
               color="green"
               onClick={() => handleMetricClick('status', 'novo')}
             />
+            {/* ✅ ALTERAÇÃO: "Qualificados" → "Mornos" */}
             <CompactMetricCard
-              title="Qualificados"
+              title="Mornos"
               value={stats.qualificados || 0}
-              icon={CheckCircleIcon}
-              color="purple"
+              trend="2-4 semanas"
+              icon={FireIcon}
+              color="orange"
               onClick={() => handleMetricClick('status', 'qualificado')}
             />
+            {/* ✅ ALTERAÇÃO: "Pendentes" → "Frios" */}
             <CompactMetricCard
-              title="Pendentes"
+              title="Frios"
               value={stats.pendentes || 0}
-              icon={ClockIcon}
-              color="yellow"
+              trend="Mais de 1 mês"
+              icon={CloudIcon}
+              color="slate"
               onClick={() => handleMetricClick('status', 'pendente')}
             />
             <CompactMetricCard

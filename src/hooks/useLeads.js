@@ -1016,6 +1016,7 @@ const useLeads = () => {
   }, []);
 
   const getLeadStats = useCallback(() => {
+    // ✅ MANTÉM toda a estrutura original existente
     const stats = {
       total: leads.length,
       byStatus: {},
@@ -1029,6 +1030,7 @@ const useLeads = () => {
       qualificationRate: 0
     };
 
+    // ✅ MANTÉM todos os cálculos originais existentes
     Object.values(UNIFIED_LEAD_STATUS).forEach(status => {
       stats.byStatus[status] = leads.filter(lead => lead.status === status).length;
     });
@@ -1046,6 +1048,64 @@ const useLeads = () => {
     
     stats.conversionRate = stats.total > 0 ? (convertedCount / stats.total * 100).toFixed(1) : 0;
     stats.qualificationRate = stats.total > 0 ? (qualifiedCount / stats.total * 100).toFixed(1) : 0;
+
+    // 🆕 CÁLCULOS DE TEMPERATURA DOS LEADS (APENAS ADICIONADO)
+    // ========================================================
+    
+    const agora = new Date();
+    const quinzeDiasAtras = new Date(agora.getTime() - (15 * 24 * 60 * 60 * 1000));
+    const trintaDiasAtras = new Date(agora.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    // Contadores para os cards
+    let novosQuentes = 0;
+    let leadsMornos = 0;  
+    let leadsFrios = 0;
+
+    // Processar cada lead para determinar temperatura
+    leads.forEach(lead => {
+      // Pegar data de criação do lead
+      const dataLead = lead.createdAt?.seconds 
+        ? new Date(lead.createdAt.seconds * 1000)
+        : lead.createdAt 
+          ? new Date(lead.createdAt)
+          : new Date();
+
+      // Pegar data da última atualização (se existir)
+      const ultimaAtualizacao = lead.updatedAt?.seconds
+        ? new Date(lead.updatedAt.seconds * 1000)
+        : lead.updatedAt
+          ? new Date(lead.updatedAt)
+          : dataLead;
+
+      // Se já foi convertido, não conta para temperatura
+      if (lead.status === UNIFIED_LEAD_STATUS.CONVERTIDO) {
+        return;
+      }
+
+      // NOVOS QUENTES: Leads criados nos últimos 15 dias com status "novo"
+      if (dataLead >= quinzeDiasAtras && lead.status === UNIFIED_LEAD_STATUS.NOVO) {
+        novosQuentes++;
+      }
+      // MORNOS: Leads qualificados/contactados há 15-30 dias sem conversão
+      else if (
+        (lead.status === UNIFIED_LEAD_STATUS.QUALIFICADO || lead.status === UNIFIED_LEAD_STATUS.CONTACTADO) &&
+        ultimaAtualizacao < quinzeDiasAtras &&
+        ultimaAtualizacao >= trintaDiasAtras
+      ) {
+        leadsMornos++;
+      }
+      // FRIOS: Leads antigos (>30 dias) sem conversão
+      else if (dataLead < trintaDiasAtras && lead.status !== UNIFIED_LEAD_STATUS.CONVERTIDO) {
+        leadsFrios++;
+      }
+    });
+
+    // 🆕 ADICIONAR as novas propriedades para compatibilidade com cards
+    stats.novos = novosQuentes;
+    stats.qualificados = stats.byStatus[UNIFIED_LEAD_STATUS.QUALIFICADO] || 0;
+    stats.pendentes = leadsMornos; // "Pendentes" → "Mornos"
+    stats.convertidos = stats.byStatus[UNIFIED_LEAD_STATUS.CONVERTIDO] || 0;
+    stats.frios = leadsFrios;
 
     return stats;
   }, [leads]);

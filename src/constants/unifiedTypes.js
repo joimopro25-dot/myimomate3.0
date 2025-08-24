@@ -104,7 +104,8 @@ export const UNIFIED_PRIORITY_COLORS = {
 export const UNIFIED_LEAD_STATUS = {
   NOVO: 'novo',
   CONTACTADO: 'contactado',
-  QUALIFICADO: 'qualificado',
+  MORNO: 'morno',           
+  FRIO: 'frio',
   CONVERTIDO: 'convertido',
   PERDIDO: 'perdido',
   INATIVO: 'inativo'
@@ -113,7 +114,8 @@ export const UNIFIED_LEAD_STATUS = {
 export const UNIFIED_LEAD_STATUS_LABELS = {
   [UNIFIED_LEAD_STATUS.NOVO]: 'Novo Lead',
   [UNIFIED_LEAD_STATUS.CONTACTADO]: 'Contactado',
-  [UNIFIED_LEAD_STATUS.QUALIFICADO]: 'Qualificado',
+  [UNIFIED_LEAD_STATUS.MORNO]: 'Morno',
+  [UNIFIED_LEAD_STATUS.FRIO]: 'Frio',
   [UNIFIED_LEAD_STATUS.CONVERTIDO]: 'Convertido',
   [UNIFIED_LEAD_STATUS.PERDIDO]: 'Perdido',
   [UNIFIED_LEAD_STATUS.INATIVO]: 'Inativo'
@@ -334,11 +336,12 @@ export const UNIFIED_STATUS_COLORS = {
   // Cores para Lead Status
   [UNIFIED_LEAD_STATUS.NOVO]: 'bg-blue-100 text-blue-800 border-blue-200',
   [UNIFIED_LEAD_STATUS.CONTACTADO]: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  [UNIFIED_LEAD_STATUS.QUALIFICADO]: 'bg-green-100 text-green-800 border-green-200',
+  [UNIFIED_LEAD_STATUS.MORNO]: 'bg-orange-100 text-orange-800 border-orange-200',     // ✅ NOVO: Cor laranja para "mornou"
+  [UNIFIED_LEAD_STATUS.FRIO]: 'bg-slate-100 text-slate-800 border-slate-200',          // ✅ NOVO: Cor cinza para "frio"
   [UNIFIED_LEAD_STATUS.CONVERTIDO]: 'bg-purple-100 text-purple-800 border-purple-200',
   [UNIFIED_LEAD_STATUS.PERDIDO]: 'bg-red-100 text-red-800 border-red-200',
   [UNIFIED_LEAD_STATUS.INATIVO]: 'bg-gray-100 text-gray-800 border-gray-200',
-  
+
   // Cores para Client Status
   [UNIFIED_CLIENT_STATUS.ATIVO]: 'bg-green-100 text-green-800 border-green-200',
   [UNIFIED_CLIENT_STATUS.POTENCIAL]: 'bg-blue-100 text-blue-800 border-blue-200',
