@@ -137,8 +137,9 @@ const useClients = () => {
   const { user, currentUser, isAuthenticated, loading: authLoading } = useAuth();
   
   // Verificação de autenticação melhorada
-  const isUserReady = !authLoading && isAuthenticated && (user || currentUser);
-  const activeUser = user || currentUser;
+  const activeUser = currentUser || user;
+  const isUserReady = !authLoading && !!activeUser && activeUser.uid;
+
 
   // 📥 BUSCAR TODOS OS CLIENTES COM ESTRUTURA UNIFICADA
   // ==================================================
@@ -162,7 +163,13 @@ const useClients = () => {
           const data = doc.data();
           
           // Aplicar migração automática se necessário
-          const migratedData = migrateClientData(data);
+          let migratedData;
+try {
+  migratedData = migrateClientData(data);
+} catch (error) {
+  console.warn('⚠️ Migração falhou:', error);
+  migratedData = data;
+}
           
           return {
             id: doc.id,
