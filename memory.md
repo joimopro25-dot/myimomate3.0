@@ -1563,3 +1563,174 @@ que permite aos consultores imobiliários identificar automaticamente leads que 
 a arrefecer e tomar ações preventivas para maximizar conversões.
 
 **Sistema único no mercado imobiliário português - PRONTO PARA REVOLUCIONAR O SETOR! 🚀**
+# 🏢 MyImoMate 3.0 - CRM Imobiliário - MEMORY.MD
+
+## 🚨 MIGRAÇÃO CRÍTICA MULTI-TENANT - EM PROGRESSO (Agosto 2025)
+
+### **📋 PROBLEMA CRÍTICO IDENTIFICADO:**
+**Data:** 24 Agosto 2025  
+**Severidade:** 🔴 CRÍTICA  
+**Impacto:** Segurança e isolamento de dados entre consultores
+
+#### **❌ ESTRUTURA ATUAL (INCORRETA):**
+```
+Firestore:
+├── opportunities/ (coleção global - PROBLEMA!)
+├── clients/ (coleção global - PROBLEMA!)
+├── leads/ (coleção global - PROBLEMA!)
+└── users/ (coleção global)
+```
+**Problemas identificados:**
+- ⚠️ Consultores podem ver dados de outros
+- ⚠️ Queries não filtradas por utilizador  
+- ⚠️ Violação de privacidade de dados
+- ⚠️ Performance degradada com escala
+
+#### **✅ ESTRUTURA CORRETA (MULTI-TENANT):**
+```
+Firestore:
+├── users/{userId}/
+│   ├── profile/ (dados do consultor)
+│   ├── leads/ (subcoleção isolada)
+│   ├── clients/ (subcoleção isolada)
+│   ├── opportunities/ (subcoleção isolada)
+│   ├── deals/ (subcoleção isolada)
+│   ├── visits/ (subcoleção isolada)
+│   ├── tasks/ (subcoleção isolada)
+│   └── settings/ (configurações pessoais)
+└── system/ (configurações globais/planos)
+```
+
+---
+
+## 🎯 PLANO DE MIGRAÇÃO MULTI-TENANT
+
+### **📋 ESTRATÉGIA DE IMPLEMENTAÇÃO:**
+
+#### **FASE 1: FOUNDATION (0-2 horas)**
+- [ ] **🔧 FirebaseService.js** - Utilitário para subcoleções
+- [ ] **📋 MigrationUtils.js** - Ferramentas de migração
+- [ ] **🔍 DataDiagnostic.js** - Auditoria dados existentes
+
+#### **FASE 2: HOOKS MIGRATION (2-6 horas)**
+- [ ] **🔄 useLeads.js** - Migração para subcoleções
+- [ ] **🔄 useClients.js** - Migração para subcoleções  
+- [ ] **🔄 useOpportunities.js** - Migração para subcoleções
+- [ ] **🔄 useDeals.js** - Migração para subcoleções
+- [ ] **🔄 useVisits.js** - Migração para subcoleções
+- [ ] **🔄 useTasks.js** - Migração para subcoleções
+
+#### **FASE 3: DATA MIGRATION (1-2 horas)**
+- [ ] **📊 Backup dados existentes** - Segurança total
+- [ ] **🔄 Script migração automática** - Mover para subcoleções
+- [ ] **✅ Validação integridade** - Verificar todos os dados
+- [ ] **🧹 Limpeza dados antigos** - Remover estrutura antiga
+
+#### **FASE 4: VALIDATION (1 hora)**
+- [ ] **🧪 Testes isolamento** - Verificar separação
+- [ ] **⚡ Testes performance** - Comparar velocidade
+- [ ] **🔒 Testes segurança** - Confirmar privacidade
+- [ ] **✅ Testes funcionais** - Todas as features
+
+---
+
+## 📊 TRACKING DO PROGRESSO
+
+### **✅ COMPLETED TASKS:**
+*Nenhuma ainda - começando agora*
+
+### **🔄 IN PROGRESS:**
+- **Documentação strategy** - Este documento
+
+### **📋 PENDING TASKS:**
+- Todos os items do plano acima
+
+### **⚠️ BLOCKED ITEMS:**
+*Nenhum identificado ainda*
+
+---
+
+## 🎯 BENEFÍCIOS ESPERADOS
+
+### **🔒 SEGURANÇA:**
+- ✅ **Isolamento total** entre consultores
+- ✅ **Impossível aceder dados alheios** 
+- ✅ **Compliance GDPR** melhorada
+
+### **⚡ PERFORMANCE:**
+- ✅ **Queries mais rápidas** (menos dados)
+- ✅ **Indexação otimizada** por utilizador
+- ✅ **Menor latência** nas operações
+
+### **📈 ESCALABILIDADE:**
+- ✅ **Suporta milhares** de consultores
+- ✅ **Backup granular** por utilizador
+- ✅ **Gestão recursos** otimizada
+
+### **💼 BUSINESS:**
+- ✅ **Planos multi-consultant** possíveis
+- ✅ **White-label** para empresas
+- ✅ **SLA diferenciado** por plano
+
+---
+
+## 📝 DECISION LOG
+
+### **Decision 1: Subcoleções vs Field Filtering**
+- **Data:** 24 Agosto 2025
+- **Decision:** SUBCOLEÇÕES escolhidas
+- **Rationale:** Máxima segurança e performance
+- **Approved by:** Utilizador ✅
+
+### **Decision 2: Migration Strategy**
+- **Data:** 24 Agosto 2025  
+- **Decision:** Migração incremental com backup
+- **Rationale:** Segurança dos dados existentes
+- **Status:** Aguarda implementação
+
+---
+
+## 🚧 RISKS & MITIGATION
+
+### **🔴 HIGH RISK:**
+- **Perda de dados durante migração**
+  - *Mitigation:* Backup completo antes de qualquer alteração
+- **Quebra de funcionalidades existentes** 
+  - *Mitigation:* Testes extensivos em cada hook
+
+### **🟡 MEDIUM RISK:**
+- **Performance temporariamente degradada**
+  - *Mitigation:* Migração fora de horas pico
+- **Complexidade aumentada do código**
+  - *Mitigation:* Documentação detalhada
+
+---
+
+## ✅ SUCCESS CRITERIA
+
+### **🎯 MIGRATION COMPLETE WHEN:**
+- [ ] Todos os hooks usam subcoleções
+- [ ] Zero dados partilhados entre utilizadores
+- [ ] Performance igual ou melhor
+- [ ] Todas as funcionalidades funcionam
+- [ ] Backup/restore testados
+- [ ] Documentação atualizada
+
+---
+
+## 📞 SUPPORT CONTACTS
+
+### **Technical Lead:** Claude AI
+### **Project Owner:** Utilizador
+### **Timeline:** 24-25 Agosto 2025  
+### **Priority:** 🔴 CRÍTICA
+
+---
+
+**PRÓXIMOS PASSOS:**
+1. ✅ Documentação completa (este ficheiro)  
+2. 🔄 Criar FirebaseService.js
+3. 🔄 Migrar primeiro hook (useLeads.js)
+4. 🔄 Continuar sequencialmente
+
+**STATUS:** 📋 PLANNING COMPLETE - READY FOR IMPLEMENTATION
