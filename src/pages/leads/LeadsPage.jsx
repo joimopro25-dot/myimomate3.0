@@ -15,7 +15,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import useLeads from '../../hooks/useLeads';
 
 // Importação do modal de conversão
-import SimpleConversionModal from '../../components/modals/SimpleConversionModal';
+import LeadConversionEnhanced from '../../components/modals/LeadConversionEnhanced';
 
 import { 
   UserGroupIcon, 
@@ -529,12 +529,12 @@ const LeadsPage = () => {
 
           {/* Modal de Conversão com sincronização (MANTIDO + MELHORADO) */}
           {conversionModal && conversionModal.isOpen && (
-            <SimpleConversionModal
+            <LeadConversionEnhanced
               isOpen={conversionModal.isOpen}
-              onClose={handleModalClose}
+              onClose={closeConversionModal}
               leadData={conversionModal.leadData}
               onConvert={handleModalConvert}
-              isConverting={isModalConverting || converting}
+              isConverting={isModalConverting}
               onDebugLog={handleDebugLog}
             />
           )}
