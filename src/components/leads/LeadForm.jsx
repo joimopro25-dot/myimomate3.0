@@ -680,12 +680,12 @@ const LeadForm = ({
   }`}
   required
 >
-  {LEAD_INTEREST_TYPES && Object.entries(LEAD_INTEREST_TYPES).length > 0 ? 
-    Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
-      <option key={key} value={value}>
-        {getInterestTypeLabel(value)}
-      </option>
-    )) : (
+  {LEAD_INTEREST_TYPES && Object.keys(LEAD_INTEREST_TYPES || {}).length > 0 ? 
+  Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+    <option key={key} value={value}>
+      {getInterestTypeLabel(value)}
+    </option>
+  )) : (
       <>
         <option value="compra_casa">Compra de Casa</option>
         <option value="compra_apartamento">Compra de Apartamento</option>
