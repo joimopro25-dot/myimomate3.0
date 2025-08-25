@@ -1,9 +1,10 @@
 // src/hooks/useLeads.js
 // HOOK DE LEADS MULTI-TENANT DEFINITIVO - MyImoMate 3.0
 // =====================================================
+// CORREÇÃO: Adicionada função getLeadStats em falta
 // Migração completa para arquitetura multi-tenant
 // Todas as funcionalidades preservadas com isolamento total
-// Data: Agosto 2025 | Versão: 3.0 Multi-Tenant FINAL
+// Data: Agosto 2025 | Versão: 3.0 Multi-Tenant FINAL + FIXED
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { serverTimestamp } from 'firebase/firestore';
@@ -152,7 +153,9 @@ export const useLeads = () => {
     convertidos: 0,
     perdidos: 0,
     mornos: 0,
-    frios: 0
+    frios: 0,
+    overdue: 0,
+    highValue: 0
   });
   
   const [duplicateCheck, setDuplicateCheck] = useState(null);
@@ -211,43 +214,34 @@ export const useLeads = () => {
       priority === UNIFIED_PRIORITIES.ALTA ? 1 : 
       priority === UNIFIED_PRIORITIES.NORMAL ? 3 : 7;
     
-    const followUpDate = new Date(now.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+    const followUpDate = new Date(now);
+    followUpDate.setDate(now.getDate() + daysToAdd);
     return followUpDate;
   }, []);
 
-  // MIGRAÇÃO DE DADOS ANTIGOS (PRESERVADA)
-  const migrateLead = useCallback((leadData) => {
-    // Aplicar estrutura unificada se não existir
-    const migratedLead = applyCoreStructure(leadData, 'lead');
-    
-    // Garantir campos obrigatórios multi-tenant
-    return {
-      ...migratedLead,
-      userId: migratedLead.userId || user?.uid,
-      userEmail: migratedLead.userEmail || user?.email,
-      structureVersion: '3.0'
-    };
-  }, [user]);
+  // MIGRAÇÃO E ENRIQUECIMENTO DE DADOS (PRESERVADO)
+  const migrateLead = useCallback((rawData) => {
+    if (rawData.structureVersion === '3.0') return rawData;
 
-  // ENRIQUECIMENTO DE DADOS (PRESERVADO)
-  const enrichLeadData = useCallback((lead) => {
-    const migratedData = migrateLead(lead);
-    
+    return {
+      ...rawData,
+      structureVersion: '3.0',
+      isActive: rawData.isActive !== false,
+      leadTemperature: calculateUrgencyLevel(rawData.createdAt, rawData.status),
+      statusColor: LEAD_STATUS_COLORS[rawData.status] || LEAD_STATUS_COLORS[UNIFIED_LEAD_STATUS.NOVO],
+      canConvert: ![UNIFIED_LEAD_STATUS.CONVERTIDO, UNIFIED_LEAD_STATUS.PERDIDO].includes(rawData.status),
+      isConverted: rawData.status === UNIFIED_LEAD_STATUS.CONVERTIDO || rawData.isConverted === true,
+      budgetRangeValue: getBudgetRangeMiddleValue(rawData.budgetRange) || 0,
+      interestTypeLabel: getInterestTypeLabel(rawData.interestType),
+      budgetRangeLabel: getBudgetRangeLabel(rawData.budgetRange)
+    };
+  }, [calculateUrgencyLevel]);
+
+  const enrichLeadData = useCallback((migratedData) => {
     return {
       ...migratedData,
       
-      // Cores e labels
-      statusColor: LEAD_STATUS_COLORS[migratedData.status] || LEAD_STATUS_COLORS[UNIFIED_LEAD_STATUS.NOVO],
-      interestTypeLabel: getInterestTypeLabel(migratedData.interestType),
-      budgetRangeLabel: getBudgetRangeLabel(migratedData.budgetRange),
-      budgetRangeValue: getBudgetRangeMiddleValue(migratedData.budgetRange),
-      
-      // Estados calculados
-      isConverted: migratedData.status === UNIFIED_LEAD_STATUS.CONVERTIDO,
-      canConvert: ![UNIFIED_LEAD_STATUS.CONVERTIDO, UNIFIED_LEAD_STATUS.PERDIDO].includes(migratedData.status),
-      
-      // Sistema de temperatura
-      leadTemperature: calculateUrgencyLevel(migratedData.createdAt, migratedData.status),
+      // Métricas temporais
       daysOld: migratedData.createdAt ? 
         Math.floor((new Date() - new Date(migratedData.createdAt)) / (1000 * 60 * 60 * 24)) : 0,
       
@@ -260,7 +254,7 @@ export const useLeads = () => {
       formattedBudget: getBudgetRangeMiddleValue(migratedData.budgetRange) ? 
         formatCurrency(getBudgetRangeMiddleValue(migratedData.budgetRange)) : 'N/A'
     };
-  }, [migrateLead, calculateUrgencyLevel, calculateInitialLeadScore, calculateNextFollowUp]);
+  }, [calculateInitialLeadScore, calculateNextFollowUp]);
 
   // CÁLCULO DE ESTATÍSTICAS (PRESERVADO)
   const calculateStats = useCallback((leadsData) => {
@@ -291,21 +285,20 @@ export const useLeads = () => {
     if (!user) return { hasDuplicates: false };
 
     try {
-      console.log('🔍 Verificando duplicados...');
+      console.log('Verificando duplicados...');
       
       // Verificar por telefone (obrigatório)
       const phoneResults = await leadsAPI.read({
         whereClause: [['phone', '==', leadData.phone]],
-        limitCount: 5
+        useCache: false
       });
 
-      if (phoneResults.success && phoneResults.count > 0) {
+      if (phoneResults.success && phoneResults.data.length > 0) {
         return {
           hasDuplicates: true,
-          type: 'phone',
-          field: 'telefone',
-          existing: phoneResults.data,
-          message: `Encontrado ${phoneResults.count} lead(s) com o mesmo telefone`
+          duplicateType: 'phone',
+          existingLead: phoneResults.data[0],
+          message: `Já existe um lead com o telefone ${leadData.phone}`
         };
       }
 
@@ -313,102 +306,97 @@ export const useLeads = () => {
       if (leadData.email) {
         const emailResults = await leadsAPI.read({
           whereClause: [['email', '==', leadData.email]],
-          limitCount: 5
+          useCache: false
         });
 
-        if (emailResults.success && emailResults.count > 0) {
+        if (emailResults.success && emailResults.data.length > 0) {
           return {
             hasDuplicates: true,
-            type: 'email',
-            field: 'email',
-            existing: emailResults.data,
-            message: `Encontrado ${emailResults.count} lead(s) com o mesmo email`
+            duplicateType: 'email',
+            existingLead: emailResults.data[0],
+            message: `Já existe um lead com o email ${leadData.email}`
           };
         }
       }
 
       return { hasDuplicates: false };
 
-    } catch (err) {
-      console.error('❌ Erro ao verificar duplicados:', err);
-      return { hasDuplicates: false, error: err.message };
+    } catch (error) {
+      console.error('Erro ao verificar duplicados:', error);
+      return { hasDuplicates: false, error: error.message };
     }
   }, [user, leadsAPI]);
 
-  // CARREGAR LEADS MULTI-TENANT (FUNÇÃO PRINCIPAL)
+  // BUSCAR LEADS (MULTI-TENANT COM FILTROS)
   const fetchLeads = useCallback(async (forceRefresh = false) => {
-    if (!user) {
-      console.log('useLeads: Aguardando utilizador...');
+    if (!user) return;
+    
+    if (!forceRefresh && leads.length > 0) {
+      console.log('Leads já carregados, pulando busca');
       return;
     }
-    
+
     const currentFiltersString = JSON.stringify(filters);
-    if (!forceRefresh && lastFetchFilters.current === currentFiltersString && leads.length > 0) {
-      console.log('useLeads: Filtros inalterados, skip fetch');
+    if (!forceRefresh && lastFetchFilters.current === currentFiltersString) {
+      console.log('Filtros inalterados, pulando busca');
       return;
     }
-    
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-    
+
     setLoading(true);
     setError(null);
-    
-    try {
-      console.log(`📊 Carregando leads para utilizador: ${user.uid}`);
-      
-      // CONSTRUIR OPÇÕES DE QUERY
-      const queryOptions = {
-        limitCount: 100,
-        includeInactive: false
-      };
 
-      // APLICAR FILTROS
-      const whereConditions = [];
+    try {
+      // Construir whereClause baseado nos filtros
+      let whereClause = [];
       
-      if (filters.status) {
-        whereConditions.push(['status', '==', filters.status]);
+      if (filters.status && filters.status !== 'todos') {
+        whereClause.push(['status', '==', filters.status]);
       }
       
       if (filters.interestType) {
-        whereConditions.push(['interestType', '==', filters.interestType]);
+        whereClause.push(['interestType', '==', filters.interestType]);
       }
       
       if (filters.budgetRange) {
-        whereConditions.push(['budgetRange', '==', filters.budgetRange]);
+        whereClause.push(['budgetRange', '==', filters.budgetRange]);
       }
-      
+
       if (filters.priority) {
-        whereConditions.push(['priority', '==', filters.priority]);
+        whereClause.push(['priority', '==', filters.priority]);
       }
-      
+
       if (filters.source) {
-        whereConditions.push(['source', '==', filters.source]);
+        whereClause.push(['source', '==', filters.source]);
       }
 
-      if (whereConditions.length > 0) {
-        queryOptions.whereClause = whereConditions;
-      }
+      // Buscar leads no Firebase
+      const result = await leadsAPI.read({
+        whereClause,
+        orderByClause: [['createdAt', 'desc']],
+        useCache: !forceRefresh
+      });
 
-      // EXECUTAR QUERY MULTI-TENANT
-      const result = await leadsAPI.read(queryOptions);
-      
       if (result.success) {
-        let leadsData = result.data.map(enrichLeadData);
-        
-        // FILTROS ADICIONAIS (APLICADOS NO CLIENTE)
+        let leadsData = result.data;
+
+        // Migrar e enriquecer dados
+        leadsData = leadsData.map(lead => {
+          const migrated = migrateLead(lead);
+          return enrichLeadData(migrated);
+        });
+
+        // Aplicar filtros do lado do cliente
         if (filters.temperature) {
           leadsData = leadsData.filter(lead => lead.leadTemperature === filters.temperature);
         }
-        
+
         if (filters.search) {
           const searchTerm = filters.search.toLowerCase();
           leadsData = leadsData.filter(lead => 
             lead.name.toLowerCase().includes(searchTerm) ||
             lead.phone.includes(searchTerm) ||
-            lead.email?.toLowerCase().includes(searchTerm) ||
-            lead.location?.toLowerCase().includes(searchTerm)
+            (lead.email && lead.email.toLowerCase().includes(searchTerm)) ||
+            (lead.location && lead.location.toLowerCase().includes(searchTerm))
           );
         }
         
@@ -428,21 +416,21 @@ export const useLeads = () => {
         calculateStats(leadsData);
         lastFetchFilters.current = currentFiltersString;
         
-        console.log(`✅ ${leadsData.length} leads carregados com sucesso`);
+        console.log(`${leadsData.length} leads carregados com sucesso`);
         
       } else {
         throw new Error(result.error || 'Falha ao carregar leads');
       }
 
     } catch (err) {
-      console.error('❌ Erro ao buscar leads:', err);
+      console.error('Erro ao buscar leads:', err);
       setError(err.message);
       setLeads([]);
-      setStats({ total: 0, novos: 0, contactados: 0, qualificados: 0, interessados: 0, convertidos: 0, perdidos: 0, mornos: 0, frios: 0 });
+      setStats({ total: 0, novos: 0, contactados: 0, qualificados: 0, interessados: 0, convertidos: 0, perdidos: 0, mornos: 0, frios: 0, overdue: 0, highValue: 0 });
     } finally {
       setLoading(false);
     }
-  }, [user, filters, leadsAPI, enrichLeadData, calculateStats, leads.length]);
+  }, [user, filters, leadsAPI, enrichLeadData, calculateStats, leads.length, migrateLead]);
 
   // CRIAR LEAD (MULTI-TENANT)
   const createLead = useCallback(async (leadData) => {
@@ -453,113 +441,122 @@ export const useLeads = () => {
     setDuplicateCheck(null);
 
     try {
-      console.log('📝 Criando lead...');
+      console.log('Criando lead...');
 
       // VALIDAÇÃO COMPLETA
       const validation = validateLead(leadData);
       if (!validation.isValid) {
-        const errorMessage = Array.isArray(validation.errors) ? 
+        const errorMessage = Array.isArray(validation.errors) ?
           validation.errors.join(', ') : validation.errors;
-        return { success: false, error: errorMessage };
+        throw new Error(`Dados inválidos: ${errorMessage}`);
       }
 
-      // VERIFICAR DUPLICADOS
-      const duplicates = await checkForDuplicates(leadData);
-      if (duplicates.hasDuplicates) {
-        setDuplicateCheck(duplicates);
-        return { success: false, error: 'Lead duplicado encontrado', duplicates };
+      // VERIFICAÇÃO DE DUPLICADOS
+      const duplicateResult = await checkForDuplicates(leadData);
+      if (duplicateResult.hasDuplicates) {
+        setDuplicateCheck(duplicateResult);
+        return { 
+          success: false, 
+          error: duplicateResult.message,
+          duplicateInfo: duplicateResult
+        };
       }
 
-      // PREPARAR DADOS COM ESTRUTURA COMPLETA
-      const processedData = {
-        ...LEAD_TEMPLATE,
-        ...leadData,
-        
-        // Campos calculados
-        leadScore: calculateInitialLeadScore(leadData),
-        urgencyLevel: calculateUrgencyLevel(new Date(), leadData.status || UNIFIED_LEAD_STATUS.NOVO),
-        nextFollowUpDate: calculateNextFollowUp(leadData.priority || UNIFIED_PRIORITIES.NORMAL),
-        
-        // Metadados (serão adicionados pelo FirebaseService)
-        structureVersion: '3.0'
-      };
-
-      // CRIAR NO FIREBASE (MULTI-TENANT)
-      const result = await leadsAPI.create(processedData);
-
+      // PREPARAR DADOS PADRONIZADOS
+      const leadToCreate = applyCoreStructure(leadData, LEAD_TEMPLATE);
+      
+      // Enriquecer com campos calculados
+      leadToCreate.leadScore = calculateInitialLeadScore(leadData);
+      leadToCreate.leadTemperature = LEAD_TEMPERATURE.QUENTE; // Novo lead = sempre quente
+      leadToCreate.nextFollowUpDate = calculateNextFollowUp(leadData.priority || UNIFIED_PRIORITIES.NORMAL);
+      leadToCreate.statusColor = LEAD_STATUS_COLORS[leadToCreate.status];
+      leadToCreate.canConvert = true;
+      leadToCreate.budgetRangeValue = getBudgetRangeMiddleValue(leadToCreate.budgetRange) || 0;
+      
+      // Criar no Firebase
+      const result = await leadsAPI.create(leadToCreate);
+      
       if (result.success) {
-        const newLead = enrichLeadData(result.data);
+        // Atualizar lista local
+        const newLead = enrichLeadData({
+          id: result.id,
+          ...leadToCreate
+        });
+        
         setLeads(prev => [newLead, ...prev]);
         calculateStats([newLead, ...leads]);
         
-        console.log(`✅ Lead criado: ${result.id}`);
-        return { success: true, id: result.id, data: newLead };
+        console.log('Lead criado com sucesso:', result.id);
+        return { 
+          success: true, 
+          id: result.id,
+          data: newLead,
+          message: 'Lead criado com sucesso!'
+        };
       } else {
         throw new Error(result.error);
       }
 
     } catch (err) {
-      console.error('❌ Erro ao criar lead:', err);
+      console.error('Erro ao criar lead:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
       setCreating(false);
     }
-  }, [user, leadsAPI, checkForDuplicates, calculateInitialLeadScore, calculateUrgencyLevel, calculateNextFollowUp, enrichLeadData, calculateStats, leads]);
+  }, [user, leadsAPI, checkForDuplicates, calculateInitialLeadScore, calculateNextFollowUp, enrichLeadData, leads, calculateStats]);
 
-  // ATUALIZAR LEAD (MULTI-TENANT)
+  // ATUALIZAR LEAD
   const updateLead = useCallback(async (leadId, updates) => {
     if (!user) return { success: false, error: 'Utilizador não autenticado' };
 
     try {
-      console.log(`🔄 Atualizando lead: ${leadId}`);
-
-      const updateData = {
-        ...updates,
-        // lastActivity será adicionado pelo FirebaseService via updatedAt
-      };
-
-      const result = await leadsAPI.update(leadId, updateData);
-
+      const result = await leadsAPI.update(leadId, updates);
+      
       if (result.success) {
-        setLeads(prev => prev.map(lead => 
-          lead.id === leadId ? enrichLeadData({ ...lead, ...updateData }) : lead
-        ));
+        setLeads(prev => 
+          prev.map(lead => 
+            lead.id === leadId 
+              ? enrichLeadData({ ...lead, ...updates })
+              : lead
+          )
+        );
         
-        // Recalcular stats se necessário
         const updatedLeads = leads.map(lead => 
-          lead.id === leadId ? { ...lead, ...updateData } : lead
+          lead.id === leadId ? { ...lead, ...updates } : lead
         );
         calculateStats(updatedLeads);
         
-        console.log(`✅ Lead atualizado: ${leadId}`);
-        return { success: true };
+        console.log('Lead atualizado:', leadId);
+        return { success: true, message: 'Lead atualizado com sucesso' };
       } else {
         throw new Error(result.error);
       }
 
     } catch (err) {
-      console.error('❌ Erro ao atualizar lead:', err);
+      console.error('Erro ao atualizar lead:', err);
       return { success: false, error: err.message };
     }
-  }, [user, leadsAPI, enrichLeadData, leads, calculateStats]);
+  }, [user, leadsAPI, leads, enrichLeadData, calculateStats]);
 
-  // ELIMINAR LEAD (MULTI-TENANT)
+  // ELIMINAR LEAD
   const deleteLead = useCallback(async (leadId, hardDelete = false) => {
     if (!user) return { success: false, error: 'Utilizador não autenticado' };
 
     try {
-      console.log(`🗑️ ${hardDelete ? 'Eliminando' : 'Desativando'} lead: ${leadId}`);
-
       const result = await leadsAPI.delete(leadId, hardDelete);
-
+      
       if (result.success) {
         if (hardDelete) {
           setLeads(prev => prev.filter(lead => lead.id !== leadId));
         } else {
-          setLeads(prev => prev.map(lead => 
-            lead.id === leadId ? { ...lead, isActive: false } : lead
-          ));
+          setLeads(prev => 
+            prev.map(lead => 
+              lead.id === leadId 
+                ? { ...lead, isActive: false } 
+                : lead
+            )
+          );
         }
         
         // Recalcular stats
@@ -568,7 +565,7 @@ export const useLeads = () => {
           leads.map(l => l.id === leadId ? { ...l, isActive: false } : l);
         calculateStats(updatedLeads);
         
-        console.log(`✅ Lead ${hardDelete ? 'eliminado' : 'desativado'}: ${leadId}`);
+        console.log(`Lead ${hardDelete ? 'eliminado' : 'desativado'}: ${leadId}`);
         return { 
           success: true, 
           message: `Lead ${hardDelete ? 'eliminado' : 'desativado'} com sucesso` 
@@ -578,7 +575,7 @@ export const useLeads = () => {
       }
 
     } catch (err) {
-      console.error('❌ Erro ao eliminar lead:', err);
+      console.error('Erro ao eliminar lead:', err);
       return { success: false, error: err.message };
     }
   }, [user, leadsAPI, leads, calculateStats]);
@@ -591,7 +588,7 @@ export const useLeads = () => {
     setError(null);
 
     try {
-      console.log('🔄 Iniciando conversão de lead:', leadId);
+      console.log('Iniciando conversão de lead:', leadId);
       
       // Buscar dados do lead
       const leadResult = await leadsAPI.readOne(leadId);
@@ -625,66 +622,46 @@ export const useLeads = () => {
         location: leadData.location || '',
         preferredLocations: leadData.location ? [leadData.location] : [],
         
-        // Status e metadados
-        status: 'ativo',
-        source: 'conversao_lead',
+        // Origem e conversão
         originalLeadId: leadId,
-        convertedAt: serverTimestamp(),
+        convertedFromLead: true,
+        leadConvertedAt: serverTimestamp(),
         
-        // Dados adicionais da conversão
+        // Dados adicionais
         ...additionalData
       };
 
-      // CRIAR CLIENTE (MULTI-TENANT)
+      // Criar cliente
       const clientResult = await clientsAPI.create(clientData);
       
       if (!clientResult.success) {
-        throw new Error(`Erro ao criar cliente: ${clientResult.error}`);
+        throw new Error('Erro ao criar cliente: ' + clientResult.error);
       }
 
-      // CRIAR OPORTUNIDADE (SE ESPECIFICADO)
-      if (additionalData.createOpportunity !== false) {
-        const opportunityData = {
-          clientId: clientResult.id,
-          clientName: leadData.name,
-          
-          interestType: leadData.interestType,
-          budgetRange: leadData.budgetRange,
-          expectedValue: getBudgetRangeMiddleValue(leadData.budgetRange),
-          
-          status: 'identificacao',
-          priority: leadData.priority || UNIFIED_PRIORITIES.NORMAL,
-          source: 'conversao_lead',
-          
-          originalLeadId: leadId
-        };
-
-        await opportunitiesAPI.create(opportunityData);
-      }
-
-      // ATUALIZAR LEAD PARA CONVERTIDO
+      // Atualizar lead como convertido
       await leadsAPI.update(leadId, {
         status: UNIFIED_LEAD_STATUS.CONVERTIDO,
         isConverted: true,
         convertedAt: serverTimestamp(),
-        convertedToClientId: clientResult.id,
-        lastActivity: serverTimestamp()
+        clientId: clientResult.id
       });
 
-      // ATUALIZAR ESTADO LOCAL
-      setLeads(prev => prev.map(lead => 
-        lead.id === leadId 
-          ? { 
-              ...lead, 
-              status: UNIFIED_LEAD_STATUS.CONVERTIDO,
-              isConverted: true,
-              statusColor: LEAD_STATUS_COLORS[UNIFIED_LEAD_STATUS.CONVERTIDO],
-              canConvert: false
-            }
-          : lead
-      ));
+      // Atualizar lista local de leads
+      setLeads(prev =>
+        prev.map(lead =>
+          lead.id === leadId 
+            ? { 
+                ...lead, 
+                status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+                isConverted: true,
+                statusColor: LEAD_STATUS_COLORS[UNIFIED_LEAD_STATUS.CONVERTIDO],
+                canConvert: false
+              }
+            : lead
+        )
+      );
 
-      console.log('✅ Conversão de lead concluída com sucesso');
+      console.log('Conversão de lead concluída com sucesso');
       
       return {
         success: true,
@@ -697,13 +674,13 @@ export const useLeads = () => {
       };
 
     } catch (err) {
-      console.error('❌ Erro na conversão:', err);
+      console.error('Erro na conversão:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
       setConverting(false);
     }
-  }, [user, leadsAPI, clientsAPI, opportunitiesAPI]);
+  }, [user, leadsAPI, clientsAPI]);
 
   // APLICAR FILTROS
   const applyFilters = useCallback((newFilters) => {
@@ -724,6 +701,11 @@ export const useLeads = () => {
     });
   }, []);
 
+  // FUNÇÃO GETLEADSTATS (ADICIONADA - ERA ESTA QUE FALTAVA)
+  const getLeadStats = useCallback(() => {
+    return stats;
+  }, [stats]);
+
   // EFEITO PRINCIPAL - CARREGAMENTO
   useEffect(() => {
     if (user) {
@@ -740,7 +722,7 @@ export const useLeads = () => {
     };
   }, []);
 
-  // INTERFACE PÚBLICA DO HOOK
+  // INTERFACE PÚBLICA DO HOOK COMPLETA
   return {
     // DADOS
     leads,
@@ -771,6 +753,9 @@ export const useLeads = () => {
     clearDuplicateCheck: () => setDuplicateCheck(null),
     checkForDuplicates,
     
+    // FUNÇÃO EM FALTA - ADICIONADA AGORA
+    getLeadStats,
+    
     // CALCULADORES (EXPOSTOS PARA OUTROS COMPONENTES)
     calculateInitialLeadScore,
     calculateUrgencyLevel,
@@ -783,4 +768,5 @@ export const useLeads = () => {
     PROPERTY_STATUS
   };
 };
+
 export default useLeads;

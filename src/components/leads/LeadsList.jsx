@@ -1,7 +1,8 @@
-// src/components/leads/LeadsList.jsx - VERSÃO COM VIEWMODE FUNCIONAL
+// src/components/leads/LeadsList.jsx - VERSÃO COM VIEWMODE FUNCIONAL + CORREÇÕES DE SEGURANÇA
 // ✅ Edição inline mantida
-// ✅ Modal de edição usando LeadForm expandido
+// ✅ Modal de edição usando LeadForm expandido  
 // ✅ ADICIONADO: Suporte para viewMode (grid/list)
+// ✅ CORREÇÃO: Verificações de segurança para constantes undefined
 // ✅ Todas as funcionalidades preservadas
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -45,6 +46,59 @@ const LeadsList = ({
     isValidPhone,
     isValidEmail
   } = useLeads();
+
+  // CONSTANTES DE FALLBACK PARA SEGURANÇA (NOVA ADIÇÃO)
+  const SAFE_LEAD_STATUS = LEAD_STATUS || {
+    NOVO: 'novo',
+    CONTACTADO: 'contactado',
+    QUALIFICADO: 'qualificado',
+    INTERESSADO: 'interessado',
+    CONVERTIDO: 'convertido',
+    PERDIDO: 'perdido',
+    INATIVO: 'inativo'
+  };
+
+  const SAFE_CLIENT_TYPES = CLIENT_TYPES || {
+    COMPRADOR: 'comprador',
+    VENDEDOR: 'vendedor',
+    ARRENDATARIO: 'arrendatario',
+    SENHORIO: 'senhorio',
+    INVESTIDOR: 'investidor'
+  };
+
+  const SAFE_PROPERTY_STATUS = PROPERTY_STATUS || {
+    NAO_IDENTIFICADO: 'nao_identificado',
+    IDENTIFICADO: 'identificado',
+    VISITADO: 'visitado',
+    REJEITADO: 'rejeitado',
+    APROVADO: 'aprovado'
+  };
+
+  const SAFE_LEAD_INTEREST_TYPES = LEAD_INTEREST_TYPES || {
+    COMPRA_CASA: 'compra_casa',
+    COMPRA_APARTAMENTO: 'compra_apartamento',
+    VENDA_CASA: 'venda_casa',
+    ARRENDAMENTO_CASA: 'arrendamento_casa',
+    INVESTIMENTO: 'investimento'
+  };
+
+  const SAFE_BUDGET_RANGES = BUDGET_RANGES || {
+    ate_100k: 'Até 100k€',
+    entre_100k_200k: '100k€ - 200k€',
+    entre_200k_300k: '200k€ - 300k€',
+    entre_300k_500k: '300k€ - 500k€',
+    acima_500k: 'Acima 500k€'
+  };
+
+  const SAFE_LEAD_STATUS_COLORS = LEAD_STATUS_COLORS || {
+    novo: 'bg-blue-100 text-blue-800',
+    contactado: 'bg-yellow-100 text-yellow-800',
+    qualificado: 'bg-green-100 text-green-800',
+    interessado: 'bg-purple-100 text-purple-800',
+    convertido: 'bg-emerald-100 text-emerald-800',
+    perdido: 'bg-red-100 text-red-800',
+    inativo: 'bg-gray-100 text-gray-800'
+  };
 
   // Estados de filtros locais
   const [localFilters, setLocalFilters] = useState({
@@ -213,11 +267,11 @@ const LeadsList = ({
     const newValue = editValues[leadId]?.[field];
     if (newValue === undefined) return;
 
-    if ((field === 'phone' || field === 'managerPhone') && newValue && !isValidPhone(newValue)) {
+    if ((field === 'phone' || field === 'managerPhone') && newValue && isValidPhone && !isValidPhone(newValue)) {
       alert('Formato de telefone inválido');
       return;
     }
-    if ((field === 'email' || field === 'managerEmail') && newValue && !isValidEmail(newValue)) {
+    if ((field === 'email' || field === 'managerEmail') && newValue && isValidEmail && !isValidEmail(newValue)) {
       alert('Formato de email inválido');
       return;
     }
@@ -286,7 +340,7 @@ const LeadsList = ({
   };
 
   const handleAddManagerContact = async () => {
-    if (!editingLead) return;
+    if (!editingLead || !addManagerContact) return;
 
     try {
       const result = await addManagerContact(editingLead.id, managerContactForm);
@@ -340,51 +394,52 @@ const LeadsList = ({
     }
   };
 
-  // Helper functions (MANTIDAS)
+  // Helper functions (ATUALIZADAS COM VERIFICAÇÕES DE SEGURANÇA)
   const getStatusLabel = (status) => {
     const labels = {
-      [LEAD_STATUS.NOVO]: 'Novo',
-      [LEAD_STATUS.CONTACTADO]: 'Contactado',
-      [LEAD_STATUS.QUALIFICADO]: 'Qualificado',
-      [LEAD_STATUS.CONVERTIDO]: 'Convertido',
-      [LEAD_STATUS.PERDIDO]: 'Perdido',
-      [LEAD_STATUS.INATIVO]: 'Inativo'
+      [SAFE_LEAD_STATUS.NOVO]: 'Novo',
+      [SAFE_LEAD_STATUS.CONTACTADO]: 'Contactado',
+      [SAFE_LEAD_STATUS.QUALIFICADO]: 'Qualificado',
+      [SAFE_LEAD_STATUS.INTERESSADO]: 'Interessado',
+      [SAFE_LEAD_STATUS.CONVERTIDO]: 'Convertido',
+      [SAFE_LEAD_STATUS.PERDIDO]: 'Perdido',
+      [SAFE_LEAD_STATUS.INATIVO]: 'Inativo'
     };
     return labels[status] || status;
   };
 
-  const getBudgetLabel = (budget) => BUDGET_RANGES[budget] || budget;
+  const getBudgetLabel = (budget) => SAFE_BUDGET_RANGES[budget] || budget;
   
   const getInterestLabel = (interest) => {
     const labels = {
-      [LEAD_INTEREST_TYPES.COMPRA_CASA]: 'Compra Casa',
-      [LEAD_INTEREST_TYPES.COMPRA_APARTAMENTO]: 'Compra Apartamento',
-      [LEAD_INTEREST_TYPES.VENDA_CASA]: 'Venda Casa',
-      [LEAD_INTEREST_TYPES.ARRENDAMENTO_CASA]: 'Arrendamento',
-      [LEAD_INTEREST_TYPES.INVESTIMENTO]: 'Investimento'
+      [SAFE_LEAD_INTEREST_TYPES.COMPRA_CASA]: 'Compra Casa',
+      [SAFE_LEAD_INTEREST_TYPES.COMPRA_APARTAMENTO]: 'Compra Apartamento',
+      [SAFE_LEAD_INTEREST_TYPES.VENDA_CASA]: 'Venda Casa',
+      [SAFE_LEAD_INTEREST_TYPES.ARRENDAMENTO_CASA]: 'Arrendamento',
+      [SAFE_LEAD_INTEREST_TYPES.INVESTIMENTO]: 'Investimento'
     };
     return labels[interest] || interest;
   };
 
   const getClientTypeLabel = (type) => {
     const labels = {
-      [CLIENT_TYPES.COMPRADOR]: 'Comprador',
-      [CLIENT_TYPES.ARRENDATARIO]: 'Arrendatário',
-      [CLIENT_TYPES.INQUILINO]: 'Inquilino',
-      [CLIENT_TYPES.VENDEDOR]: 'Vendedor',
-      [CLIENT_TYPES.SENHORIO]: 'Senhorio',
-      [CLIENT_TYPES.INVESTIDOR]: 'Investidor'
+      [SAFE_CLIENT_TYPES.COMPRADOR]: 'Comprador',
+      [SAFE_CLIENT_TYPES.ARRENDATARIO]: 'Arrendatário',
+      [SAFE_CLIENT_TYPES.INQUILINO]: 'Inquilino',
+      [SAFE_CLIENT_TYPES.VENDEDOR]: 'Vendedor',
+      [SAFE_CLIENT_TYPES.SENHORIO]: 'Senhorio',
+      [SAFE_CLIENT_TYPES.INVESTIDOR]: 'Investidor'
     };
     return labels[type] || type;
   };
 
   const getPropertyStatusLabel = (status) => {
     const labels = {
-      [PROPERTY_STATUS.NAO_IDENTIFICADO]: 'Não Identificado',
-      [PROPERTY_STATUS.IDENTIFICADO]: 'Identificado',
-      [PROPERTY_STATUS.VISITADO]: 'Visitado',
-      [PROPERTY_STATUS.REJEITADO]: 'Rejeitado',
-      [PROPERTY_STATUS.APROVADO]: 'Aprovado'
+      [SAFE_PROPERTY_STATUS.NAO_IDENTIFICADO]: 'Não Identificado',
+      [SAFE_PROPERTY_STATUS.IDENTIFICADO]: 'Identificado',
+      [SAFE_PROPERTY_STATUS.VISITADO]: 'Visitado',
+      [SAFE_PROPERTY_STATUS.REJEITADO]: 'Rejeitado',
+      [SAFE_PROPERTY_STATUS.APROVADO]: 'Aprovado'
     };
     return labels[status] || status;
   };
@@ -455,7 +510,7 @@ const LeadsList = ({
         title="Duplo clique para editar"
       >
         {field === 'status' && (
-          <span className={`px-2 py-1 rounded-full text-xs ${LEAD_STATUS_COLORS[value] || 'bg-gray-100'}`}>
+          <span className={`px-2 py-1 rounded-full text-xs ${SAFE_LEAD_STATUS_COLORS[value] || 'bg-gray-100'}`}>
             {getStatusLabel(value)}
           </span>
         )}
@@ -509,7 +564,7 @@ const LeadsList = ({
           )}
         </div>
 
-        {/* FILTROS EXPANDIDOS (MANTIDOS) */}
+        {/* FILTROS EXPANDIDOS (ATUALIZADOS COM VERIFICAÇÕES DE SEGURANÇA) */}
         {showFilters && (
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <select
@@ -518,7 +573,7 @@ const LeadsList = ({
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="">Todos os Status</option>
-              {Object.values(LEAD_STATUS).map(status => (
+              {Object.values(SAFE_LEAD_STATUS).map(status => (
                 <option key={status} value={status}>{getStatusLabel(status)}</option>
               ))}
             </select>
@@ -529,7 +584,7 @@ const LeadsList = ({
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="">Todos os Tipos</option>
-              {Object.values(CLIENT_TYPES).map(type => (
+              {Object.values(SAFE_CLIENT_TYPES).map(type => (
                 <option key={type} value={type}>{getClientTypeLabel(type)}</option>
               ))}
             </select>
@@ -540,7 +595,7 @@ const LeadsList = ({
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="">Status Imóvel</option>
-              {Object.values(PROPERTY_STATUS).map(status => (
+              {Object.values(SAFE_PROPERTY_STATUS).map(status => (
                 <option key={status} value={status}>{getPropertyStatusLabel(status)}</option>
               ))}
             </select>
@@ -551,7 +606,7 @@ const LeadsList = ({
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="">Todos os Interesses</option>
-              {Object.values(LEAD_INTEREST_TYPES).map(type => (
+              {Object.values(SAFE_LEAD_INTEREST_TYPES).map(type => (
                 <option key={type} value={type}>{getInterestLabel(type)}</option>
               ))}
             </select>
@@ -562,7 +617,7 @@ const LeadsList = ({
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="">Todos os Orçamentos</option>
-              {Object.entries(BUDGET_RANGES).map(([key, label]) => (
+              {Object.entries(SAFE_BUDGET_RANGES).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>
@@ -741,7 +796,7 @@ const LeadsList = ({
                         field="status" 
                         value={lead.status}
                         type="select"
-                        options={Object.values(LEAD_STATUS).map(status => ({
+                        options={Object.values(SAFE_LEAD_STATUS).map(status => ({
                           value: status,
                           label: getStatusLabel(status)
                         }))}
@@ -752,9 +807,9 @@ const LeadsList = ({
                       <EditableCell 
                         lead={lead} 
                         field="clientType" 
-                        value={lead.clientType || CLIENT_TYPES.COMPRADOR}
+                        value={lead.clientType || SAFE_CLIENT_TYPES.COMPRADOR}
                         type="select"
-                        options={Object.values(CLIENT_TYPES).map(type => ({
+                        options={Object.values(SAFE_CLIENT_TYPES).map(type => ({
                           value: type,
                           label: getClientTypeLabel(type)
                         }))}
@@ -773,9 +828,9 @@ const LeadsList = ({
                         <EditableCell 
                           lead={lead} 
                           field="propertyStatus" 
-                          value={lead.propertyStatus || PROPERTY_STATUS.NAO_IDENTIFICADO}
+                          value={lead.propertyStatus || SAFE_PROPERTY_STATUS.NAO_IDENTIFICADO}
                           type="select"
-                          options={Object.values(PROPERTY_STATUS).map(status => ({
+                          options={Object.values(SAFE_PROPERTY_STATUS).map(status => ({
                             value: status,
                             label: getPropertyStatusLabel(status)
                           }))}
@@ -1007,7 +1062,7 @@ const LeadsList = ({
                     <p><strong>Telefone:</strong> {showDetailsModal.phone || 'N/A'}</p>
                     <p><strong>Email:</strong> {showDetailsModal.email || 'N/A'}</p>
                     <p><strong>Status:</strong> 
-                      <span className={`ml-2 px-2 py-1 rounded-full text-xs ${LEAD_STATUS_COLORS[showDetailsModal.status] || 'bg-gray-100'}`}>
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs ${SAFE_LEAD_STATUS_COLORS[showDetailsModal.status] || 'bg-gray-100'}`}>
                         {getStatusLabel(showDetailsModal.status)}
                       </span>
                     </p>
