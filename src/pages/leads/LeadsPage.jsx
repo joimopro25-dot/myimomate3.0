@@ -115,36 +115,29 @@ const LeadsPage = () => {
 
   // ✅ NOVA FUNCIONALIDADE: Handler para atualização instantânea da lista
   const handleLeadUpdate = useCallback(async () => {
-    console.log('🔄 Lead atualizada - atualizando lista instantaneamente...');
-    
-    try {
-      // Usar refreshLeads para invalidar cache e buscar dados frescos
-      if (refreshLeads) {
-        await refreshLeads();
-      } else {
-        // Fallback para fetchLeads se refreshLeads não estiver disponível
-        await fetchLeads();
-      }
-      
-      console.log('✅ Lista de leads atualizada com sucesso!');
-      
-      // Feedback visual discreto
-      setFeedbackMessage('Lead atualizada com sucesso!');
-      setFeedbackType('success');
-      
-      // Limpar feedback após 3 segundos
-      setTimeout(() => {
-        setFeedbackMessage('');
-        setFeedbackType('');
-      }, 3000);
-      
-    } catch (error) {
-      console.error('❌ Erro ao atualizar lista de leads:', error);
-      
-      setFeedbackMessage(`Erro ao atualizar lista: ${error.message}`);
-      setFeedbackType('error');
+  console.log('Lead editado - atualizando lista...');
+  
+  try {
+    if (refreshLeads) {
+      await refreshLeads();
+    } else {
+      await fetchLeads();
     }
-  }, [refreshLeads, fetchLeads]);
+    
+    setFeedbackMessage('Lead atualizado com sucesso!');
+    setFeedbackType('success');
+    
+    setTimeout(() => {
+      setFeedbackMessage('');
+      setFeedbackType('');
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Erro ao atualizar lista:', error);
+    setFeedbackMessage(`Erro ao atualizar: ${error.message}`);
+    setFeedbackType('error');
+  }
+}, [refreshLeads, fetchLeads]);
 
   // ✅ NOVA FUNCIONALIDADE: Handler para eliminação com atualização instantânea
   const handleLeadDelete = useCallback(async () => {
