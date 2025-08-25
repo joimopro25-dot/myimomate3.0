@@ -95,6 +95,7 @@ export const LEAD_TEMPERATURE_COLORS = {
 export const LEAD_INTEREST_TYPES = UNIFIED_INTEREST_TYPES;
 export const BUDGET_RANGES = UNIFIED_BUDGET_RANGES;
 export { UNIFIED_PRIORITIES, UNIFIED_LEAD_SOURCES };
+export { isValidPhone, isValidEmail } from '../constants/validations.js';
 /**
  * HOOK DE LEADS MULTI-TENANT DEFINITIVO
  * 

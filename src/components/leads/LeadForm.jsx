@@ -224,7 +224,10 @@ const LeadForm = ({
           (formData.email && formData.email.includes('@'))) {
         
         try {
-          const result = await checkForDuplicates(formData.phone, formData.email);
+          const result = await checkForDuplicates({ 
+            phone: formData.phone || '', 
+            email: formData.email || '' 
+          })
           if (result.hasDuplicates) {
             setDuplicates(result.duplicates);
             setShowDuplicateWarning(true);
@@ -670,19 +673,30 @@ const LeadForm = ({
                   Tipo de Interesse *
                 </label>
                 <select
-                  value={formData.interestType}
-                  onChange={(e) => updateField('interestType', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.interestType ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  {Object.entries(LEAD_INTEREST_TYPES || {}).map(([key, value]) => (
-                    <option key={key} value={value}>
-                      {getInterestTypeLabel(value)}
-                    </option>
-                  ))}
-                </select>
+  value={formData.interestType}
+  onChange={(e) => updateField('interestType', e.target.value)}
+  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+    errors.interestType ? 'border-red-500' : 'border-gray-300'
+  }`}
+  required
+>
+  {LEAD_INTEREST_TYPES && Object.entries(LEAD_INTEREST_TYPES).length > 0 ? 
+    Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+      <option key={key} value={value}>
+        {getInterestTypeLabel(value)}
+      </option>
+    )) : (
+      <>
+        <option value="compra_casa">Compra de Casa</option>
+        <option value="compra_apartamento">Compra de Apartamento</option>
+        <option value="venda_casa">Venda de Casa</option>
+        <option value="venda_apartamento">Venda de Apartamento</option>
+        <option value="arrendamento_casa">Arrendamento de Casa</option>
+        <option value="investimento">Investimento</option>
+      </>
+    )
+  }
+</select>
                 {errors.interestType && (
                   <p className="text-red-600 text-sm mt-1">{errors.interestType}</p>
                 )}
