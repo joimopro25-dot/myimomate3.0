@@ -8,6 +8,7 @@
 // ✅ Sistema de upload de documentos
 // ✅ Validações portuguesas completas
 // ✅ Sistema de aprovação estruturado
+// ✅ DESIGN MODERNO GLASSMORPHISM - Cores claras profissionais
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -30,6 +31,14 @@ import {
   ArrowUpTrayIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
+import { 
+  ThemedCard, 
+  ThemedButton, 
+  ThemedInput, 
+  ThemedSelect, 
+  ThemedTextarea,
+  ThemedContainer 
+} from '../common/ThemedComponents';
 
 const LeadConversionEnhanced = ({ 
   isOpen, 
@@ -244,82 +253,35 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
     debugLog('✅ Formulário enriquecido inicializado com dados do lead');
   };
 
-  // ✅ VALIDAÇÃO COMPLETA DO FORMULÁRIO (ENRIQUECIDA)
+  // ✅ VALIDAÇÃO OPCIONAL DO FORMULÁRIO (APENAS FORMATOS)
   const validateFormCompleteness = () => {
-    debugLog('🔍 Iniciando validação completa do formulário enriquecido');
+    debugLog('🔍 Iniciando validação opcional do formulário (apenas formatos)');
     
     const errors = {};
     
-    // VALIDAÇÕES OBRIGATÓRIAS - DADOS PESSOAIS
-    if (!formData.numeroCC?.trim()) {
-      errors.numeroCC = 'Número do Cartão de Cidadão é obrigatório';
-    } else if (!/^\d{8}\s?\d{1}\s?[A-Z]{2}\s?\d{1}$/.test(formData.numeroCC)) {
+    // VALIDAÇÕES OPCIONAIS - APENAS FORMATO DOS DADOS PESSOAIS
+    if (formData.numeroCC?.trim() && !/^\d{8}\s?\d{1}\s?[A-Z]{2}\s?\d{1}$/.test(formData.numeroCC)) {
       errors.numeroCC = 'Formato CC inválido (ex: 12345678 1 ZZ 4)';
     }
     
-    if (!formData.numeroFiscal?.trim()) {
-      errors.numeroFiscal = 'Número fiscal (NIF) é obrigatório';
-    } else if (!/^\d{9}$/.test(formData.numeroFiscal.replace(/\s/g, ''))) {
+    if (formData.numeroFiscal?.trim() && !/^\d{9}$/.test(formData.numeroFiscal.replace(/\s/g, ''))) {
       errors.numeroFiscal = 'NIF deve ter 9 dígitos';
     }
     
-    // VALIDAÇÕES DE RESIDÊNCIA
-    if (!formData.residencia.rua?.trim()) {
-      errors['residencia.rua'] = 'Rua é obrigatória';
-    }
-    
-    if (!formData.residencia.codigoPostal?.trim()) {
-      errors['residencia.codigoPostal'] = 'Código postal é obrigatório';
-    } else if (!/^\d{4}-\d{3}$/.test(formData.residencia.codigoPostal)) {
+    // VALIDAÇÕES OPCIONAIS DE RESIDÊNCIA - APENAS FORMATO
+    if (formData.residencia.codigoPostal?.trim() && !/^\d{4}-\d{3}$/.test(formData.residencia.codigoPostal)) {
       errors['residencia.codigoPostal'] = 'Formato CP inválido (ex: 1234-567)';
     }
     
-    if (!formData.residencia.localidade?.trim()) {
-      errors['residencia.localidade'] = 'Localidade é obrigatória';
-    }
-    
-    // VALIDAÇÕES DE NATURALIDADE
-    if (!formData.naturalidade.concelho?.trim()) {
-      errors['naturalidade.concelho'] = 'Concelho de naturalidade é obrigatório';
-    }
-    
-    // VALIDAÇÕES DO CÔNJUGE (SE APLICÁVEL)
+    // VALIDAÇÕES OPCIONAIS DO CÔNJUGE - APENAS FORMATO SE PREENCHIDOS
     if (['casado', 'uniao_facto'].includes(formData.estadoCivil) && formData.temConjuge) {
-      if (!formData.conjuge.nome?.trim()) {
-        errors['conjuge.nome'] = 'Nome do cônjuge é obrigatório';
-      }
-      
-      if (!formData.conjuge.numeroCC?.trim()) {
-        errors['conjuge.numeroCC'] = 'CC do cônjuge é obrigatório';
-      } else if (!/^\d{8}\s?\d{1}\s?[A-Z]{2}\s?\d{1}$/.test(formData.conjuge.numeroCC)) {
+      if (formData.conjuge.numeroCC?.trim() && !/^\d{8}\s?\d{1}\s?[A-Z]{2}\s?\d{1}$/.test(formData.conjuge.numeroCC)) {
         errors['conjuge.numeroCC'] = 'Formato CC cônjuge inválido';
       }
       
-      if (!formData.conjuge.numeroFiscal?.trim()) {
-        errors['conjuge.numeroFiscal'] = 'NIF do cônjuge é obrigatório';
-      } else if (!/^\d{9}$/.test(formData.conjuge.numeroFiscal.replace(/\s/g, ''))) {
+      if (formData.conjuge.numeroFiscal?.trim() && !/^\d{9}$/.test(formData.conjuge.numeroFiscal.replace(/\s/g, ''))) {
         errors['conjuge.numeroFiscal'] = 'NIF cônjuge deve ter 9 dígitos';
       }
-      
-      // Validar comunhão de bens para casados
-      if (formData.estadoCivil === 'casado' && !formData.comunhaoBens) {
-        errors['comunhaoBens'] = 'Regime de bens é obrigatório para casados';
-      }
-    }
-    
-    // VALIDAÇÕES FINANCEIRAS
-    if (!formData.rendimentoMensal && !formData.rendimentoAnual) {
-      errors['rendimentoMensal'] = 'Pelo menos um tipo de rendimento é obrigatório';
-    }
-    
-    // VALIDAÇÕES DE IMÓVEL
-    if (formData.tipoImovelProcurado.length === 0) {
-      errors['tipoImovelProcurado'] = 'Selecione pelo menos um tipo de imóvel';
-    }
-    
-    // VALIDAÇÕES DE ORÇAMENTO
-    if (!formData.orcamentoMaximo) {
-      errors['orcamentoMaximo'] = 'Orçamento máximo é obrigatório';
     }
     
     setValidationErrors(errors);
@@ -329,7 +291,8 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
     
     debugLog(`🎯 Validação ${isValid ? 'APROVADA' : 'REJEITADA'}`, {
       errorsCount: Object.keys(errors).length,
-      errors: errors
+      errors: errors,
+      note: 'Todos os campos são opcionais - apenas formatos validados'
     });
     
     return isValid;
@@ -602,44 +565,36 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div 
-        className={`bg-white rounded-lg shadow-xl w-full max-w-6xl flex flex-col ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        }`} 
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <ThemedContainer 
+        glass={true}
+        className="w-full max-w-6xl flex flex-col bg-white/90 backdrop-blur-xl border border-white/30 rounded-2xl shadow-2xl"
         style={{ height: '95vh' }}
       >
         
-        {/* ✅ HEADER FIXO */}
-        <div className={`px-6 py-4 border-b flex-shrink-0 ${
-          isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
-        }`}>
+        {/* ✅ HEADER FIXO COM GLASSMORPHISM */}
+        <ThemedCard 
+          glass={true}
+          className="px-6 py-4 border-b border-emerald-200/50 flex-shrink-0 bg-emerald-50/80 backdrop-blur-md rounded-t-2xl"
+        >
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h2 className={`text-xl font-semibold flex items-center ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}>
-                <UserPlusIcon className="h-6 w-6 mr-2 text-blue-500" />
+              <h2 className="text-xl font-semibold flex items-center text-gray-800">
+                <UserPlusIcon className="h-6 w-6 mr-2 text-emerald-600" />
                 Conversão Qualificada Enriquecida: Lead → Cliente
               </h2>
               
               <div className="flex items-center space-x-4 mt-1">
-                <p className={`text-sm ${
-                  isDark ? 'text-gray-300' : 'text-gray-600'
-                }`}>
+                <p className="text-sm text-gray-600">
                   <strong>{leadData?.name}</strong> • {leadData?.phone} • {leadData?.email}
                 </p>
                 
                 <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    isDark ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'
-                  }`}>
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100/80 text-blue-700 border border-blue-200/50">
                     Score: {calculateQualificationScore()}%
                   </span>
                   
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    isDark ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'
-                  }`}>
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100/80 text-green-700 border border-green-200/50">
                     Completude: {calculateCompletenessPercentage()}%
                   </span>
                 </div>
@@ -648,36 +603,32 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
             
             <div className="flex items-center space-x-3">
               {/* Toggle Debug Mode */}
-              <button
+              <ThemedButton
+                variant={debugMode ? "primary" : "ghost"}
+                size="sm"
                 onClick={() => setDebugMode(!debugMode)}
-                className={`p-2 rounded-lg transition-colors ${
-                  debugMode
-                    ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600')
-                    : (isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600')
-                }`}
-                title={debugMode ? 'Desactivar Debug' : 'Activar Debug'}
-              >
-                {debugMode ? <EyeIcon className="h-4 w-4" /> : <EyeSlashIcon className="h-4 w-4" />}
-              </button>
+                icon={debugMode ? <EyeIcon className="h-4 w-4" /> : <EyeSlashIcon className="h-4 w-4" />}
+                glass={true}
+              />
               
               {/* Botão Fechar */}
-              <button
+              <ThemedButton
+                variant="ghost"
+                size="sm"
                 onClick={onClose}
-                className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${
-                  isDark ? 'hover:bg-gray-700 text-gray-400' : 'text-gray-500'
-                }`}
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
+                icon={<XMarkIcon className="h-5 w-5" />}
+                glass={true}
+              />
             </div>
           </div>
           
           {/* ✅ DEBUG INFO (CONDICIONAL) */}
           {debugMode && (
-            <div className={`mt-3 p-3 rounded-lg text-xs ${
-              isDark ? 'bg-gray-700' : 'bg-gray-100'
-            }`}>
-              <div className="grid grid-cols-4 gap-4">
+            <ThemedCard 
+              glass={true}
+              className="mt-3 p-3 text-xs bg-slate-100/80 border-slate-200/50"
+            >
+              <div className="grid grid-cols-4 gap-4 text-slate-700">
                 <div>
                   <strong>Estado:</strong> {isModalVisible ? '✅ Visível' : '❌ Oculto'}
                 </div>
@@ -691,46 +642,49 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                   <strong>Erros:</strong> {Object.keys(validationErrors).length}
                 </div>
               </div>
-            </div>
+            </ThemedCard>
           )}
-        </div>
+        </ThemedCard>
 
-        {/* ✅ NAVEGAÇÃO POR TABS */}
-        <div className={`px-6 py-3 border-b flex-shrink-0 ${
-          isDark ? 'border-gray-700' : 'border-gray-200'
-        }`}>
+        {/* ✅ NAVEGAÇÃO POR TABS COM GLASSMORPHISM */}
+        <ThemedCard 
+          glass={true}
+          className="px-6 py-3 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm"
+        >
           <div className="flex space-x-1">
             {tabs.map((tab) => {
               const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
-                <button
+                <ThemedButton
                   key={tab.id}
+                  variant={isActive ? "primary" : "ghost"}
+                  size="sm"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
-                    activeTab === tab.id
-                      ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700')
-                      : (isDark ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100')
+                  glass={true}
+                  className={`transition-all duration-200 ${
+                    isActive ? 'bg-emerald-100/90 text-emerald-700 border-emerald-200/70' : 'hover:bg-gray-100/70'
                   }`}
                 >
-                  <TabIcon className="h-4 w-4" />
-                  <span>{tab.label}</span>
-                  {tab.count > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                      activeTab === tab.id
-                        ? (isDark ? 'bg-blue-800' : 'bg-blue-200')
-                        : (isDark ? 'bg-gray-600' : 'bg-gray-200')
-                    }`}>
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
+                  <div className="flex items-center space-x-2">
+                    <TabIcon className="h-4 w-4" />
+                    <span>{tab.label}</span>
+                    {tab.count > 0 && (
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                        isActive ? 'bg-emerald-200/80' : 'bg-gray-200/80'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </div>
+                </ThemedButton>
               );
             })}
           </div>
-        </div>
+        </ThemedCard>
 
         {/* ✅ CONTEÚDO DOS TABS */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-white/30 backdrop-blur-sm">
           
           {/* TAB 1: DADOS PESSOAIS */}
           {activeTab === 'personal' && (
@@ -738,370 +692,197 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
               
               <div className="grid grid-cols-2 gap-6">
                 {/* Número CC */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Número do Cartão de Cidadão 
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.numeroCC}
-                    onChange={(e) => updateFormField('numeroCC', e.target.value)}
-                    placeholder="12345678 1 ZZ 4"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      validationErrors.numeroCC
-                        ? 'border-red-500'
-                        : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                    }`}
-                  />
-                  {validationErrors.numeroCC && (
-                    <p className="text-red-500 text-xs mt-1">{validationErrors.numeroCC}</p>
-                  )}
-                </div>
+                <ThemedInput
+                  label="Número do Cartão de Cidadão"
+                  value={formData.numeroCC}
+                  onChange={(e) => updateFormField('numeroCC', e.target.value)}
+                  placeholder="12345678 1 ZZ 4"
+                  error={validationErrors.numeroCC}
+                  glass={true}
+                />
 
                 {/* NIF */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Número de Identificação Fiscal (NIF) 
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.numeroFiscal}
-                    onChange={(e) => updateFormField('numeroFiscal', e.target.value)}
-                    placeholder="123456789"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      validationErrors.numeroFiscal
-                        ? 'border-red-500'
-                        : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                    }`}
-                  />
-                  {validationErrors.numeroFiscal && (
-                    <p className="text-red-500 text-xs mt-1">{validationErrors.numeroFiscal}</p>
-                  )}
-                </div>
+                <ThemedInput
+                  label="Número de Identificação Fiscal (NIF)"
+                  value={formData.numeroFiscal}
+                  onChange={(e) => updateFormField('numeroFiscal', e.target.value)}
+                  placeholder="123456789"
+                  error={validationErrors.numeroFiscal}
+                  glass={true}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 {/* Profissão */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Profissão
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.profissao}
-                    onChange={(e) => updateFormField('profissao', e.target.value)}
-                    placeholder="Ex: Engenheiro Informático"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
+                <ThemedInput
+                  label="Profissão"
+                  value={formData.profissao}
+                  onChange={(e) => updateFormField('profissao', e.target.value)}
+                  placeholder="Ex: Engenheiro Informático"
+                  glass={true}
+                />
 
                 {/* Data de Nascimento */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Data de Nascimento
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.dataNascimento}
-                    onChange={(e) => updateFormField('dataNascimento', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
+                <ThemedInput
+                  label="Data de Nascimento"
+                  type="date"
+                  value={formData.dataNascimento}
+                  onChange={(e) => updateFormField('dataNascimento', e.target.value)}
+                  glass={true}
+                />
               </div>
 
               {/* Residência */}
-              <div>
-                <h3 className={`text-lg font-medium mb-4 ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-slate-50/80 border-slate-200/50">
+                <h3 className="text-lg font-medium mb-4 text-gray-800">
                   Residência
                 </h3>
                 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2">
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Rua *
-                    </label>
-                    <input
-                      type="text"
+                    <ThemedInput
+                      label="Rua"
                       value={formData.residencia.rua}
                       onChange={(e) => updateFormField('residencia.rua', e.target.value)}
                       placeholder="Ex: Rua das Flores"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors['residencia.rua']
-                          ? 'border-red-500'
-                          : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                      }`}
+                      error={validationErrors['residencia.rua']}
+                      glass={true}
                     />
-                    {validationErrors['residencia.rua'] && (
-                      <p className="text-red-500 text-xs mt-1">{validationErrors['residencia.rua']}</p>
-                    )}
                   </div>
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Número
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.residencia.numero}
-                      onChange={(e) => updateFormField('residencia.numero', e.target.value)}
-                      placeholder="123"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    />
-                  </div>
+                  <ThemedInput
+                    label="Número"
+                    value={formData.residencia.numero}
+                    onChange={(e) => updateFormField('residencia.numero', e.target.value)}
+                    placeholder="123"
+                    glass={true}
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Código Postal *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.residencia.codigoPostal}
-                      onChange={(e) => updateFormField('residencia.codigoPostal', e.target.value)}
-                      placeholder="1234-567"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors['residencia.codigoPostal']
-                          ? 'border-red-500'
-                          : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                      }`}
-                    />
-                    {validationErrors['residencia.codigoPostal'] && (
-                      <p className="text-red-500 text-xs mt-1">{validationErrors['residencia.codigoPostal']}</p>
-                    )}
-                  </div>
+                  <ThemedInput
+                    label="Código Postal"
+                    value={formData.residencia.codigoPostal}
+                    onChange={(e) => updateFormField('residencia.codigoPostal', e.target.value)}
+                    placeholder="1234-567"
+                    error={validationErrors['residencia.codigoPostal']}
+                    glass={true}
+                  />
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Localidade *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.residencia.localidade}
-                      onChange={(e) => updateFormField('residencia.localidade', e.target.value)}
-                      placeholder="Lisboa"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors['residencia.localidade']
-                          ? 'border-red-500'
-                          : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                      }`}
-                    />
-                    {validationErrors['residencia.localidade'] && (
-                      <p className="text-red-500 text-xs mt-1">{validationErrors['residencia.localidade']}</p>
-                    )}
-                  </div>
+                  <ThemedInput
+                    label="Localidade"
+                    value={formData.residencia.localidade}
+                    onChange={(e) => updateFormField('residencia.localidade', e.target.value)}
+                    placeholder="Lisboa"
+                    error={validationErrors['residencia.localidade']}
+                    glass={true}
+                  />
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Concelho
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.residencia.concelho}
-                      onChange={(e) => updateFormField('residencia.concelho', e.target.value)}
-                      placeholder="Lisboa"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    />
-                  </div>
+                  <ThemedInput
+                    label="Concelho"
+                    value={formData.residencia.concelho}
+                    onChange={(e) => updateFormField('residencia.concelho', e.target.value)}
+                    placeholder="Lisboa"
+                    glass={true}
+                  />
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Estado Civil */}
               <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Estado Civil
-                  </label>
-                  <select
-                    value={formData.estadoCivil}
-                    onChange={(e) => updateFormField('estadoCivil', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="solteiro">Solteiro(a)</option>
-                    <option value="casado">Casado(a)</option>
-                    <option value="divorciado">Divorciado(a)</option>
-                    <option value="viuvo">Viúvo(a)</option>
-                    <option value="uniao_facto">União de Facto</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Estado Civil"
+                  value={formData.estadoCivil}
+                  onChange={(e) => updateFormField('estadoCivil', e.target.value)}
+                  glass={true}
+                >
+                  <option value="solteiro">Solteiro(a)</option>
+                  <option value="casado">Casado(a)</option>
+                  <option value="divorciado">Divorciado(a)</option>
+                  <option value="viuvo">Viúvo(a)</option>
+                  <option value="uniao_facto">União de Facto</option>
+                </ThemedSelect>
 
                 {['casado'].includes(formData.estadoCivil) && (
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Regime de Bens *
-                    </label>
-                    <select
-                      value={formData.comunhaoBens}
-                      onChange={(e) => updateFormField('comunhaoBens', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors.comunhaoBens
-                          ? 'border-red-500'
-                          : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                      }`}
-                    >
-                      <option value="">Selecionar...</option>
-                      <option value="geral">Comunhão Geral</option>
-                      <option value="adquiridos">Comunhão de Adquiridos</option>
-                      <option value="separacao">Separação de Bens</option>
-                    </select>
-                    {validationErrors.comunhaoBens && (
-                      <p className="text-red-500 text-xs mt-1">{validationErrors.comunhaoBens}</p>
-                    )}
-                  </div>
+                  <ThemedSelect
+                    label="Regime de Bens"
+                    value={formData.comunhaoBens}
+                    onChange={(e) => updateFormField('comunhaoBens', e.target.value)}
+                    error={validationErrors.comunhaoBens}
+                    glass={true}
+                  >
+                    <option value="">Selecionar...</option>
+                    <option value="geral">Comunhão Geral</option>
+                    <option value="adquiridos">Comunhão de Adquiridos</option>
+                    <option value="separacao">Separação de Bens</option>
+                  </ThemedSelect>
                 )}
               </div>
 
               {/* Cônjuge */}
               {['casado', 'uniao_facto'].includes(formData.estadoCivil) && (
-                <div>
+                <ThemedCard glass={true} className="p-4 bg-pink-50/80 border-pink-200/50">
                   <div className="flex items-center space-x-3 mb-4">
                     <input
                       type="checkbox"
                       id="temConjuge"
                       checked={formData.temConjuge}
                       onChange={(e) => updateFormField('temConjuge', e.target.checked)}
-                      className="h-4 w-4 text-blue-600 rounded"
+                      className="h-4 w-4 text-pink-600 rounded focus:ring-pink-500"
                     />
-                    <label htmlFor="temConjuge" className={`text-sm font-medium flex items-center ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
+                    <label htmlFor="temConjuge" className="text-sm font-medium flex items-center text-gray-700">
                       <HeartIcon className="h-4 w-4 mr-2 text-pink-500" />
                       Adicionar cônjuge como cliente
                     </label>
                   </div>
 
                   {formData.temConjuge && (
-                    <div className={`p-4 rounded-lg border-2 border-dashed ${
-                      isDark ? 'border-pink-600 bg-pink-900/20' : 'border-pink-200 bg-pink-50'
-                    }`}>
-                      <h4 className={`text-md font-medium mb-3 flex items-center ${
-                        isDark ? 'text-pink-300' : 'text-pink-900'
-                      }`}>
+                    <div>
+                      <h4 className="text-md font-medium mb-3 flex items-center text-pink-800">
                         <UserPlusIcon className="h-4 w-4 mr-2" />
                         Dados do Cônjuge
                       </h4>
                       
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            isDark ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Nome Completo *
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.conjuge.nome}
-                            onChange={(e) => updateFormField('conjuge.nome', e.target.value)}
-                            placeholder="Nome do cônjuge"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              validationErrors['conjuge.nome']
-                                ? 'border-red-500'
-                                : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                            }`}
-                          />
-                          {validationErrors['conjuge.nome'] && (
-                            <p className="text-red-500 text-xs mt-1">{validationErrors['conjuge.nome']}</p>
-                          )}
-                        </div>
+                        <ThemedInput
+                          label="Nome Completo"
+                          value={formData.conjuge.nome}
+                          onChange={(e) => updateFormField('conjuge.nome', e.target.value)}
+                          placeholder="Nome do cônjuge"
+                          error={validationErrors['conjuge.nome']}
+                          glass={true}
+                        />
                         
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            isDark ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            value={formData.conjuge.email}
-                            onChange={(e) => updateFormField('conjuge.email', e.target.value)}
-                            placeholder="email@exemplo.com"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                            }`}
-                          />
-                        </div>
+                        <ThemedInput
+                          label="Email"
+                          type="email"
+                          value={formData.conjuge.email}
+                          onChange={(e) => updateFormField('conjuge.email', e.target.value)}
+                          placeholder="email@exemplo.com"
+                          glass={true}
+                        />
                         
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            isDark ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Cartão de Cidadão *
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.conjuge.numeroCC}
-                            onChange={(e) => updateFormField('conjuge.numeroCC', e.target.value)}
-                            placeholder="12345678 1 ZZ 4"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              validationErrors['conjuge.numeroCC']
-                                ? 'border-red-500'
-                                : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                            }`}
-                          />
-                          {validationErrors['conjuge.numeroCC'] && (
-                            <p className="text-red-500 text-xs mt-1">{validationErrors['conjuge.numeroCC']}</p>
-                          )}
-                        </div>
+                        <ThemedInput
+                          label="Cartão de Cidadão"
+                          value={formData.conjuge.numeroCC}
+                          onChange={(e) => updateFormField('conjuge.numeroCC', e.target.value)}
+                          placeholder="12345678 1 ZZ 4"
+                          error={validationErrors['conjuge.numeroCC']}
+                          glass={true}
+                        />
                         
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            isDark ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            NIF *
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.conjuge.numeroFiscal}
-                            onChange={(e) => updateFormField('conjuge.numeroFiscal', e.target.value)}
-                            placeholder="123456789"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              validationErrors['conjuge.numeroFiscal']
-                                ? 'border-red-500'
-                                : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                            }`}
-                          />
-                          {validationErrors['conjuge.numeroFiscal'] && (
-                            <p className="text-red-500 text-xs mt-1">{validationErrors['conjuge.numeroFiscal']}</p>
-                          )}
-                        </div>
+                        <ThemedInput
+                          label="NIF"
+                          value={formData.conjuge.numeroFiscal}
+                          onChange={(e) => updateFormField('conjuge.numeroFiscal', e.target.value)}
+                          placeholder="123456789"
+                          error={validationErrors['conjuge.numeroFiscal']}
+                          glass={true}
+                        />
                       </div>
                     </div>
                   )}
-                </div>
+                </ThemedCard>
               )}
             </div>
           )}
@@ -1112,201 +893,125 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
               
               <div className="grid grid-cols-2 gap-6">
                 {/* Rendimento Mensal */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Rendimento Mensal Líquido *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.rendimentoMensal}
-                    onChange={(e) => updateFormField('rendimentoMensal', e.target.value)}
-                    placeholder="1500"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      validationErrors.rendimentoMensal
-                        ? 'border-red-500'
-                        : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                    }`}
-                  />
-                  {validationErrors.rendimentoMensal && (
-                    <p className="text-red-500 text-xs mt-1">{validationErrors.rendimentoMensal}</p>
-                  )}
-                </div>
+                <ThemedInput
+                  label="Rendimento Mensal Líquido"
+                  type="number"
+                  value={formData.rendimentoMensal}
+                  onChange={(e) => updateFormField('rendimentoMensal', e.target.value)}
+                  placeholder="1500"
+                  error={validationErrors.rendimentoMensal}
+                  glass={true}
+                />
 
                 {/* Rendimento Anual */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Rendimento Anual Bruto
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.rendimentoAnual}
-                    onChange={(e) => updateFormField('rendimentoAnual', e.target.value)}
-                    placeholder="25000"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
+                <ThemedInput
+                  label="Rendimento Anual Bruto"
+                  type="number"
+                  value={formData.rendimentoAnual}
+                  onChange={(e) => updateFormField('rendimentoAnual', e.target.value)}
+                  placeholder="25000"
+                  glass={true}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 {/* Situação de Emprego */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Situação de Emprego
-                  </label>
-                  <select
-                    value={formData.situacaoEmpreg}
-                    onChange={(e) => updateFormField('situacaoEmpreg', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecionar...</option>
-                    <option value="empregado_conta_outrem">Empregado por Conta de Outrem</option>
-                    <option value="trabalhador_independente">Trabalhador Independente</option>
-                    <option value="empresario">Empresário</option>
-                    <option value="funcionario_publico">Funcionário Público</option>
-                    <option value="reformado">Reformado</option>
-                    <option value="desempregado">Desempregado</option>
-                    <option value="estudante">Estudante</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Situação de Emprego"
+                  value={formData.situacaoEmpreg}
+                  onChange={(e) => updateFormField('situacaoEmpreg', e.target.value)}
+                  glass={true}
+                >
+                  <option value="">Selecionar...</option>
+                  <option value="empregado_conta_outrem">Empregado por Conta de Outrem</option>
+                  <option value="trabalhador_independente">Trabalhador Independente</option>
+                  <option value="empresario">Empresário</option>
+                  <option value="funcionario_publico">Funcionário Público</option>
+                  <option value="reformado">Reformado</option>
+                  <option value="desempregado">Desempregado</option>
+                  <option value="estudante">Estudante</option>
+                </ThemedSelect>
 
                 {/* Empresa */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Empresa onde Trabalha
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.empresaTrabalho}
-                    onChange={(e) => updateFormField('empresaTrabalho', e.target.value)}
-                    placeholder="Nome da empresa"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  />
-                </div>
+                <ThemedInput
+                  label="Empresa onde Trabalha"
+                  value={formData.empresaTrabalho}
+                  onChange={(e) => updateFormField('empresaTrabalho', e.target.value)}
+                  placeholder="Nome da empresa"
+                  glass={true}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 {/* Situação de Crédito */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Situação de Crédito
-                  </label>
-                  <select
-                    value={formData.situacaoCredito}
-                    onChange={(e) => updateFormField('situacaoCredito', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="sem_restricoes">Sem Restrições</option>
-                    <option value="restricoes_menores">Restrições Menores</option>
-                    <option value="restricoes_graves">Restrições Graves</option>
-                    <option value="incumprimento">Em Incumprimento</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Situação de Crédito"
+                  value={formData.situacaoCredito}
+                  onChange={(e) => updateFormField('situacaoCredito', e.target.value)}
+                  glass={true}
+                >
+                  <option value="sem_restricoes">Sem Restrições</option>
+                  <option value="restricoes_menores">Restrições Menores</option>
+                  <option value="restricoes_graves">Restrições Graves</option>
+                  <option value="incumprimento">Em Incumprimento</option>
+                </ThemedSelect>
 
                 {/* Banco Preferencial */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Banco Preferencial
-                  </label>
-                  <select
-                    value={formData.bancoPreferencial}
-                    onChange={(e) => updateFormField('bancoPreferencial', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecionar...</option>
-                    <option value="caixa_geral_depositos">Caixa Geral de Depósitos</option>
-                    <option value="millennium_bcp">Millennium BCP</option>
-                    <option value="santander">Santander Totta</option>
-                    <option value="novo_banco">Novo Banco</option>
-                    <option value="bbva">BBVA</option>
-                    <option value="abanca">Abanca</option>
-                    <option value="credito_agricola">Crédito Agrícola</option>
-                    <option value="outros">Outros</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Banco Preferencial"
+                  value={formData.bancoPreferencial}
+                  onChange={(e) => updateFormField('bancoPreferencial', e.target.value)}
+                  glass={true}
+                >
+                  <option value="">Selecionar...</option>
+                  <option value="caixa_geral_depositos">Caixa Geral de Depósitos</option>
+                  <option value="millennium_bcp">Millennium BCP</option>
+                  <option value="santander">Santander Totta</option>
+                  <option value="novo_banco">Novo Banco</option>
+                  <option value="bbva">BBVA</option>
+                  <option value="abanca">Abanca</option>
+                  <option value="credito_agricola">Crédito Agrícola</option>
+                  <option value="outros">Outros</option>
+                </ThemedSelect>
               </div>
 
               {/* Pré-aprovação */}
-              <div>
+              <ThemedCard glass={true} className="p-4 bg-green-50/80 border-green-200/50">
                 <div className="flex items-center space-x-3 mb-4">
                   <input
                     type="checkbox"
                     id="temPreAprovacao"
                     checked={formData.temPreAprovacao}
                     onChange={(e) => updateFormField('temPreAprovacao', e.target.checked)}
-                    className="h-4 w-4 text-green-600 rounded"
+                    className="h-4 w-4 text-green-600 rounded focus:ring-green-500"
                   />
-                  <label htmlFor="temPreAprovacao" className={`text-sm font-medium flex items-center ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
+                  <label htmlFor="temPreAprovacao" className="text-sm font-medium flex items-center text-gray-700">
                     <CheckCircleIcon className="h-4 w-4 mr-2 text-green-500" />
                     Tem pré-aprovação de crédito
                   </label>
                 </div>
 
                 {formData.temPreAprovacao && (
-                  <div className={`p-4 rounded-lg border-2 border-dashed ${
-                    isDark ? 'border-green-600 bg-green-900/20' : 'border-green-200 bg-green-50'
-                  }`}>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${
-                          isDark ? 'text-gray-300' : 'text-gray-700'
-                        }`}>
-                          Valor Pré-aprovado
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.valorPreAprovacao}
-                          onChange={(e) => updateFormField('valorPreAprovacao', e.target.value)}
-                          placeholder="200000"
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                          }`}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${
-                          isDark ? 'text-gray-300' : 'text-gray-700'
-                        }`}>
-                          Banco da Pré-aprovação
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.bancoRelacionamento}
-                          onChange={(e) => updateFormField('bancoRelacionamento', e.target.value)}
-                          placeholder="Nome do banco"
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                          }`}
-                        />
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ThemedInput
+                      label="Valor Pré-aprovado"
+                      type="number"
+                      value={formData.valorPreAprovacao}
+                      onChange={(e) => updateFormField('valorPreAprovacao', e.target.value)}
+                      placeholder="200000"
+                      glass={true}
+                    />
+                    
+                    <ThemedInput
+                      label="Banco da Pré-aprovação"
+                      value={formData.bancoRelacionamento}
+                      onChange={(e) => updateFormField('bancoRelacionamento', e.target.value)}
+                      placeholder="Nome do banco"
+                      glass={true}
+                    />
                   </div>
                 )}
-              </div>
+              </ThemedCard>
             </div>
           )}
 
@@ -1315,11 +1020,9 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
             <div className="space-y-6">
               
               {/* Tipo de Imóvel */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Tipo de Imóvel Procurado *
+              <ThemedCard glass={true} className="p-4 bg-blue-50/80 border-blue-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
+                  Tipo de Imóvel Procurado
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -1335,11 +1038,9 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.tipoImovelProcurado.includes(tipo.value)}
                         onChange={() => toggleArrayValue('tipoImovelProcurado', tipo.value)}
-                        className="h-4 w-4 text-blue-600 rounded"
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {tipo.label}
                       </span>
                     </label>
@@ -1348,13 +1049,11 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                 {validationErrors.tipoImovelProcurado && (
                   <p className="text-red-500 text-xs mt-1">{validationErrors.tipoImovelProcurado}</p>
                 )}
-              </div>
+              </ThemedCard>
 
               {/* Localização Preferida */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-indigo-50/80 border-indigo-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Localização Preferida
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1373,23 +1072,19 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.localizacaoPreferida.includes(local.value)}
                         onChange={() => toggleArrayValue('localizacaoPreferida', local.value)}
-                        className="h-4 w-4 text-blue-600 rounded"
+                        className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {local.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Características Essenciais */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-red-50/80 border-red-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Características Essenciais
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1408,23 +1103,19 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.caracteristicasEssenciais.includes(caract.value)}
                         onChange={() => toggleArrayValue('caracteristicasEssenciais', caract.value)}
-                        className="h-4 w-4 text-red-600 rounded"
+                        className="h-4 w-4 text-red-600 rounded focus:ring-red-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {caract.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Características Desejadas */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-green-50/80 border-green-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Características Desejadas (Opcionais)
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1443,82 +1134,56 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.caracteristicasDesejadas.includes(caract.value)}
                         onChange={() => toggleArrayValue('caracteristicasDesejadas', caract.value)}
-                        className="h-4 w-4 text-green-600 rounded"
+                        className="h-4 w-4 text-green-600 rounded focus:ring-green-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {caract.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Motivo da Transação */}
               <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Motivo da Transação
-                  </label>
-                  <select
-                    value={formData.motivoTransacao}
-                    onChange={(e) => updateFormField('motivoTransacao', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecionar...</option>
-                    <option value="primeira_habitacao">Primeira Habitação</option>
-                    <option value="mudança_residencia">Mudança de Residência</option>
-                    <option value="investimento">Investimento</option>
-                    <option value="segunda_habitacao">Segunda Habitação</option>
-                    <option value="ferias">Casa de Férias</option>
-                    <option value="arrendamento">Para Arrendar</option>
-                    <option value="comercial">Fins Comerciais</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Motivo da Transação"
+                  value={formData.motivoTransacao}
+                  onChange={(e) => updateFormField('motivoTransacao', e.target.value)}
+                  glass={true}
+                >
+                  <option value="">Selecionar...</option>
+                  <option value="primeira_habitacao">Primeira Habitação</option>
+                  <option value="mudança_residencia">Mudança de Residência</option>
+                  <option value="investimento">Investimento</option>
+                  <option value="segunda_habitacao">Segunda Habitação</option>
+                  <option value="ferias">Casa de Férias</option>
+                  <option value="arrendamento">Para Arrendar</option>
+                  <option value="comercial">Fins Comerciais</option>
+                </ThemedSelect>
 
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Contacto Preferido
-                  </label>
-                  <select
-                    value={formData.contactoPreferido}
-                    onChange={(e) => updateFormField('contactoPreferido', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="telefone">Telefone</option>
-                    <option value="email">Email</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="sms">SMS</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Contacto Preferido"
+                  value={formData.contactoPreferido}
+                  onChange={(e) => updateFormField('contactoPreferido', e.target.value)}
+                  glass={true}
+                >
+                  <option value="telefone">Telefone</option>
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="sms">SMS</option>
+                </ThemedSelect>
               </div>
 
               {/* Características Específicas */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Características Específicas ou Observações
-                </label>
-                <textarea
-                  value={formData.caracteristicasEspecificas}
-                  onChange={(e) => updateFormField('caracteristicasEspecificas', e.target.value)}
-                  rows={4}
-                  placeholder="Descreva características específicas que procura no imóvel..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                  }`}
-                />
-              </div>
+              <ThemedTextarea
+                label="Características Específicas ou Observações"
+                value={formData.caracteristicasEspecificas}
+                onChange={(e) => updateFormField('caracteristicasEspecificas', e.target.value)}
+                rows={4}
+                placeholder="Descreva características específicas que procura no imóvel..."
+                glass={true}
+              />
             </div>
           )}
 
@@ -1528,164 +1193,100 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
               
               {/* Prazo de Decisão */}
               <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Prazo para Decisão
-                  </label>
-                  <select
-                    value={formData.prazoDecisao}
-                    onChange={(e) => updateFormField('prazoDecisao', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="imediato">Imediato (até 1 mês)</option>
-                    <option value="1_3_meses">1 a 3 meses</option>
-                    <option value="3_6_meses">3 a 6 meses</option>
-                    <option value="6_12_meses">6 meses a 1 ano</option>
-                    <option value="mais_1_ano">Mais de 1 ano</option>
-                    <option value="indefinido">Indefinido</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Prazo para Decisão"
+                  value={formData.prazoDecisao}
+                  onChange={(e) => updateFormField('prazoDecisao', e.target.value)}
+                  glass={true}
+                >
+                  <option value="imediato">Imediato (até 1 mês)</option>
+                  <option value="1_3_meses">1 a 3 meses</option>
+                  <option value="3_6_meses">3 a 6 meses</option>
+                  <option value="6_12_meses">6 meses a 1 ano</option>
+                  <option value="mais_1_ano">Mais de 1 ano</option>
+                  <option value="indefinido">Indefinido</option>
+                </ThemedSelect>
 
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Melhor Horário para Contacto
-                  </label>
-                  <select
-                    value={formData.melhorHorario}
-                    onChange={(e) => updateFormField('melhorHorario', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="manha">Manhã (9h-12h)</option>
-                    <option value="tarde">Tarde (14h-18h)</option>
-                    <option value="noite">Noite (18h-21h)</option>
-                    <option value="qualquer_hora">Qualquer Horário</option>
-                    <option value="fins_semana">Apenas Fins de Semana</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Melhor Horário para Contacto"
+                  value={formData.melhorHorario}
+                  onChange={(e) => updateFormField('melhorHorario', e.target.value)}
+                  glass={true}
+                >
+                  <option value="manha">Manhã (9h-12h)</option>
+                  <option value="tarde">Tarde (14h-18h)</option>
+                  <option value="noite">Noite (18h-21h)</option>
+                  <option value="qualquer_hora">Qualquer Horário</option>
+                  <option value="fins_semana">Apenas Fins de Semana</option>
+                </ThemedSelect>
               </div>
 
               {/* Orçamento */}
-              <div>
-                <h3 className={`text-lg font-medium mb-4 ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-emerald-50/80 border-emerald-200/50">
+                <h3 className="text-lg font-medium mb-4 text-gray-800">
                   Orçamento e Financiamento
                 </h3>
                 
                 <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Orçamento Mínimo
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.orcamentoMinimo}
-                      onChange={(e) => updateFormField('orcamentoMinimo', e.target.value)}
-                      placeholder="100000"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    />
-                  </div>
+                  <ThemedInput
+                    label="Orçamento Mínimo"
+                    type="number"
+                    value={formData.orcamentoMinimo}
+                    onChange={(e) => updateFormField('orcamentoMinimo', e.target.value)}
+                    placeholder="100000"
+                    glass={true}
+                  />
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Orçamento Máximo *
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.orcamentoMaximo}
-                      onChange={(e) => updateFormField('orcamentoMaximo', e.target.value)}
-                      placeholder="300000"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors.orcamentoMaximo
-                          ? 'border-red-500'
-                          : (isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300')
-                      }`}
-                    />
-                    {validationErrors.orcamentoMaximo && (
-                      <p className="text-red-500 text-xs mt-1">{validationErrors.orcamentoMaximo}</p>
-                    )}
-                  </div>
+                  <ThemedInput
+                    label="Orçamento Máximo"
+                    type="number"
+                    value={formData.orcamentoMaximo}
+                    onChange={(e) => updateFormField('orcamentoMaximo', e.target.value)}
+                    placeholder="300000"
+                    error={validationErrors.orcamentoMaximo}
+                    glass={true}
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-6 mt-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Tipo de Financiamento
-                    </label>
-                    <select
-                      value={formData.tipoFinanciamento}
-                      onChange={(e) => updateFormField('tipoFinanciamento', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="credito_habitacao">Crédito Habitação</option>
-                      <option value="credito_pessoal">Crédito Pessoal</option>
-                      <option value="leasing">Leasing</option>
-                      <option value="a_pronto">Pagamento a Pronto</option>
-                      <option value="misto">Financiamento Misto</option>
-                    </select>
-                  </div>
+                  <ThemedSelect
+                    label="Tipo de Financiamento"
+                    value={formData.tipoFinanciamento}
+                    onChange={(e) => updateFormField('tipoFinanciamento', e.target.value)}
+                    glass={true}
+                  >
+                    <option value="credito_habitacao">Crédito Habitação</option>
+                    <option value="credito_pessoal">Crédito Pessoal</option>
+                    <option value="leasing">Leasing</option>
+                    <option value="a_pronto">Pagamento a Pronto</option>
+                    <option value="misto">Financiamento Misto</option>
+                  </ThemedSelect>
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Valor de Entrada
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.entrada}
-                      onChange={(e) => updateFormField('entrada', e.target.value)}
-                      placeholder="60000"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    />
-                  </div>
+                  <ThemedInput
+                    label="Valor de Entrada"
+                    type="number"
+                    value={formData.entrada}
+                    onChange={(e) => updateFormField('entrada', e.target.value)}
+                    placeholder="60000"
+                    glass={true}
+                  />
                   
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Percentagem Entrada (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.percentagemEntrada}
-                      onChange={(e) => updateFormField('percentagemEntrada', e.target.value)}
-                      placeholder="20"
-                      min="0"
-                      max="100"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                      }`}
-                    />
-                  </div>
+                  <ThemedInput
+                    label="Percentagem Entrada (%)"
+                    type="number"
+                    value={formData.percentagemEntrada}
+                    onChange={(e) => updateFormField('percentagemEntrada', e.target.value)}
+                    placeholder="20"
+                    min="0"
+                    max="100"
+                    glass={true}
+                  />
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Disponibilidade para Visitas */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-purple-50/80 border-purple-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Disponibilidade para Visitas
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1704,17 +1305,15 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.disponibilidadeVisitas.includes(dia.value)}
                         onChange={() => toggleArrayValue('disponibilidadeVisitas', dia.value)}
-                        className="h-4 w-4 text-blue-600 rounded"
+                        className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {dia.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
             </div>
           )}
 
@@ -1723,28 +1322,23 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
             <div className="space-y-6">
               
               {/* Upload de Documentos */}
-              <div>
-                <h3 className={`text-lg font-medium mb-4 ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-sky-50/80 border-sky-200/50">
+                <h3 className="text-lg font-medium mb-4 text-gray-800">
                   Upload de Documentos
                 </h3>
                 
-                <div className={`border-2 border-dashed rounded-lg p-8 text-center ${
-                  isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50'
-                }`}>
-                  <ArrowUpTrayIcon className={`mx-auto h-12 w-12 ${
-                    isDark ? 'text-gray-400' : 'text-gray-400'
-                  }`} />
+                <div className="border-2 border-dashed border-sky-300/50 rounded-lg p-8 text-center bg-sky-100/30 backdrop-blur-sm">
+                  <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-sky-400" />
                   
                   <div className="mt-4">
-                    <button
+                    <ThemedButton
+                      variant="primary"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      icon={<PaperClipIcon className="h-4 w-4" />}
+                      glass={true}
                     >
-                      <PaperClipIcon className="h-4 w-4 mr-2" />
                       Selecionar Ficheiros
-                    </button>
+                    </ThemedButton>
                     
                     <input
                       ref={fileInputRef}
@@ -1756,27 +1350,21 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                     />
                   </div>
                   
-                  <p className={`mt-2 text-sm ${
-                    isDark ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
+                  <p className="mt-2 text-sm text-gray-600">
                     ou arraste ficheiros para aqui
                   </p>
                   
-                  <p className={`text-xs mt-1 ${
-                    isDark ? 'text-gray-500' : 'text-gray-500'
-                  }`}>
+                  <p className="text-xs mt-1 text-gray-500">
                     PDF, Word, Imagens (máx. 10MB por ficheiro)
                   </p>
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Progresso de Upload */}
               {Object.keys(uploadProgress).length > 0 && (
                 <div className="space-y-2">
                   {Object.entries(uploadProgress).map(([fileId, progress]) => (
-                    <div key={fileId} className={`p-3 rounded-lg ${
-                      isDark ? 'bg-gray-700' : 'bg-gray-100'
-                    }`}>
+                    <ThemedCard key={fileId} glass={true} className="p-3 bg-gray-100/80 border-gray-200/50">
                       <div className="flex justify-between text-sm mb-1">
                         <span>A fazer upload...</span>
                         <span>{progress}%</span>
@@ -1787,58 +1375,49 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                           style={{ width: `${progress}%` }}
                         ></div>
                       </div>
-                    </div>
+                    </ThemedCard>
                   ))}
                 </div>
               )}
 
               {/* Lista de Ficheiros Anexados */}
               {formData.anexos.length > 0 && (
-                <div>
-                  <h4 className={`text-md font-medium mb-3 ${
-                    isDark ? 'text-white' : 'text-gray-900'
-                  }`}>
+                <ThemedCard glass={true} className="p-4 bg-green-50/80 border-green-200/50">
+                  <h4 className="text-md font-medium mb-3 text-gray-800">
                     Ficheiros Anexados ({formData.anexos.length})
                   </h4>
                   
                   <div className="space-y-2">
                     {formData.anexos.map((file) => (
-                      <div key={file.id} className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-200 bg-white'
-                      }`}>
+                      <div key={file.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200/70 bg-white/60 backdrop-blur-sm">
                         <div className="flex items-center space-x-3">
                           <DocumentTextIcon className="h-5 w-5 text-blue-500" />
                           <div>
-                            <p className={`text-sm font-medium ${
-                              isDark ? 'text-white' : 'text-gray-900'
-                            }`}>
+                            <p className="text-sm font-medium text-gray-900">
                               {file.name}
                             </p>
-                            <p className={`text-xs ${
-                              isDark ? 'text-gray-400' : 'text-gray-500'
-                            }`}>
+                            <p className="text-xs text-gray-500">
                               {(file.size / 1024 / 1024).toFixed(2)} MB
                             </p>
                           </div>
                         </div>
                         
-                        <button
+                        <ThemedButton
+                          variant="danger"
+                          size="sm"
                           onClick={() => removeFile(file.id)}
-                          className="p-1 text-red-600 hover:bg-red-100 rounded"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
+                          icon={<TrashIcon className="h-4 w-4" />}
+                          glass={true}
+                        />
                       </div>
                     ))}
                   </div>
-                </div>
+                </ThemedCard>
               )}
 
               {/* Documentos Disponíveis */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-amber-50/80 border-amber-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Documentos Disponíveis (marcar os que tem)
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1859,35 +1438,25 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.documentosDisponiveis.includes(doc.value)}
                         onChange={() => toggleArrayValue('documentosDisponiveis', doc.value)}
-                        className="h-4 w-4 text-green-600 rounded"
+                        className="h-4 w-4 text-green-600 rounded focus:ring-green-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {doc.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Observações sobre Documentação */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Observações sobre Documentação
-                </label>
-                <textarea
-                  value={formData.observacoesDocumentacao}
-                  onChange={(e) => updateFormField('observacoesDocumentacao', e.target.value)}
-                  rows={3}
-                  placeholder="Notas sobre documentos em falta, prazo de entrega, etc..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                  }`}
-                />
-              </div>
+              <ThemedTextarea
+                label="Observações sobre Documentação"
+                value={formData.observacoesDocumentacao}
+                onChange={(e) => updateFormField('observacoesDocumentacao', e.target.value)}
+                rows={3}
+                placeholder="Notas sobre documentos em falta, prazo de entrega, etc..."
+                glass={true}
+              />
             </div>
           )}
 
@@ -1896,79 +1465,53 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
             <div className="space-y-6">
               
               {/* Observações do Consultor */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Observações do Consultor
-                </label>
-                <textarea
-                  value={formData.observacoesConsultor}
-                  onChange={(e) => updateFormField('observacoesConsultor', e.target.value)}
-                  rows={6}
-                  placeholder="Notas detalhadas sobre o cliente, conversão, expectativas..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                  }`}
-                />
-              </div>
+              <ThemedTextarea
+                label="Observações do Consultor"
+                value={formData.observacoesConsultor}
+                onChange={(e) => updateFormField('observacoesConsultor', e.target.value)}
+                rows={6}
+                placeholder="Notas detalhadas sobre o cliente, conversão, expectativas..."
+                glass={true}
+              />
 
               <div className="grid grid-cols-2 gap-6">
                 {/* Prioridade do Cliente */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Prioridade do Cliente
-                  </label>
-                  <select
-                    value={formData.prioridadeCliente}
-                    onChange={(e) => updateFormField('prioridadeCliente', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="baixa">Baixa</option>
-                    <option value="normal">Normal</option>
-                    <option value="alta">Alta</option>
-                    <option value="urgente">Urgente</option>
-                    <option value="vip">VIP</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Prioridade do Cliente"
+                  value={formData.prioridadeCliente}
+                  onChange={(e) => updateFormField('prioridadeCliente', e.target.value)}
+                  glass={true}
+                >
+                  <option value="baixa">Baixa</option>
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                  <option value="vip">VIP</option>
+                </ThemedSelect>
 
                 {/* Fonte de Procura */}
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Como Soube de Nós
-                  </label>
-                  <select
-                    value={formData.fonteProcura}
-                    onChange={(e) => updateFormField('fonteProcura', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecionar...</option>
-                    <option value="google">Google / Pesquisa Online</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="referencia">Referência de Cliente</option>
-                    <option value="placa_venda">Placa de Venda</option>
-                    <option value="jornal">Jornal / Anúncio</option>
-                    <option value="portal_imoveis">Portal de Imóveis</option>
-                    <option value="contacto_direto">Contacto Direto</option>
-                    <option value="outros">Outros</option>
-                  </select>
-                </div>
+                <ThemedSelect
+                  label="Como Soube de Nós"
+                  value={formData.fonteProcura}
+                  onChange={(e) => updateFormField('fonteProcura', e.target.value)}
+                  glass={true}
+                >
+                  <option value="">Selecionar...</option>
+                  <option value="google">Google / Pesquisa Online</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="referencia">Referência de Cliente</option>
+                  <option value="placa_venda">Placa de Venda</option>
+                  <option value="jornal">Jornal / Anúncio</option>
+                  <option value="portal_imoveis">Portal de Imóveis</option>
+                  <option value="contacto_direto">Contacto Direto</option>
+                  <option value="outros">Outros</option>
+                </ThemedSelect>
               </div>
 
               {/* Próximos Passos */}
-              <div>
-                <label className={`block text-sm font-medium mb-3 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-violet-50/80 border-violet-200/50">
+                <label className="block text-sm font-medium mb-3 text-gray-700">
                   Próximos Passos Planeados
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1987,49 +1530,33 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                         type="checkbox"
                         checked={formData.proximosPassos.includes(passo.value)}
                         onChange={() => toggleArrayValue('proximosPassos', passo.value)}
-                        className="h-4 w-4 text-blue-600 rounded"
+                        className="h-4 w-4 text-violet-600 rounded focus:ring-violet-500"
                       />
-                      <span className={`text-sm ${
-                        isDark ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      <span className="text-sm text-gray-700">
                         {passo.label}
                       </span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </ThemedCard>
 
               {/* Notas Especiais */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Notas Especiais / Alertas
-                </label>
-                <textarea
-                  value={formData.notasEspeciais}
-                  onChange={(e) => updateFormField('notasEspeciais', e.target.value)}
-                  rows={3}
-                  placeholder="Alertas importantes, restrições, informações confidenciais..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300'
-                  }`}
-                />
-              </div>
+              <ThemedTextarea
+                label="Notas Especiais / Alertas"
+                value={formData.notasEspeciais}
+                onChange={(e) => updateFormField('notasEspeciais', e.target.value)}
+                rows={3}
+                placeholder="Alertas importantes, restrições, informações confidenciais..."
+                glass={true}
+              />
 
               {/* Resumo da Conversão */}
-              <div className={`p-4 rounded-lg border-2 ${
-                isDark ? 'border-blue-600 bg-blue-900/20' : 'border-blue-200 bg-blue-50'
-              }`}>
-                <h4 className={`text-lg font-medium mb-3 flex items-center ${
-                  isDark ? 'text-blue-300' : 'text-blue-900'
-                }`}>
+              <ThemedCard glass={true} className="p-4 bg-blue-50/80 border-blue-200/50">
+                <h4 className="text-lg font-medium mb-3 flex items-center text-blue-800">
                   <InformationCircleIcon className="h-5 w-5 mr-2" />
                   Resumo da Conversão
                 </h4>
-                <div className={`text-sm space-y-2 ${
-                  isDark ? 'text-blue-200' : 'text-blue-800'
-                }`}>
+                <div className="text-sm space-y-2 text-blue-700">
                   <p>• <strong>Lead original:</strong> {leadData?.name} ({leadData?.phone})</p>
                   <p>• <strong>Score de qualificação:</strong> {calculateQualificationScore()}%</p>
                   <p>• <strong>Completude de dados:</strong> {calculateCompletenessPercentage()}%</p>
@@ -2042,22 +1569,23 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
                   <p>• <strong>Orçamento:</strong> €{formData.orcamentoMinimo || 'N/A'} - €{formData.orcamentoMaximo || 'N/A'}</p>
                   <p>• <strong>Próximos passos:</strong> {formData.proximosPassos.length} acções planeadas</p>
                 </div>
-              </div>
+              </ThemedCard>
             </div>
           )}
         </div>
 
-        {/* ✅ FOOTER COM CONTROLOS */}
-        <div className={`px-6 py-4 border-t flex items-center justify-between flex-shrink-0 ${
-          isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
-        }`}>
+        {/* ✅ FOOTER COM CONTROLOS GLASSMORPHISM */}
+        <ThemedCard 
+          glass={true}
+          className="px-6 py-4 border-t border-gray-200/50 flex items-center justify-between flex-shrink-0 bg-gray-50/80 backdrop-blur-md rounded-b-2xl"
+        >
           
           <div className="flex items-center space-x-4">
             {/* Validação e Aprovação */}
-            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg backdrop-blur-sm border ${
               validationPassed 
-                ? (isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800')
-                : (isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800')
+                ? 'bg-green-100/80 text-green-700 border-green-200/70'
+                : 'bg-red-100/80 text-red-700 border-red-200/70'
             }`}>
               {validationPassed ? (
                 <CheckCircleIcon className="h-4 w-4" />
@@ -2069,90 +1597,74 @@ Data criação: ${leadData.createdAt ? new Date(leadData.createdAt.seconds * 100
               </span>
             </div>
 
-            <button
+            <ThemedButton
+              variant={conversionApproved ? "success" : "outline"}
+              size="sm"
               onClick={handleApprovalToggle}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
-                conversionApproved
-                  ? (isDark ? 'bg-green-600 border-green-600 text-white' : 'bg-green-100 border-green-300 text-green-800')
-                  : (isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100')
-              }`}
+              icon={conversionApproved ? <CheckCircleIcon className="h-4 w-4" /> : <ExclamationTriangleIcon className="h-4 w-4" />}
+              glass={true}
             >
-              {conversionApproved ? (
-                <CheckCircleIcon className="h-4 w-4" />
-              ) : (
-                <ExclamationTriangleIcon className="h-4 w-4" />
-              )}
-              <span className="text-sm font-medium">
-                {conversionApproved ? 'Aprovado' : 'Aprovar Conversão'}
-              </span>
-            </button>
+              {conversionApproved ? 'Aprovado' : 'Aprovar Conversão'}
+            </ThemedButton>
           </div>
 
           <div className="flex space-x-3">
             {/* Navegação entre tabs */}
             {activeTab !== 'personal' && (
-              <button
+              <ThemedButton
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
                   if (currentIndex > 0) {
                     setActiveTab(tabs[currentIndex - 1].id);
                   }
                 }}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
+                glass={true}
               >
                 ← Anterior
-              </button>
+              </ThemedButton>
             )}
             
             {activeTab !== 'notes' ? (
-              <button
+              <ThemedButton
+                variant="primary"
+                size="sm"
                 onClick={() => {
                   const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1].id);
                   }
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                glass={true}
               >
                 Seguinte →
-              </button>
+              </ThemedButton>
             ) : (
-              <button
+              <ThemedButton
+                variant="success"
+                size="md"
                 onClick={handleSubmitConversion}
                 disabled={isConverting || !conversionApproved || !validationPassed}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
-                  isConverting || !conversionApproved || !validationPassed
-                    ? (isDark ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
+                loading={isConverting}
+                icon={<UserPlusIcon className="h-4 w-4" />}
+                glass={true}
               >
-                {isConverting ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    <span>Convertendo...</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlusIcon className="h-4 w-4" />
-                    <span>Converter para Cliente</span>
-                  </>
-                )}
-              </button>
+                {isConverting ? 'Convertendo...' : 'Converter para Cliente'}
+              </ThemedButton>
             )}
             
-            <button
+            <ThemedButton
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className={`px-4 py-2 rounded-lg border transition-colors ${
-                isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-              }`}
+              glass={true}
             >
               Cancelar
-            </button>
+            </ThemedButton>
           </div>
-        </div>
-      </div>
+        </ThemedCard>
+      </ThemedContainer>
     </div>
   );
 };
