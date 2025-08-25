@@ -146,6 +146,13 @@ export const useLeads = () => {
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
   const [converting, setConverting] = useState(false);
+
+  // ESTADOS DE CONVERSÃO VIA MODAL
+const [conversionModal, setConversionModal] = useState({
+  isOpen: false,
+  leadData: null,
+  step: 'qualification'
+});
   
   // ESTADOS DE GESTÃO
   const [filters, setFilters] = useState({
@@ -755,6 +762,140 @@ export const useLeads = () => {
     };
   }, []);
 
+  // FUNÇÕES DE CONVERSÃO VIA MODAL
+const initiateLeadConversion = useCallback((leadData) => {
+  if (!leadData) {
+    console.error('Dados da lead não fornecidos para conversão');
+    return { success: false, error: 'Dados da lead não fornecidos' };
+  }
+
+  console.log('Iniciando conversão via modal para lead:', leadData.id);
+  
+  setConversionModal({
+    isOpen: true,
+    leadData: leadData,
+    step: 'qualification'
+  });
+
+  return { 
+    success: true, 
+    modalOpened: true,
+    message: `Modal de conversão aberto para ${leadData.name}`
+  };
+}, []);
+
+const processLeadConversion = useCallback(async (conversionData) => {
+  if (!user) {
+    return { success: false, error: 'Utilizador não autenticado' };
+  }
+
+  console.log('Processando conversão do modal:', conversionData);
+  
+  setConverting(true);
+  setError(null);
+
+  try {
+    const { leadId, leadData, clientData, createOpportunity = true } = conversionData;
+
+    if (!leadId || !clientData) {
+      throw new Error('Dados de conversão incompletos');
+    }
+
+    // CRIAR CLIENTE
+    const clientToCreate = {
+      name: leadData.name,
+      email: leadData.email,
+      phone: leadData.phone,
+      ...clientData,
+      originalLeadId: leadId,
+      convertedFromLead: true,
+      leadConvertedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      isActive: true
+    };
+
+    const clientResult = await clientsAPI.create(clientToCreate);
+    
+    if (!clientResult.success) {
+      throw new Error('Erro ao criar cliente: ' + clientResult.error);
+    }
+
+    let opportunityResult = null;
+
+    // CRIAR OPORTUNIDADE
+    if (createOpportunity) {
+      const opportunityToCreate = {
+        clientId: clientResult.id,
+        leadId: leadId,
+        title: `Oportunidade - ${leadData.name}`,
+        description: `Oportunidade criada automaticamente`,
+        status: 'novo',
+        stage: 'qualificacao',
+        priority: leadData.priority || 'normal',
+        estimatedValue: clientData.orcamentoMaximo || 0,
+        probability: 25,
+        source: leadData.source || 'lead_conversion',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true
+      };
+
+      opportunityResult = await opportunitiesAPI.create(opportunityToCreate);
+    }
+
+    // ATUALIZAR LEAD
+    await leadsAPI.update(leadId, {
+      status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+      isConverted: true,
+      convertedAt: serverTimestamp(),
+      clientId: clientResult.id,
+      opportunityId: opportunityResult?.id || null
+    });
+
+    // ATUALIZAR LISTA LOCAL
+    setLeads(prev =>
+      prev.map(lead =>
+        lead.id === leadId 
+          ? { 
+              ...lead, 
+              status: UNIFIED_LEAD_STATUS.CONVERTIDO,
+              isConverted: true,
+              canConvert: false
+            }
+          : lead
+      )
+    );
+
+    return {
+      success: true,
+      leadId: leadId,
+      clientId: clientResult.id,
+      opportunityId: opportunityResult?.id || null,
+      message: `Lead convertido com sucesso!`
+    };
+
+  } catch (error) {
+    console.error('Erro na conversão:', error);
+    setError(error.message);
+    return { success: false, error: error.message };
+  } finally {
+    setConverting(false);
+  }
+}, [user, leadsAPI, clientsAPI, opportunitiesAPI, UNIFIED_LEAD_STATUS]);
+
+const closeConversionModal = useCallback(() => {
+  setConversionModal({
+    isOpen: false,
+    leadData: null,
+    step: 'qualification'
+  });
+}, []);
+
+const handleDebugLog = useCallback((logData) => {
+  console.log('DEBUG LOG:', logData);
+}, []);
+
   // INTERFACE PÚBLICA DO HOOK COMPLETA
   return {
     // DADOS
@@ -802,6 +943,13 @@ export const useLeads = () => {
     CLIENT_TYPES,
     PROPERTY_STATUS,
     
+    // ADICIONAR ESTAS LINHAS:
+    conversionModal,
+    initiateLeadConversion,
+    processLeadConversion,
+    closeConversionModal,
+    handleDebugLog,
+
     // FUNÇÕES DE VALIDAÇÃO
     isValidPhone,
     isValidEmail
