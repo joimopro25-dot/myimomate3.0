@@ -789,405 +789,71 @@ const processLeadConversion = useCallback(async (conversionData) => {
     return { success: false, error: 'Utilizador não autenticado' };
   }
 
-  console.log('🔄 NOVA VERSÃO - Processando conversão do modal:', conversionData);
+  console.log('Processando conversão do modal:', conversionData);
   
   setConverting(true);
   setError(null);
 
   try {
-    const { leadId, leadData, clientData, createOpportunity = true, createSpouse = false } = conversionData;
+    const { leadId, leadData, clientData, createOpportunity = true } = conversionData;
 
     if (!leadId || !clientData) {
       throw new Error('Dados de conversão incompletos');
     }
 
-    console.log('📋 Dados recebidos para conversão:', {
-      leadId,
-      leadName: leadData.name,
-      clientDataKeys: Object.keys(clientData),
-      createOpportunity,
-      createSpouse
-    });
-
-    let mainClientResult = null;
-    let spouseClientResult = null;
-    let opportunityResult = null;
-
-    // =================================================================
-    // 1. CRIAR CLIENTE PRINCIPAL COM DADOS COMPLETOS
-    // =================================================================
-    console.log('👤 Criando cliente principal...');
-    
-    const mainClientData = {
-      // DADOS BÁSICOS DA LEAD (PRESERVADOS)
+    // CRIAR CLIENTE
+    const clientToCreate = {
       name: leadData.name,
       email: leadData.email,
       phone: leadData.phone,
-      
-      // DADOS DO FORMULÁRIO DE CONVERSÃO (NOVOS)
-      // Dados pessoais portugueses
-      numeroCC: clientData.numeroCC || '',
-      numeroFiscal: clientData.numeroFiscal || clientData.nif || '',
-      dataNascimento: clientData.dataNascimento || '',
-      estadoCivil: clientData.estadoCivil || 'solteiro',
-      nacionalidade: clientData.nacionalidade || 'portuguesa',
-      
-      // Residência completa
-      residencia: {
-        rua: clientData.residencia?.rua || clientData.morada || '',
-        numero: clientData.residencia?.numero || '',
-        andar: clientData.residencia?.andar || '',
-        codigoPostal: clientData.residencia?.codigoPostal || clientData.codigoPostal || '',
-        localidade: clientData.residencia?.localidade || clientData.cidade || '',
-        concelho: clientData.residencia?.concelho || '',
-        distrito: clientData.residencia?.distrito || ''
-      },
-      
-      // Naturalidade
-      naturalidade: {
-        freguesia: clientData.naturalidade?.freguesia || '',
-        concelho: clientData.naturalidade?.concelho || '',
-        distrito: clientData.naturalidade?.distrito || ''
-      },
-      
-      // Informações profissionais e financeiras
-      profissao: clientData.profissao || clientData.profession || '',
-      empresa: clientData.empresa || clientData.company || '',
-      situacaoLaboral: clientData.situacaoLaboral || clientData.employmentStatus || '',
-      rendimentoMensal: clientData.rendimentoMensal || clientData.monthlyIncome || '',
-      rendimentoAnual: clientData.rendimentoAnual || clientData.annualIncome || '',
-      
-      // Informações bancárias
-      bancoRelacionamento: clientData.bancoRelacionamento || clientData.bankName || '',
-      temPreAprovacao: clientData.temPreAprovacao || clientData.hasPreApproval || false,
-      valorPreAprovacao: clientData.valorPreAprovacao || clientData.preApprovalAmount || '',
-      
-      // Dados de contacto expandidos
-      telefoneAlternativo: clientData.telefoneAlternativo || '',
-      emailAlternativo: clientData.emailAlternativo || '',
-      preferenciaContacto: clientData.preferenciaContacto || 'telefone',
-      melhorHorarioContacto: clientData.melhorHorarioContacto || 'qualquer_altura',
-      
-      // Preferências e motivações
-      tipoImovelProcurado: Array.isArray(clientData.tipoImovelProcurado) ? 
-        clientData.tipoImovelProcurado : [clientData.tipoImovelProcurado].filter(Boolean),
-      localizacaoPreferida: clientData.localizacaoPreferida || leadData.location || '',
-      caracteristicasEspecificas: clientData.caracteristicasEspecificas || '',
-      motivoTransacao: clientData.motivoTransacao || 'habitacao_propria',
-      urgencia: clientData.urgencia || leadData.urgency || 'normal',
-      prazoDecisao: clientData.prazoDecisao || '1_3_meses',
-      
-      // Orçamento detalhado
-      orcamentoMinimo: clientData.orcamentoMinimo || '',
-      orcamentoMaximo: clientData.orcamentoMaximo || leadData.budget || '',
-      tipoFinanciamento: clientData.tipoFinanciamento || 'credito_habitacao',
-      valorEntrada: clientData.valorEntrada || clientData.entrada || '',
-      percentagemEntrada: clientData.percentagemEntrada || '',
-      
-      // Documentação e anexos
-      documentosDisponiveis: clientData.documentosDisponiveis || [],
-      anexos: clientData.anexos || [],
-      
-      // Observações e notas
-      observacoes: clientData.observacoes || clientData.notes || '',
-      observacoesConsultor: clientData.observacoesConsultor || `Cliente convertido automaticamente do lead em ${new Date().toLocaleDateString('pt-PT')}.\n\nDados originais da lead:\n- Origem: ${leadData.source || 'N/A'}\n- Interesse: ${leadData.interestType || 'N/A'}\n- Data criação: ${leadData.createdAt ? new Date(leadData.createdAt).toLocaleDateString('pt-PT') : 'N/A'}`,
-      notasInternas: clientData.notasInternas || '',
-      
-      // Classificação e segmentação
-      prioridade: clientData.prioridadeCliente || leadData.priority || 'normal',
-      segmento: clientData.segmento || 'residencial',
-      fonte: clientData.fonte || leadData.source || 'conversao_lead',
-      consultor: clientData.consultor || user.displayName || user.email || '',
-      
-      // Rastreamento e auditoria
+      ...clientData,
       originalLeadId: leadId,
       convertedFromLead: true,
       leadConvertedAt: serverTimestamp(),
-      conversaoAprovada: true,
-      dataConversao: new Date().toISOString(),
-      utilizadorConversao: user.uid,
-      
-      // Status e atividade
-      status: 'ativo',
-      isActive: true,
-      clienteSince: serverTimestamp(),
-      
-      // Metadados
       createdAt: serverTimestamp(),
-      createdBy: user.uid,
       updatedAt: serverTimestamp(),
-      lastModifiedBy: user.uid,
-      version: '3.1_conversion_fix'
+      isActive: true
     };
 
-    console.log('📝 Dados do cliente preparados:', {
-      name: mainClientData.name,
-      numeroCC: mainClientData.numeroCC ? 'Preenchido' : 'Vazio',
-      numeroFiscal: mainClientData.numeroFiscal ? 'Preenchido' : 'Vazio',
-      orcamentoMaximo: mainClientData.orcamentoMaximo || 'Não definido',
-      tipoImovelProcurado: mainClientData.tipoImovelProcurado
-    });
-
-    mainClientResult = await clientsAPI.create(mainClientData);
+    const clientResult = await clientsAPI.create(clientToCreate);
     
-    if (!mainClientResult.success) {
-      throw new Error('Erro ao criar cliente principal: ' + mainClientResult.error);
+    if (!clientResult.success) {
+      throw new Error('Erro ao criar cliente: ' + clientResult.error);
     }
 
-    console.log('✅ Cliente principal criado:', mainClientResult.id);
+    let opportunityResult = null;
 
-    // =================================================================
-    // 2. CRIAR CÔNJUGE (SE SOLICITADO)
-    // =================================================================
-    if (createSpouse && clientData.conjuge && clientData.temConjuge) {
-      console.log('👫 Criando cônjuge...');
-      
-      const spouseData = {
-        // Dados básicos do cônjuge
-        name: clientData.conjuge.nome || '',
-        email: clientData.conjuge.email || '',
-        phone: clientData.conjuge.telefone || '',
-        
-        // Dados pessoais do cônjuge
-        numeroCC: clientData.conjuge.numeroCC || '',
-        numeroFiscal: clientData.conjuge.numeroFiscal || '',
-        dataNascimento: clientData.conjuge.dataNascimento || '',
-        estadoCivil: clientData.estadoCivil || 'casado',
-        nacionalidade: clientData.conjuge.nacionalidade || 'portuguesa',
-        
-        // Herdar dados de residência do cliente principal
-        residencia: mainClientData.residencia,
-        
-        // Dados específicos do cônjuge
-        profissao: clientData.conjuge.profissao || '',
-        empresa: clientData.conjuge.empresa || '',
-        rendimentoMensal: clientData.conjuge.rendimentoMensal || '',
-        
-        // Relação familiar
-        clientePrincipalId: mainClientResult.id,
-        tipoRelacao: 'conjuge',
-        comunhaoBens: clientData.comunhaoBens || 'geral',
-        
-        // Rastreamento
-        originalLeadId: leadId,
-        convertedFromLead: true,
-        leadConvertedAt: serverTimestamp(),
-        isSpouse: true,
-        
-        // Metadados
+    // CRIAR OPORTUNIDADE
+    if (createOpportunity) {
+      const opportunityToCreate = {
+        clientId: clientResult.id,
+        leadId: leadId,
+        title: `Oportunidade - ${leadData.name}`,
+        description: `Oportunidade criada automaticamente`,
+        status: 'novo',
+        stage: 'qualificacao',
+        priority: leadData.priority || 'normal',
+        estimatedValue: clientData.orcamentoMaximo || 0,
+        probability: 25,
+        source: leadData.source || 'lead_conversion',
         createdAt: serverTimestamp(),
-        createdBy: user.uid,
         updatedAt: serverTimestamp(),
         isActive: true
       };
 
-      spouseClientResult = await clientsAPI.create(spouseData);
-      
-      if (!spouseClientResult.success) {
-        console.warn('⚠️ Erro ao criar cônjuge:', spouseClientResult.error);
-        // Não falhar a conversão por causa do cônjuge
-      } else {
-        console.log('✅ Cônjuge criado:', spouseClientResult.id);
-      }
+      opportunityResult = await opportunitiesAPI.create(opportunityToCreate);
     }
 
-    // =================================================================
-    // 3. CRIAR OPORTUNIDADE COM DADOS COMPLETOS
-    // =================================================================
-    if (createOpportunity) {
-      console.log('🏢 Criando oportunidade com dados completos...');
-      
-      const opportunityData = {
-        // REFERÊNCIAS E IDENTIFICAÇÃO
-        clientId: mainClientResult.id,
-        clientName: leadData.name,
-        leadId: leadId,
-        originalLeadId: leadId,
-        spouseClientId: spouseClientResult?.id || null,
-        
-        // DADOS BÁSICOS DA OPORTUNIDADE
-        title: `${leadData.name} - ${clientData.tipoImovelProcurado?.[0] || 'Imóvel'} em ${clientData.localizacaoPreferida || leadData.location || 'Localização a definir'}`,
-        description: `Oportunidade criada automaticamente a partir da conversão do lead "${leadData.name}".
-        
-Detalhes do Cliente:
-• Tipo de interesse: ${leadData.interestType || 'N/A'}
-• Orçamento: ${clientData.orcamentoMaximo ? `€${clientData.orcamentoMaximo}` : 'A definir'}
-• Localização pretendida: ${clientData.localizacaoPreferida || leadData.location || 'A definir'}
-• Prazo de decisão: ${clientData.prazoDecisao || 'A definir'}
-• Urgência: ${clientData.urgencia || 'Normal'}`,
-        
-        // CLASSIFICAÇÃO E PIPELINE
-        status: 'ativo',
-        stage: 'qualificacao',
-        pipeline: 'vendas_padrao',
-        priority: clientData.urgencia || leadData.priority || 'normal',
-        
-        // VALORES E ESTIMATIVAS
-        estimatedValue: parseFloat(clientData.orcamentoMaximo) || parseFloat(leadData.budget) || 0,
-        minValue: parseFloat(clientData.orcamentoMinimo) || 0,
-        maxValue: parseFloat(clientData.orcamentoMaximo) || parseFloat(leadData.budget) || 0,
-        currency: 'EUR',
-        
-        // PROBABILIDADE BASEADA NA QUALIFICAÇÃO
-        probability: clientData.numeroFiscal && clientData.numeroCC ? 50 : // Cliente qualificado
-                     clientData.temPreAprovacao ? 70 : // Com pré-aprovação
-                     25, // Probabilidade base
-        
-        // DATAS IMPORTANTES
-        expectedCloseDate: clientData.prazoDecisao === 'imediato' ? 
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : // +30 dias
-          clientData.prazoDecisao === '1_3_meses' ?
-          new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) : // +60 dias
-          new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // +120 dias
-        
-        nextActionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 dias
-        lastContactDate: new Date(),
-        
-        // DETALHES DO IMÓVEL PROCURADO
-        propertyRequirements: {
-          propertyTypes: clientData.tipoImovelProcurado || [leadData.propertyType || 'apartamento'],
-          preferredLocations: clientData.localizacaoPreferida ? 
-            [clientData.localizacaoPreferida] : 
-            leadData.location ? [leadData.location] : [],
-          budgetMin: parseFloat(clientData.orcamentoMinimo) || 0,
-          budgetMax: parseFloat(clientData.orcamentoMaximo) || 0,
-          specificFeatures: clientData.caracteristicasEspecificas || '',
-          urgencyLevel: clientData.urgencia || 'normal',
-          decisionTimeframe: clientData.prazoDecisao || '1_3_meses'
-        },
-        
-        // INFORMAÇÕES FINANCEIRAS
-        financing: {
-          type: clientData.tipoFinanciamento || 'credito_habitacao',
-          hasPreApproval: clientData.temPreAprovacao || false,
-          preApprovalAmount: parseFloat(clientData.valorPreAprovacao) || 0,
-          downPayment: parseFloat(clientData.valorEntrada) || 0,
-          monthlyIncome: parseFloat(clientData.rendimentoMensal) || 0,
-          bankRelationship: clientData.bancoRelacionamento || ''
-        },
-        
-        // ORIGEM E RASTREAMENTO
-        source: leadData.source || 'lead_conversion',
-        sourceDetails: `Convertido do lead ID: ${leadId}`,
-        originalSource: leadData.source || 'unknown',
-        conversionDate: new Date().toISOString(),
-        
-        // EQUIPA E RESPONSABILIDADE
-        assignedTo: user.uid,
-        assignedToName: user.displayName || user.email || 'Sistema',
-        team: 'vendas',
-        consultant: user.displayName || user.email || '',
-        
-        // ATIVIDADES E PRÓXIMOS PASSOS
-        nextActions: [
-          'Agendar reunião inicial com cliente',
-          'Validar documentação financeira',
-          'Apresentar portfólio de imóveis compatíveis',
-          'Definir critérios específicos de pesquisa',
-          clientData.temPreAprovacao ? 'Verificar validade da pré-aprovação' : 'Orientar processo de pré-aprovação'
-        ].filter(Boolean),
-        
-        // ATIVIDADES INICIAIS
-        activities: [
-          {
-            id: Date.now(),
-            type: 'conversao',
-            title: 'Lead convertido para oportunidade',
-            description: `Cliente ${leadData.name} qualificado com sucesso e oportunidade criada automaticamente.`,
-            date: new Date().toISOString(),
-            createdBy: user.uid,
-            outcome: 'Cliente qualificado e interessado'
-          }
-        ],
-        
-        // OBSERVAÇÕES E NOTAS
-        notes: clientData.observacoes || '',
-        internalNotes: `${clientData.observacoesConsultor || ''}
-
-DADOS DA CONVERSÃO:
-- Lead Original: ${leadData.name} (${leadId})
-- Data Conversão: ${new Date().toLocaleDateString('pt-PT')}
-- Utilizador: ${user.displayName || user.email}
-- Interesse Original: ${leadData.interestType || 'N/A'}
-- Origem Lead: ${leadData.source || 'N/A'}
-- Cliente Qualificado: ${clientData.numeroCC ? 'Sim' : 'Não'}
-- Pré-aprovação: ${clientData.temPreAprovacao ? 'Sim' : 'Não'}
-- Cônjuge: ${createSpouse ? 'Criado' : 'Não aplicável'}`,
-        
-        // TAGS E CATEGORIZAÇÃO
-        tags: [
-          'lead_convertida',
-          clientData.urgencia || 'normal',
-          clientData.tipoFinanciamento || 'credito',
-          clientData.temPreAprovacao ? 'pre_aprovado' : 'sem_pre_aprovacao',
-          ...(clientData.tipoImovelProcurado || [])
-        ].filter(Boolean),
-        
-        // METADADOS E AUDITORIA
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        updatedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        isActive: true,
-        version: '3.1_conversion_fix'
-      };
-
-      console.log('📈 Dados da oportunidade preparados:', {
-        title: opportunityData.title,
-        estimatedValue: opportunityData.estimatedValue,
-        probability: opportunityData.probability,
-        stage: opportunityData.stage,
-        nextActions: opportunityData.nextActions.length
-      });
-
-      opportunityResult = await opportunitiesAPI.create(opportunityData);
-      
-      if (!opportunityResult.success) {
-        console.warn('⚠️ Erro ao criar oportunidade:', opportunityResult.error);
-        // Não falhar a conversão por causa da oportunidade
-      } else {
-        console.log('✅ Oportunidade criada:', opportunityResult.id);
-      }
-    }
-
-    // =================================================================
-    // 4. ATUALIZAR LEAD COMO CONVERTIDA
-    // =================================================================
-    console.log('🔄 Atualizando status da lead...');
-    
+    // ATUALIZAR LEAD
     await leadsAPI.update(leadId, {
       status: UNIFIED_LEAD_STATUS.CONVERTIDO,
       isConverted: true,
       convertedAt: serverTimestamp(),
-      
-      // IDs dos registos criados
-      clientId: mainClientResult.id,
-      spouseClientId: spouseClientResult?.id || null,
-      opportunityId: opportunityResult?.id || null,
-      
-      // Detalhes da conversão
-      conversionDetails: {
-        mainClientCreated: !!mainClientResult.success,
-        spouseClientCreated: !!spouseClientResult?.success,
-        opportunityCreated: !!opportunityResult?.success,
-        conversionDate: new Date().toISOString(),
-        convertedBy: user.uid,
-        dataQuality: {
-          hasCC: !!clientData.numeroCC,
-          hasNIF: !!clientData.numeroFiscal,
-          hasPreApproval: !!clientData.temPreAprovacao,
-          hasSpouse: createSpouse
-        }
-      },
-      
-      // Metadados
-      updatedAt: serverTimestamp(),
-      lastModifiedBy: user.uid
+      clientId: clientResult.id,
+      opportunityId: opportunityResult?.id || null
     });
 
-    // =================================================================
-    // 5. ATUALIZAR LISTA LOCAL
-    // =================================================================
+    // ATUALIZAR LISTA LOCAL
     setLeads(prev =>
       prev.map(lead =>
         lead.id === leadId 
@@ -1195,56 +861,28 @@ DADOS DA CONVERSÃO:
               ...lead, 
               status: UNIFIED_LEAD_STATUS.CONVERTIDO,
               isConverted: true,
-              statusColor: LEAD_STATUS_COLORS[UNIFIED_LEAD_STATUS.CONVERTIDO],
-              canConvert: false,
-              clientId: mainClientResult.id,
-              opportunityId: opportunityResult?.id || null
+              canConvert: false
             }
           : lead
       )
     );
 
-    // =================================================================
-    // 6. RESULTADO FINAL
-    // =================================================================
-    const conversionSummary = {
+    return {
       success: true,
       leadId: leadId,
-      mainClient: {
-        id: mainClientResult.id,
-        name: leadData.name,
-        created: true
-      },
-      spouseClient: spouseClientResult ? {
-        id: spouseClientResult.id,
-        created: true
-      } : null,
-      opportunity: opportunityResult ? {
-        id: opportunityResult.id,
-        title: opportunityData.title,
-        value: opportunityData.estimatedValue,
-        created: true
-      } : null,
-      message: `Conversão completa! ${leadData.name} convertido para cliente${spouseClientResult ? ' + cônjuge' : ''}${opportunityResult ? ' + oportunidade' : ''}.`
+      clientId: clientResult.id,
+      opportunityId: opportunityResult?.id || null,
+      message: `Lead convertido com sucesso!`
     };
-
-    console.log('🎉 CONVERSÃO COMPLETA:', conversionSummary);
-
-    return conversionSummary;
 
   } catch (error) {
-    console.error('❌ ERRO NA CONVERSÃO:', error);
+    console.error('Erro na conversão:', error);
     setError(error.message);
-    
-    return {
-      success: false,
-      error: error.message
-    };
-    
+    return { success: false, error: error.message };
   } finally {
     setConverting(false);
   }
-}, [user, leadsAPI, clientsAPI, opportunitiesAPI, UNIFIED_LEAD_STATUS, LEAD_STATUS_COLORS]);
+}, [user, leadsAPI, clientsAPI, opportunitiesAPI, UNIFIED_LEAD_STATUS]);
 
 const closeConversionModal = useCallback(() => {
   setConversionModal({
