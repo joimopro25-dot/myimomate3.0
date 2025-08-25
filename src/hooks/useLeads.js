@@ -91,11 +91,23 @@ export const LEAD_TEMPERATURE_COLORS = {
   [LEAD_TEMPERATURE.MORNO]: 'bg-orange-100 text-orange-800',
   [LEAD_TEMPERATURE.FRIO]: 'bg-blue-100 text-blue-800'
 };
+
 // CONSTANTES EXPORTADAS PARA COMPATIBILIDADE COM LEADFORM
 export const LEAD_INTEREST_TYPES = UNIFIED_INTEREST_TYPES;
 export const BUDGET_RANGES = UNIFIED_BUDGET_RANGES;
 export { UNIFIED_PRIORITIES, UNIFIED_LEAD_SOURCES };
-export { isValidPhone, isValidEmail } from '../constants/validations.js';
+
+// FUNÇÕES DE VALIDAÇÃO EXPORTADAS
+export const isValidPhone = (phone) => {
+  if (!phone) return true; // Campo opcional
+  return validatePortuguesePhone(phone);
+};
+
+export const isValidEmail = (email) => {
+  if (!email) return true; // Campo opcional
+  return validateEmail(email);
+};
+
 /**
  * HOOK DE LEADS MULTI-TENANT DEFINITIVO
  * 
@@ -175,12 +187,12 @@ export const useLeads = () => {
     if (leadData.interestType === UNIFIED_INTEREST_TYPES.INVESTIMENTO) score += 15;
     
     // Ajustes por orçamento
-    if (leadData.budgetRange === UNIFIED_BUDGET_RANGES.ACIMA_500K) score += 30;
-    if (leadData.budgetRange === UNIFIED_BUDGET_RANGES.ENTRE_300K_500K) score += 20;
+    if (leadData.budgetRange && leadData.budgetRange.includes('500k')) score += 30;
+    if (leadData.budgetRange && leadData.budgetRange.includes('300k')) score += 20;
     
     // Ajustes por fonte
-    if (leadData.source === UNIFIED_LEAD_SOURCES.REFERENCIA) score += 25;
-    if (leadData.source === UNIFIED_LEAD_SOURCES.WEBSITE) score += 10;
+    if (leadData.source === UNIFIED_LEAD_SOURCES?.REFERENCIA) score += 25;
+    if (leadData.source === UNIFIED_LEAD_SOURCES?.WEBSITE) score += 10;
     
     // Ajustes por completude de dados
     if (leadData.email) score += 5;
@@ -215,8 +227,8 @@ export const useLeads = () => {
   const calculateNextFollowUp = useCallback((priority) => {
     const now = new Date();
     const daysToAdd = 
-      priority === UNIFIED_PRIORITIES.ALTA ? 1 : 
-      priority === UNIFIED_PRIORITIES.NORMAL ? 3 : 7;
+      priority === UNIFIED_PRIORITIES?.ALTA ? 1 : 
+      priority === UNIFIED_PRIORITIES?.NORMAL ? 3 : 7;
     
     const followUpDate = new Date(now);
     followUpDate.setDate(now.getDate() + daysToAdd);
@@ -251,7 +263,7 @@ export const useLeads = () => {
       
       // Score e follow-up
       leadScore: migratedData.leadScore || calculateInitialLeadScore(migratedData),
-      nextFollowUpDate: migratedData.nextFollowUpDate || calculateNextFollowUp(migratedData.priority || UNIFIED_PRIORITIES.NORMAL),
+      nextFollowUpDate: migratedData.nextFollowUpDate || calculateNextFollowUp(migratedData.priority || UNIFIED_PRIORITIES?.NORMAL),
       
       // Metadados úteis
       isOverdue: migratedData.nextFollowUpDate ? new Date(migratedData.nextFollowUpDate) < new Date() : false,
@@ -284,32 +296,39 @@ export const useLeads = () => {
     return newStats;
   }, []);
 
-  // VERIFICAÇÃO DE DUPLICADOS (PRESERVADA E OTIMIZADA)
+  // VERIFICAÇÃO DE DUPLICADOS (CORRIGIDA COM VALIDAÇÃO DE DADOS)
   const checkForDuplicates = useCallback(async (leadData) => {
-    if (!user) return { hasDuplicates: false };
+    if (!user || !leadData) return { hasDuplicates: false };
+
+    // Validar dados de entrada
+    if (!leadData.phone && !leadData.email) {
+      return { hasDuplicates: false };
+    }
 
     try {
       console.log('Verificando duplicados...');
       
-      // Verificar por telefone (obrigatório)
-      const phoneResults = await leadsAPI.read({
-        whereClause: [['phone', '==', leadData.phone]],
-        useCache: false
-      });
+      // Verificar por telefone (se fornecido)
+      if (leadData.phone && leadData.phone.trim()) {
+        const phoneResults = await leadsAPI.read({
+          whereClause: [['phone', '==', leadData.phone.trim()]],
+          useCache: false
+        });
 
-      if (phoneResults.success && phoneResults.data.length > 0) {
-        return {
-          hasDuplicates: true,
-          duplicateType: 'phone',
-          existingLead: phoneResults.data[0],
-          message: `Já existe um lead com o telefone ${leadData.phone}`
-        };
+        if (phoneResults.success && phoneResults.data.length > 0) {
+          return {
+            hasDuplicates: true,
+            duplicateType: 'phone',
+            existingLead: phoneResults.data[0],
+            message: `Já existe um lead com o telefone ${leadData.phone}`
+          };
+        }
       }
 
       // Verificar por email (se fornecido)
-      if (leadData.email) {
+      if (leadData.email && leadData.email.trim()) {
         const emailResults = await leadsAPI.read({
-          whereClause: [['email', '==', leadData.email]],
+          whereClause: [['email', '==', leadData.email.trim()]],
           useCache: false
         });
 
@@ -447,11 +466,15 @@ export const useLeads = () => {
     try {
       console.log('Criando lead...');
 
-      // VALIDAÇÃO COMPLETA
+      // VALIDAÇÃO COMPLETA  
       const validation = validateLead(leadData);
       if (!validation.isValid) {
-        const errorMessage = Array.isArray(validation.errors) ?
-          validation.errors.join(', ') : validation.errors;
+        let errorMessage;
+        if (typeof validation.errors === 'object' && validation.errors !== null) {
+          errorMessage = Object.values(validation.errors).join(', ');
+        } else {
+          errorMessage = 'Dados de lead inválidos';
+        }
         throw new Error(`Dados inválidos: ${errorMessage}`);
       }
 
@@ -467,12 +490,18 @@ export const useLeads = () => {
       }
 
       // PREPARAR DADOS PADRONIZADOS
-      const leadToCreate = applyCoreStructure(leadData, LEAD_TEMPLATE);
+      const leadToCreate = applyCoreStructure ? applyCoreStructure(leadData, LEAD_TEMPLATE) : {
+        ...leadData,
+        status: UNIFIED_LEAD_STATUS.NOVO,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true
+      };
       
       // Enriquecer com campos calculados
       leadToCreate.leadScore = calculateInitialLeadScore(leadData);
       leadToCreate.leadTemperature = LEAD_TEMPERATURE.QUENTE; // Novo lead = sempre quente
-      leadToCreate.nextFollowUpDate = calculateNextFollowUp(leadData.priority || UNIFIED_PRIORITIES.NORMAL);
+      leadToCreate.nextFollowUpDate = calculateNextFollowUp(leadData.priority || UNIFIED_PRIORITIES?.NORMAL);
       leadToCreate.statusColor = LEAD_STATUS_COLORS[leadToCreate.status];
       leadToCreate.canConvert = true;
       leadToCreate.budgetRangeValue = getBudgetRangeMiddleValue(leadToCreate.budgetRange) || 0;
@@ -765,11 +794,17 @@ export const useLeads = () => {
     calculateUrgencyLevel,
     calculateNextFollowUp,
     
-    // CONSTANTES
+    // CONSTANTES EXPORTADAS
+    LEAD_INTEREST_TYPES,
+    BUDGET_RANGES,
     LEAD_STATUS_COLORS,
     LEAD_TEMPERATURE_COLORS,
     CLIENT_TYPES,
-    PROPERTY_STATUS
+    PROPERTY_STATUS,
+    
+    // FUNÇÕES DE VALIDAÇÃO
+    isValidPhone,
+    isValidEmail
   };
 };
 
