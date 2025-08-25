@@ -385,8 +385,11 @@ const LeadForm = ({
       userAgent: navigator.userAgent,
       formVersion: '3.1-expanded-safe',
       submittedAt: new Date().toISOString(),
-      lastModified: initialData ? new Date().toISOString() : undefined
-    };
+      ...(initialData && {
+  isEditing: true,
+  originalId: initialData.id,
+  editedAt: new Date().toISOString()
+})    };
 
     console.log('📤 Submetendo dados do formulário:', finalData);
     await onSubmit(finalData);
