@@ -10,6 +10,7 @@ import Sidebar from '../../components/layout/Sidebar'; // SIDEBAR REUTILIZÁVEL
 import { ThemedContainer, ThemedCard, ThemedButton } from '../../components/common/ThemedComponents';
 import { useTheme } from '../../contexts/ThemeContext';
 import useClients from '../../hooks/useClients';
+import { UNIFIED_INTEREST_TYPES } from '../../constants/unifiedTypes';
 import { 
   UsersIcon, 
   PlusIcon, 
@@ -112,10 +113,10 @@ const ClientsPage = () => {
     email: '',
     clientType: CLIENT_TYPES.COMPRADOR,
     budgetRange: 'ATE_100K',
-    propertyInterest: PROPERTY_INTERESTS.COMPRA_CASA,
+    propertyInterest: UNIFIED_INTEREST_TYPES.COMPRA_CASA,
     preferredLocation: '',
     notes: '',
-    status: CLIENT_STATUS.ATIVO,
+    status: UNIFIED_CLIENT_STATUS?.ATIVO || 'ativo',
     address: {
       street: '',
       number: '',
@@ -162,7 +163,7 @@ const ClientsPage = () => {
       email: '',
       clientType: CLIENT_TYPES.COMPRADOR,
       budgetRange: 'ATE_100K',
-      propertyInterest: PROPERTY_INTERESTS.COMPRA_CASA,
+      propertyInterest: UNIFIED_INTEREST_TYPES.COMPRA_CASA,
       preferredLocation: '',
       notes: '',
       status: CLIENT_STATUS.ATIVO,
@@ -389,7 +390,7 @@ const ClientsPage = () => {
                 trend="Potenciais"
                 icon={ClockIcon}
                 color="yellow"
-                onClick={() => handleMetricClick('status', CLIENT_STATUS.PROSPETO)}
+                onClick={() => handleMetricClick('status', UNIFIED_CLIENT_STATUS?.POTENCIAL || 'potencial')}
               />
               
               <CompactMetricCard
@@ -398,7 +399,7 @@ const ClientsPage = () => {
                 trend="Alto valor"
                 icon={UsersIcon}
                 color="purple"
-                onClick={() => handleMetricClick('clientType', CLIENT_TYPES.VIP)}
+                onClick={() => handleMetricClick('clientType', CLIENT_TYPES?.INVESTIDOR || 'investidor')}
               />
               
               <CompactMetricCard
