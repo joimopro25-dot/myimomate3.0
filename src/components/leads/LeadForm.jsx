@@ -42,7 +42,7 @@ const LeadForm = ({
     name: '',
     phone: '',
     email: '',
-    interestType: LEAD_INTEREST_TYPES.COMPRA_CASA,
+    interestType: LEAD_INTEREST_TYPES?.COMPRA_CASA || 'compra_casa',
     budgetRange: 'undefined',
     location: '',
     notes: '',
@@ -330,7 +330,7 @@ const LeadForm = ({
       name: '',
       phone: '',
       email: '',
-      interestType: LEAD_INTEREST_TYPES.COMPRA_CASA,
+      interestType: LEAD_INTEREST_TYPES?.COMPRA_CASA || 'compra_casa',
       budgetRange: 'undefined',
       location: '',
       notes: '',
@@ -677,7 +677,7 @@ const LeadForm = ({
                   }`}
                   required
                 >
-                  {Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
+                  {Object.entries(LEAD_INTEREST_TYPES || {}).map(([key, value]) => (
                     <option key={key} value={value}>
                       {getInterestTypeLabel(value)}
                     </option>
@@ -699,7 +699,7 @@ const LeadForm = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="undefined">Não definido</option>
-                  {Object.entries(BUDGET_RANGES).map(([key, value]) => (
+                  {Object.entries(BUDGET_RANGES || {}).map(([key, value]) => (
                     <option key={key} value={key}>
                       {value}
                     </option>
