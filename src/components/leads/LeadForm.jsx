@@ -1,12 +1,27 @@
-// src/components/leads/LeadForm.jsx - VERSÃO EXPANDIDA
+// src/components/leads/LeadForm.jsx - VERSÃO EXPANDIDA COM IMPORTS CORRIGIDOS
 // 🎯 FORMULÁRIO COMPLETO E RICO PARA LEADS - MyImoMate 3.0
 // =========================================================
-// Expandindo o formulário existente mantendo todas as funcionalidades atuais
-// NOVOS CAMPOS: Gestor, Propriedade, Pessoais, Financeiros, Técnicos
+// ✅ CORREÇÃO: Imports diretos do unifiedTypes.js (linha 493 corrigida)
+// ✅ REGRA DE MESTRE: TODAS as funcionalidades mantidas (680+ linhas)
+// ✅ MANTIDO: Todas as seções - Gestor, Propriedade, Pessoais, Financeiros, Técnicos
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemedButton } from '../common/ThemedComponents';
+
+// ✅ IMPORTS DIRETOS DAS CONSTANTES (CORREÇÃO - PATTERN CORRETO)
+import {
+  UNIFIED_INTEREST_TYPES,
+  UNIFIED_INTEREST_LABELS,
+  UNIFIED_BUDGET_RANGES,
+  UNIFIED_PRIORITIES,
+  UNIFIED_LEAD_SOURCES,
+  UNIFIED_CONTACT_TIMES,
+  getInterestTypeLabel,
+  getBudgetRangeLabel
+} from '../../constants/unifiedTypes.js';
+
+// ✅ HOOK SÓ PARA AÇÕES E VALIDAÇÕES (PATTERN CORRETO)
 import useLeads from '../../hooks/useLeads';
 
 const LeadForm = ({
@@ -24,17 +39,53 @@ const LeadForm = ({
   const {
     createLead,
     checkForDuplicates,
-    LEAD_INTEREST_TYPES,
-    BUDGET_RANGES,
-    CLIENT_TYPES,
-    PROPERTY_STATUS,
-    UNIFIED_PRIORITIES,
-    UNIFIED_LEAD_SOURCES,
+    CLIENT_TYPES,      // Estas constantes específicas ficam no hook
+    PROPERTY_STATUS,   // porque são lógica de negócio específica
     isValidEmail,
     isValidPhone,
     creating,
     duplicateCheck
   } = useLeads();
+
+  // ✅ CONSTANTES SEGURAS COM FALLBACKS (NOVA ADIÇÃO PARA ROBUSTEZ)
+  const safeInterestTypes = UNIFIED_INTEREST_TYPES || {
+    COMPRA_CASA: 'compra_casa',
+    COMPRA_APARTAMENTO: 'compra_apartamento',
+    VENDA_CASA: 'venda_casa',
+    VENDA_APARTAMENTO: 'venda_apartamento',
+    ARRENDAMENTO_CASA: 'arrendamento_casa',
+    INVESTIMENTO: 'investimento'
+  };
+
+  const safeBudgetRanges = UNIFIED_BUDGET_RANGES || {
+    'ate_50k': 'Até €50.000',
+    '50k_100k': '€50.000 - €100.000',
+    '100k_150k': '€100.000 - €150.000',
+    'indefinido': 'A definir'
+  };
+
+  const safePriorities = UNIFIED_PRIORITIES || {
+    BAIXA: 'baixa',
+    NORMAL: 'normal',
+    ALTA: 'alta',
+    URGENTE: 'urgente'
+  };
+
+  const safeLeadSources = UNIFIED_LEAD_SOURCES || {
+    WEBSITE: 'website',
+    TELEFONE: 'telefone',
+    EMAIL: 'email',
+    REFERENCIA: 'referencia',
+    REDES_SOCIAIS: 'redes_sociais',
+    MANUAL: 'manual'
+  };
+
+  const safeContactTimes = UNIFIED_CONTACT_TIMES || {
+    MANHA: 'manha',
+    TARDE: 'tarde',
+    NOITE: 'noite',
+    QUALQUER_ALTURA: 'qualquer_altura'
+  };
 
   // ✅ ESTADOS DO FORMULÁRIO EXPANDIDOS (mantendo os existentes)
   const [formData, setFormData] = useState({
@@ -42,13 +93,13 @@ const LeadForm = ({
     name: '',
     phone: '',
     email: '',
-    interestType: LEAD_INTEREST_TYPES?.COMPRA_CASA || 'compra_casa',
-    budgetRange: 'undefined',
+    interestType: safeInterestTypes?.COMPRA_CASA || 'compra_casa',
+    budgetRange: 'indefinido',
     location: '',
     notes: '',
     source: 'manual',
     priority: 'normal',
-    preferredContactTime: 'anytime',
+    preferredContactTime: 'qualquer_altura',
     
     // ✅ NOVOS CAMPOS EXPANDIDOS
     // Tipo de cliente
@@ -333,13 +384,13 @@ const LeadForm = ({
       name: '',
       phone: '',
       email: '',
-      interestType: LEAD_INTEREST_TYPES?.COMPRA_CASA || 'compra_casa',
-      budgetRange: 'undefined',
+      interestType: safeInterestTypes?.COMPRA_CASA || 'compra_casa',
+      budgetRange: 'indefinido',
       location: '',
       notes: '',
       source: 'manual',
       priority: 'normal',
-      preferredContactTime: 'anytime',
+      preferredContactTime: 'qualquer_altura',
       clientType: CLIENT_TYPES?.COMPRADOR || 'comprador',
       propertyStatus: PROPERTY_STATUS?.NAO_IDENTIFICADO || 'nao_identificado',
       propertyReference: '',
@@ -399,17 +450,9 @@ const LeadForm = ({
     setIsValid(hasRequiredFields && hasNoErrors);
   }, [formData, errors]);
 
-  // Helper functions (EXPANDIDAS)
-  const getInterestTypeLabel = (type) => {
-    const labels = {
-      'compra_casa': 'Compra de Casa',
-      'compra_apartamento': 'Compra de Apartamento',
-      'venda_casa': 'Venda de Casa',
-      'venda_apartamento': 'Venda de Apartamento',
-      'arrendamento_casa': 'Arrendamento de Casa',
-      'arrendamento_apartamento': 'Arrendamento de Apartamento'
-    };
-    return labels[type] || type;
+  // Helper functions (EXPANDIDAS - USANDO CONSTANTES SEGURAS)
+  const getInterestTypeLabelSafe = (type) => {
+    return UNIFIED_INTEREST_LABELS?.[type] || getInterestTypeLabel(type) || type;
   };
 
   const getClientTypeLabel = (type) => {
@@ -418,7 +461,8 @@ const LeadForm = ({
       'arrendatario': 'Arrendatário',
       'inquilino': 'Inquilino',
       'vendedor': 'Vendedor',
-      'senhorio': 'Senhorio'
+      'senhorio': 'Senhorio',
+      'investidor': 'Investidor'
     };
     return labels[type] || type;
   };
@@ -667,42 +711,31 @@ const LeadForm = ({
                 )}
               </div>
 
-              {/* Tipo de Interesse */}
+              {/* ✅ TIPO DE INTERESSE - CORRIGIDO COM CONSTANTES SEGURAS (LINHA 493 CORRIGIDA) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Interesse *
                 </label>
                 <select
-  value={formData.interestType}
-  onChange={(e) => updateField('interestType', e.target.value)}
-  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-    errors.interestType ? 'border-red-500' : 'border-gray-300'
-  }`}
-  required
->
-  {LEAD_INTEREST_TYPES && Object.keys(LEAD_INTEREST_TYPES || {}).length > 0 ? 
-  Object.entries(LEAD_INTEREST_TYPES).map(([key, value]) => (
-    <option key={key} value={value}>
-      {getInterestTypeLabel(value)}
-    </option>
-  )) : (
-      <>
-        <option value="compra_casa">Compra de Casa</option>
-        <option value="compra_apartamento">Compra de Apartamento</option>
-        <option value="venda_casa">Venda de Casa</option>
-        <option value="venda_apartamento">Venda de Apartamento</option>
-        <option value="arrendamento_casa">Arrendamento de Casa</option>
-        <option value="investimento">Investimento</option>
-      </>
-    )
-  }
-</select>
+                  value={formData.interestType}
+                  onChange={(e) => updateField('interestType', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.interestType ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  {safeInterestTypes && Object.entries(safeInterestTypes).map(([key, value]) => (
+                    <option key={key} value={value}>
+                      {getInterestTypeLabelSafe(value)}
+                    </option>
+                  ))}
+                </select>
                 {errors.interestType && (
                   <p className="text-red-600 text-sm mt-1">{errors.interestType}</p>
                 )}
               </div>
 
-              {/* Orçamento */}
+              {/* ✅ ORÇAMENTO - CORRIGIDO COM CONSTANTES SEGURAS */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Orçamento
@@ -712,8 +745,7 @@ const LeadForm = ({
                   onChange={(e) => updateField('budgetRange', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="undefined">Não definido</option>
-                  {Object.entries(BUDGET_RANGES || {}).map(([key, value]) => (
+                  {safeBudgetRanges && Object.entries(safeBudgetRanges).map(([key, value]) => (
                     <option key={key} value={key}>
                       {value}
                     </option>
@@ -1045,10 +1077,10 @@ const LeadForm = ({
                   onChange={(e) => updateField('preferredContactTime', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="anytime">Qualquer hora</option>
-                  <option value="morning">Manhã (9h-12h)</option>
-                  <option value="afternoon">Tarde (14h-18h)</option>
-                  <option value="evening">Noite (18h-21h)</option>
+                  <option value="qualquer_altura">Qualquer hora</option>
+                  <option value="manha">Manhã (9h-12h)</option>
+                  <option value="tarde">Tarde (14h-18h)</option>
+                  <option value="noite">Noite (18h-21h)</option>
                   <option value="weekend">Fim de semana</option>
                 </select>
               </div>
@@ -1430,8 +1462,8 @@ const LeadForm = ({
                   <div><span className="font-medium">Tipo:</span> {getClientTypeLabel(formData.clientType)}</div>
                   {formData.phone && <div><span className="font-medium">Telefone:</span> {formData.phone}</div>}
                   {formData.email && <div><span className="font-medium">Email:</span> {formData.email}</div>}
-                  <div><span className="font-medium">Interesse:</span> {getInterestTypeLabel(formData.interestType)}</div>
-                  <div><span className="font-medium">Orçamento:</span> {BUDGET_RANGES[formData.budgetRange] || 'Não definido'}</div>
+                  <div><span className="font-medium">Interesse:</span> {getInterestTypeLabelSafe(formData.interestType)}</div>
+                  <div><span className="font-medium">Orçamento:</span> {safeBudgetRanges[formData.budgetRange] || 'Não definido'}</div>
                   {formData.location && <div><span className="font-medium">Localização:</span> {formData.location}</div>}
                 </div>
               </div>
