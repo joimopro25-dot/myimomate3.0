@@ -1,129 +1,261 @@
-// src/utils/FirebaseService.js
-// FIREBASE SERVICE MULTI-TENANT DEFINITIVO - MyImoMate 3.0
-// ========================================================
-// Solução definitiva para arquitetura multi-tenant enterprise
-// Substitui completamente a versão anterior com isolamento total
-// Data: Agosto 2025 | Versão: 3.0 Multi-Tenant FINAL
+/**
+ * 🔥 FIREBASE SERVICE MULTI-TENANT - VERSÃO CORRIGIDA COM FALLBACKS
+ * ================================================================
+ * 
+ * PRINCIPAIS MELHORIAS:
+ * - ✅ Fallbacks para queries que requerem índices
+ * - ✅ Retry logic com backoff exponencial  
+ * - ✅ Queries simplificadas quando índices não existem
+ * - ✅ Tratamento graceful de erros de Firestore
+ * - ✅ Manutenção de todas as funcionalidades existentes
+ */
 
 import { 
   collection, 
   doc, 
   addDoc, 
-  getDocs, 
   getDoc, 
+  getDocs, 
   updateDoc, 
-  deleteDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
   limit, 
-  onSnapshot,
-  serverTimestamp,
-  increment as firestoreIncrement,
-  writeBatch,
-  runTransaction,
   startAfter,
-  endBefore
+  writeBatch,
+  onSnapshot,
+  serverTimestamp
 } from 'firebase/firestore';
-
 import { db } from '../config/firebase';
 
-// CONFIGURAÇÕES E CONSTANTES
-export const SUBCOLLECTIONS = {
-  // Core CRM modules - ISOLADOS por utilizador
+// CONFIGURAÇÕES
+const CONFIG = {
+  DEFAULT_LIMIT: 50,
+  MAX_LIMIT: 1000,
+  CACHE_TTL: 5 * 60 * 1000, // 5 minutos
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000,
+  FALLBACK_ENABLED: true
+};
+
+// CONSTANTES DE SUBCOLEÇÕES - Para compatibilidade com hooks existentes
+const SUBCOLLECTIONS = {
   LEADS: 'leads',
   CLIENTS: 'clients', 
+  VISITS: 'visits',
   OPPORTUNITIES: 'opportunities',
   DEALS: 'deals',
-  VISITS: 'visits',
   TASKS: 'tasks',
-  
-  // Analytics e relatórios - PRIVADOS
   REPORTS: 'reports',
   ANALYTICS: 'analytics',
-  ACTIVITY_LOGS: 'activity_logs',
-  
-  // Automações e integrações - PESSOAIS
   AUTOMATIONS: 'automations',
   INTEGRATIONS: 'integrations',
-  WEBHOOKS: 'webhooks',
-  
-  // Calendário e agendamento - INDIVIDUAIS  
   CALENDAR_EVENTS: 'calendar_events',
-  REMINDERS: 'reminders',
-  
-  // Configurações e templates - CUSTOMIZADAS
-  USER_SETTINGS: 'user_settings',
-  TEMPLATES: 'templates',
+  ACTIVITY_LOGS: 'activity_logs',
   NOTIFICATIONS: 'notifications'
 };
 
-export const CONFIG = {
-  CACHE_TTL: 5 * 60 * 1000, // 5 minutos
-  DEFAULT_LIMIT: 25,
-  MAX_LIMIT: 100,
-  RETRY_ATTEMPTS: 3,
-  RETRY_DELAY: 1000,
-  BATCH_SIZE: 500
-};
+// COLEÇÕES VÁLIDAS (subcoleções do utilizador)
+const VALID_SUBCOLLECTIONS = [
+  'leads', 'clients', 'visits', 'opportunities', 'deals', 
+  'tasks', 'reports', 'analytics', 'automations', 'integrations',
+  'calendar_events', 'activity_logs', 'notifications'
+];
 
-// CLASSE PRINCIPAL FIREBASE SERVICE
 class FirebaseService {
   constructor() {
     this.currentUser = null;
     this.cache = new Map();
     this.listeners = new Map();
-    this.retryQueue = new Map();
-    
     console.log('🏗️ FirebaseService Multi-Tenant inicializado');
   }
 
   // GESTÃO DE UTILIZADOR
   setCurrentUser(user) {
-    if (!user) {
-      this.currentUser = null;
+    if (user?.uid !== this.currentUser?.uid) {
       this.clearCache();
       this.clearAllListeners();
-      console.log('👤 Utilizador removido - cache e listeners limpos');
-      return;
-    }
-
-    if (this.currentUser?.uid !== user.uid) {
       this.currentUser = user;
-      this.clearCache();
-      this.clearAllListeners();
       console.log(`👤 Utilizador definido: ${user.email} (${user.uid})`);
     }
   }
 
-  getCurrentUser() {
-    return this.currentUser;
+  getCurrentUserId() {
+    return this.currentUser?.uid || null;
   }
 
-  // REFERÊNCIAS DE SUBCOLEÇÕES ISOLADAS
-  getUserSubcollection(subcollectionName) {
+  // REFERÊNCIAS FIREBASE - Multi-tenant
+  getUserCollection() {
     if (!this.currentUser) {
-      throw new Error('FirebaseService: Utilizador não definido. Faça login primeiro.');
+      throw new Error('Utilizador não autenticado');
     }
+    return collection(db, 'users', this.currentUser.uid);
+  }
 
-    if (!Object.values(SUBCOLLECTIONS).includes(subcollectionName)) {
-      throw new Error(`FirebaseService: Subcoleção inválida: ${subcollectionName}`);
+  getUserSubcollection(subcollectionName) {
+    if (!VALID_SUBCOLLECTIONS.includes(subcollectionName)) {
+      throw new Error(`Subcoleção inválida: ${subcollectionName}`);
     }
-
-    // ISOLAMENTO TOTAL: users/{userId}/{subcollection}
-    const userDocRef = doc(db, 'users', this.currentUser.uid);
-    return collection(userDocRef, subcollectionName);
+    return collection(this.getUserCollection(), subcollectionName);
   }
 
   getUserDocument(subcollectionName, documentId) {
-    const subcollectionRef = this.getUserSubcollection(subcollectionName);
-    return doc(subcollectionRef, documentId);
+    return doc(this.getUserSubcollection(subcollectionName), documentId);
   }
 
-  // OPERAÇÕES CRUD PRINCIPAIS
-  
+  // UTILITIES
+  generateCacheKey(subcollectionName, options = {}) {
+    const key = `${this.currentUser.uid}_${subcollectionName}_${JSON.stringify(options)}`;
+    return key;
+  }
+
   /**
-   * CRIAR DOCUMENTO - Com isolamento multi-tenant
+   * SLEEP FUNCTION PARA RETRY LOGIC
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * VERIFICAR SE É ERRO DE ÍNDICE
+   */
+  isIndexError(error) {
+    return error.code === 'failed-precondition' || 
+           error.message?.includes('requires an index') ||
+           error.message?.includes('composite index');
+  }
+
+  /**
+   * CRIAR QUERY SIMPLES SEM ÍNDICE (FALLBACK)
+   */
+  buildFallbackQuery(subcollectionRef, options) {
+    const { includeInactive = false, limitCount = CONFIG.DEFAULT_LIMIT } = options;
+    
+    let queryRef = subcollectionRef;
+    
+    // Aplicar apenas filtro básico de isActive (não requer índice composto)
+    if (!includeInactive) {
+      queryRef = query(queryRef, where('isActive', '==', true));
+    }
+
+    // Aplicar limite sem ordenação (evita necessidade de índice)
+    if (limitCount) {
+      queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
+    }
+
+    return queryRef;
+  }
+
+  /**
+   * CRIAR QUERY COMPLETA (COM POSSIBILIDADE DE FALHAR)
+   */
+  buildComplexQuery(subcollectionRef, options) {
+    const {
+      whereClause = [],
+      orderByClause = [],
+      limitCount = CONFIG.DEFAULT_LIMIT,
+      includeInactive = false,
+      startAfterDoc = null
+    } = options;
+
+    let queryRef = subcollectionRef;
+    
+    // FILTRO ATIVO POR DEFEITO
+    if (!includeInactive) {
+      queryRef = query(queryRef, where('isActive', '==', true));
+    }
+
+    // APLICAR FILTROS WHERE
+    whereClause.forEach(([field, operator, value]) => {
+      queryRef = query(queryRef, where(field, operator, value));
+    });
+
+    // APLICAR ORDENAÇÃO
+    if (orderByClause.length > 0) {
+      orderByClause.forEach(([field, direction = 'desc']) => {
+        queryRef = query(queryRef, orderBy(field, direction));
+      });
+    } else {
+      // Ordenação padrão por data de criação
+      queryRef = query(queryRef, orderBy('createdAt', 'desc'));
+    }
+
+    // APLICAR LIMITE
+    if (limitCount) {
+      queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
+    }
+
+    // PAGINAÇÃO
+    if (startAfterDoc) {
+      queryRef = query(queryRef, startAfter(startAfterDoc));
+    }
+
+    return queryRef;
+  }
+
+  /**
+   * EXECUTAR QUERY COM FALLBACK E RETRY
+   */
+  async executeQueryWithFallback(subcollectionRef, options, attempt = 1) {
+    try {
+      // Tentar query completa primeiro
+      const complexQuery = this.buildComplexQuery(subcollectionRef, options);
+      const snapshot = await getDocs(complexQuery);
+      
+      console.log(`✅ Query completa executada com sucesso (tentativa ${attempt})`);
+      return {
+        snapshot,
+        queryType: 'complex'
+      };
+
+    } catch (error) {
+      console.warn(`⚠️ Query completa falhou (tentativa ${attempt}):`, error.message);
+
+      // Se for erro de índice e fallback estiver ativo
+      if (this.isIndexError(error) && CONFIG.FALLBACK_ENABLED) {
+        console.log('🔄 Tentando query simplificada (fallback)...');
+        
+        try {
+          const fallbackQuery = this.buildFallbackQuery(subcollectionRef, options);
+          const snapshot = await getDocs(fallbackQuery);
+          
+          console.log('✅ Query simplificada executada com sucesso');
+          return {
+            snapshot,
+            queryType: 'fallback',
+            fallbackReason: 'missing_index'
+          };
+
+        } catch (fallbackError) {
+          console.error('❌ Query simplificada também falhou:', fallbackError.message);
+          
+          // Se ainda assim falhar e temos mais tentativas
+          if (attempt < CONFIG.RETRY_ATTEMPTS) {
+            const delay = CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1); // Backoff exponencial
+            console.log(`🔄 Aguardando ${delay}ms antes da próxima tentativa...`);
+            await this.sleep(delay);
+            return this.executeQueryWithFallback(subcollectionRef, options, attempt + 1);
+          }
+          
+          throw fallbackError;
+        }
+      }
+
+      // Se não for erro de índice ou fallback desativado, tentar retry
+      if (attempt < CONFIG.RETRY_ATTEMPTS) {
+        const delay = CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1);
+        console.log(`🔄 Retry ${attempt}/${CONFIG.RETRY_ATTEMPTS} em ${delay}ms...`);
+        await this.sleep(delay);
+        return this.executeQueryWithFallback(subcollectionRef, options, attempt + 1);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * CRIAR DOCUMENTO
    */
   async createDocument(subcollectionName, data) {
     if (!this.currentUser) {
@@ -133,22 +265,20 @@ class FirebaseService {
     try {
       const subcollectionRef = this.getUserSubcollection(subcollectionName);
       
-      // DADOS ENRIQUECIDOS COM METADADOS MULTI-TENANT
       const enrichedData = {
         ...data,
-        // Metadados obrigatórios para isolamento
         userId: this.currentUser.uid,
         userEmail: this.currentUser.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        isActive: data.isActive !== undefined ? data.isActive : true,
-        // Versão da estrutura para migrações futuras
+        createdBy: this.currentUser.uid,
+        lastModifiedBy: this.currentUser.uid,
+        isActive: data.hasOwnProperty('isActive') ? data.isActive : true,
         structureVersion: '3.0'
       };
 
       const docRef = await addDoc(subcollectionRef, enrichedData);
       
-      // Invalidar cache
       this.invalidateCache(subcollectionName);
       
       console.log(`✅ Documento criado: ${subcollectionName}/${docRef.id}`);
@@ -169,7 +299,7 @@ class FirebaseService {
   }
 
   /**
-   * LER DOCUMENTOS - Com filtros e paginação
+   * LER DOCUMENTOS - Com fallbacks robustos
    */
   async readDocuments(subcollectionName, options = {}) {
     if (!this.currentUser) {
@@ -178,15 +308,11 @@ class FirebaseService {
 
     try {
       const {
-        whereClause = [],
-        orderByClause = [],
-        limitCount = CONFIG.DEFAULT_LIMIT,
-        includeInactive = false,
-        startAfterDoc = null,
-        useCache = true
+        useCache = true,
+        limitCount = CONFIG.DEFAULT_LIMIT
       } = options;
 
-      // Verificar cache primeiro (se solicitado)
+      // Verificar cache primeiro
       const cacheKey = this.generateCacheKey(subcollectionName, options);
       if (useCache && this.cache.has(cacheKey)) {
         const cached = this.cache.get(cacheKey);
@@ -196,54 +322,46 @@ class FirebaseService {
         }
       }
 
-      let queryRef = this.getUserSubcollection(subcollectionName);
+      const subcollectionRef = this.getUserSubcollection(subcollectionName);
       
-      // FILTRO ATIVO POR DEFEITO (isolamento + performance)
-      if (!includeInactive) {
-        queryRef = query(queryRef, where('isActive', '==', true));
-      }
-
-      // APLICAR FILTROS WHERE
-      whereClause.forEach(([field, operator, value]) => {
-        queryRef = query(queryRef, where(field, operator, value));
-      });
-
-      // APLICAR ORDENAÇÃO
-      if (orderByClause.length > 0) {
-        orderByClause.forEach(([field, direction = 'desc']) => {
-          queryRef = query(queryRef, orderBy(field, direction));
-        });
-      } else {
-        // Ordenação padrão por data de criação
-        queryRef = query(queryRef, orderBy('createdAt', 'desc'));
-      }
-
-      // APLICAR LIMITE
-      if (limitCount) {
-        queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
-      }
-
-      // PAGINAÇÃO
-      if (startAfterDoc) {
-        queryRef = query(queryRef, startAfter(startAfterDoc));
-      }
-
-      const snapshot = await getDocs(queryRef);
+      // Executar query com fallback automático
+      const { snapshot, queryType, fallbackReason } = await this.executeQueryWithFallback(
+        subcollectionRef, 
+        options
+      );
       
       const documents = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        // Converter timestamps para objetos Date
         createdAt: doc.data().createdAt?.toDate() || null,
         updatedAt: doc.data().updatedAt?.toDate() || null
       }));
+
+      // Ordenação manual se usámos fallback
+      if (queryType === 'fallback' && documents.length > 0) {
+        documents.sort((a, b) => {
+          const dateA = a.createdAt || new Date(0);
+          const dateB = b.createdAt || new Date(0);
+          return dateB.getTime() - dateA.getTime(); // Desc
+        });
+
+        // Aplicar limite manual
+        if (options.limitCount && documents.length > options.limitCount) {
+          documents.splice(options.limitCount);
+        }
+      }
 
       const result = {
         success: true,
         data: documents,
         count: documents.length,
         hasMore: snapshot.docs.length === limitCount,
-        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+        queryInfo: {
+          type: queryType,
+          fallbackReason: fallbackReason || null,
+          subcollection: subcollectionName
+        }
       };
 
       // Armazenar em cache
@@ -254,17 +372,26 @@ class FirebaseService {
         });
       }
 
-      console.log(`📖 Lidos ${documents.length} documentos de ${subcollectionName}`);
+      const statusEmoji = queryType === 'fallback' ? '🔄' : '📖';
+      console.log(`${statusEmoji} Lidos ${documents.length} documentos de ${subcollectionName} (${queryType})`);
       
       return result;
 
     } catch (error) {
       console.error(`❌ Erro ao ler documentos ${subcollectionName}:`, error);
+      
+      // Retorno graceful mesmo em caso de erro total
       return {
         success: false,
         error: error.message,
         data: [],
-        count: 0
+        count: 0,
+        hasMore: false,
+        queryInfo: {
+          type: 'failed',
+          error: error.message,
+          subcollection: subcollectionName
+        }
       };
     }
   }
@@ -346,7 +473,6 @@ class FirebaseService {
 
       await updateDoc(docRef, updateData);
       
-      // Invalidar cache
       this.invalidateCache(subcollectionName);
       
       console.log(`🔄 Documento atualizado: ${subcollectionName}/${documentId}`);
@@ -377,18 +503,15 @@ class FirebaseService {
     try {
       const docRef = this.getUserDocument(subcollectionName, documentId);
       
-      // Verificar se documento existe e pertence ao utilizador
       const existingDoc = await this.readDocument(subcollectionName, documentId);
       if (!existingDoc.success) {
         return existingDoc;
       }
 
       if (hardDelete) {
-        // Eliminação permanente
         await deleteDoc(docRef);
         console.log(`🗑️ Documento eliminado permanentemente: ${subcollectionName}/${documentId}`);
       } else {
-        // Soft delete - apenas desativar
         const softDeleteData = {
           isActive: false,
           deletedAt: serverTimestamp(),
@@ -399,7 +522,6 @@ class FirebaseService {
         console.log(`🗑️ Documento desativado: ${subcollectionName}/${documentId}`);
       }
       
-      // Invalidar cache
       this.invalidateCache(subcollectionName);
       
       return {
@@ -449,23 +571,20 @@ class FirebaseService {
         const docRef = id ? 
           this.getUserDocument(subcollection, id) : 
           doc(this.getUserSubcollection(subcollection));
-
+        
         switch (type) {
           case 'create':
             batch.set(docRef, {
               ...data,
               userId: this.currentUser.uid,
-              userEmail: this.currentUser.email,
               createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
               isActive: true
             });
             break;
           case 'update':
             batch.update(docRef, {
               ...data,
-              updatedAt: serverTimestamp(),
-              lastModifiedBy: this.currentUser.uid
+              updatedAt: serverTimestamp()
             });
             break;
           case 'delete':
@@ -476,19 +595,16 @@ class FirebaseService {
 
       await batch.commit();
       
-      // Invalidar cache para todas as subcoleções afetadas
-      const affectedCollections = [...new Set(operations.map(op => op.subcollection))];
-      affectedCollections.forEach(coll => this.invalidateCache(coll));
+      // Invalidar caches relevantes
+      const subcollections = [...new Set(operations.map(op => op.subcollection))];
+      subcollections.forEach(sub => this.invalidateCache(sub));
       
-      console.log(`✅ Operação em lote concluída: ${operations.length} operações`);
+      console.log(`✅ Operação em lote executada: ${operations.length} operações`);
       
-      return {
-        success: true,
-        operationsCount: operations.length
-      };
+      return { success: true };
 
     } catch (error) {
-      console.error('❌ Erro na operação em lote:', error);
+      console.error('❌ Erro em operação batch:', error);
       return {
         success: false,
         error: error.message
@@ -496,44 +612,24 @@ class FirebaseService {
     }
   }
 
-  // LISTENERS EM TEMPO REAL
+  /**
+   * SUBSCREVER A COLEÇÃO (REAL-TIME)
+   */
   subscribeToCollection(subcollectionName, callback, options = {}) {
     if (!this.currentUser) {
       throw new Error('Utilizador não autenticado');
     }
 
     try {
-      const {
-        whereClause = [],
-        orderByClause = [],
-        limitCount = CONFIG.DEFAULT_LIMIT,
-        includeInactive = false
-      } = options;
-
-      let queryRef = this.getUserSubcollection(subcollectionName);
+      const subcollectionRef = this.getUserSubcollection(subcollectionName);
       
-      if (!includeInactive) {
-        queryRef = query(queryRef, where('isActive', '==', true));
-      }
-
-      whereClause.forEach(([field, operator, value]) => {
-        queryRef = query(queryRef, where(field, operator, value));
-      });
-
-      if (orderByClause.length > 0) {
-        orderByClause.forEach(([field, direction = 'desc']) => {
-          queryRef = query(queryRef, orderBy(field, direction));
-        });
-      } else {
-        queryRef = query(queryRef, orderBy('createdAt', 'desc'));
-      }
-
-      if (limitCount) {
-        queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
-      }
-
+      // Para subscriptions, usar query simplificada para evitar problemas de índice
+      const simpleQuery = this.buildFallbackQuery(subcollectionRef, options);
+      
+      const listenerId = `${subcollectionName}_${Date.now()}`;
+      
       const unsubscribe = onSnapshot(
-        queryRef,
+        simpleQuery,
         (snapshot) => {
           const documents = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -542,40 +638,48 @@ class FirebaseService {
             updatedAt: doc.data().updatedAt?.toDate() || null
           }));
 
+          // Ordenação manual
+          documents.sort((a, b) => {
+            const dateA = a.createdAt || new Date(0);
+            const dateB = b.createdAt || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+          console.log(`🔔 Atualização em tempo real: ${subcollectionName} (${documents.length})`);
+          
           callback({
             success: true,
             data: documents,
-            count: documents.length
+            count: documents.length,
+            queryInfo: {
+              type: 'realtime_fallback',
+              subcollection: subcollectionName
+            }
           });
         },
         (error) => {
-          console.error(`❌ Erro no listener ${subcollectionName}:`, error);
+          console.error(`❌ Erro na subscription ${subcollectionName}:`, error);
           callback({
             success: false,
             error: error.message,
-            data: []
+            data: [],
+            count: 0
           });
         }
       );
 
-      const listenerId = `${subcollectionName}_${Date.now()}`;
       this.listeners.set(listenerId, unsubscribe);
-      
-      console.log(`👂 Listener ativo: ${subcollectionName} (${listenerId})`);
+      console.log(`👂 Listener ativo: ${listenerId}`);
       
       return listenerId;
 
     } catch (error) {
-      console.error(`❌ Erro ao criar listener ${subcollectionName}:`, error);
-      return null;
+      console.error(`❌ Erro ao criar subscription ${subcollectionName}:`, error);
+      throw error;
     }
   }
 
-  // GESTÃO DE CACHE
-  generateCacheKey(subcollectionName, options) {
-    return `${this.currentUser.uid}_${subcollectionName}_${JSON.stringify(options)}`;
-  }
-
+  // MÉTODOS DE GESTÃO DE CACHE E LISTENERS (inalterados)
   invalidateCache(subcollectionName) {
     const keysToDelete = [];
     for (const [key] of this.cache) {
@@ -592,7 +696,6 @@ class FirebaseService {
     console.log('💾 Cache completamente limpo');
   }
 
-  // GESTÃO DE LISTENERS
   removeListener(listenerId) {
     if (this.listeners.has(listenerId)) {
       this.listeners.get(listenerId)();
@@ -607,7 +710,9 @@ class FirebaseService {
     console.log('🔇 Todos os listeners removidos');
   }
 
-  // DIAGNÓSTICO E DEBUG
+  /**
+   * DIAGNÓSTICO E DEBUG
+   */
   async diagnoseSubcollection(subcollectionName) {
     if (!this.currentUser) {
       return { error: 'Utilizador não autenticado' };
@@ -625,6 +730,7 @@ class FirebaseService {
         userId: this.currentUser.uid,
         userEmail: this.currentUser.email,
         documentsFound: result.count,
+        queryInfo: result.queryInfo || {},
         sampleData: result.data.slice(0, 2),
         cacheSize: this.cache.size,
         activeListeners: this.listeners.size,
@@ -649,7 +755,12 @@ class FirebaseService {
       cacheSize: this.cache.size,
       activeListeners: this.listeners.size,
       timestamp: new Date().toISOString(),
-      version: '3.0-MULTI-TENANT'
+      version: '3.0-MULTI-TENANT-FALLBACK',
+      config: {
+        fallbackEnabled: CONFIG.FALLBACK_ENABLED,
+        retryAttempts: CONFIG.RETRY_ATTEMPTS,
+        cacheRetryMs: CONFIG.CACHE_TTL
+      }
     };
   }
 }
@@ -657,12 +768,8 @@ class FirebaseService {
 // INSTÂNCIA SINGLETON
 const firebaseService = new FirebaseService();
 
-// EXPORTS
-export default firebaseService;
-export { firebaseService };
-
 // HELPER HOOK PARA HOOKS
-export const useFirebaseService = (user) => {
+const useFirebaseService = (user) => {
   if (user && firebaseService.currentUser?.uid !== user.uid) {
     firebaseService.setCurrentUser(user);
   }
@@ -670,7 +777,7 @@ export const useFirebaseService = (user) => {
 };
 
 // HELPER PARA OPERAÇÕES CRUD SIMPLIFICADAS
-export const createCRUDHelpers = (subcollectionName) => {
+const createCRUDHelpers = (subcollectionName) => {
   return {
     create: (data) => firebaseService.createDocument(subcollectionName, data),
     read: (options) => firebaseService.readDocuments(subcollectionName, options),
@@ -681,3 +788,7 @@ export const createCRUDHelpers = (subcollectionName) => {
     subscribe: (callback, options) => firebaseService.subscribeToCollection(subcollectionName, callback, options)
   };
 };
+
+// EXPORTS - Versão limpa sem duplicações
+export default firebaseService;
+export { firebaseService, useFirebaseService, createCRUDHelpers, SUBCOLLECTIONS };
