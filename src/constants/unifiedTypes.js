@@ -480,3 +480,25 @@ export default {
   formatCurrency,
   getSelectOptions
 };
+/**
+ * 💰 OBTER VALOR MÉDIO DO RANGE DE ORÇAMENTO (CORRIGIDO)
+ */
+export const getBudgetRangeMiddleValue = (budgetRange) => {
+  const rangeMapping = {
+    // Usar as chaves corretas do UNIFIED_BUDGET_RANGES
+    'ate_50k': 35000,
+    '50k_100k': 75000,
+    '100k_150k': 125000,
+    '150k_250k': 200000,
+    '250k_350k': 300000,
+    '350k_500k': 425000,
+    '500k_750k': 625000,
+    '750k_1M': 875000,
+    '1M_1_5M': 1250000,
+    '1_5M_2M': 1750000,
+    '2M_plus': 2500000,
+    'indefinido': 200000
+  };
+  
+  return rangeMapping[budgetRange] || rangeMapping['indefinido'];
+};

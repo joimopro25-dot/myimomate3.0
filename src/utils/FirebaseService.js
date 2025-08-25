@@ -1,8 +1,9 @@
 // src/utils/FirebaseService.js
-// 🏗️ FIREBASE SERVICE MULTI-TENANT - MyImoMate 3.0
-// ================================================
-// Serviço centralizado para operações Firebase com isolamento multi-tenant
-// Data: Agosto 2025 | Versão: 3.0 Multi-Tenant
+// FIREBASE SERVICE MULTI-TENANT DEFINITIVO - MyImoMate 3.0
+// ========================================================
+// Solução definitiva para arquitetura multi-tenant enterprise
+// Substitui completamente a versão anterior com isolamento total
+// Data: Agosto 2025 | Versão: 3.0 Multi-Tenant FINAL
 
 import { 
   collection, 
@@ -20,56 +21,43 @@ import {
   serverTimestamp,
   increment as firestoreIncrement,
   writeBatch,
-  runTransaction
+  runTransaction,
+  startAfter,
+  endBefore
 } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
 
-// 🎯 CONFIGURAÇÕES E CONSTANTES
-// =============================
-
-/**
- * 📂 SUBCOLEÇÕES ISOLADAS POR UTILIZADOR
- * Cada utilizador tem as suas próprias subcoleções dentro de users/{userId}/
- */
+// CONFIGURAÇÕES E CONSTANTES
 export const SUBCOLLECTIONS = {
-  // Core CRM modules
+  // Core CRM modules - ISOLADOS por utilizador
   LEADS: 'leads',
-  CLIENTS: 'clients',
-  OPPORTUNITIES: 'opportunities', 
+  CLIENTS: 'clients', 
+  OPPORTUNITIES: 'opportunities',
   DEALS: 'deals',
   VISITS: 'visits',
   TASKS: 'tasks',
   
-  // Analytics and reporting
+  // Analytics e relatórios - PRIVADOS
   REPORTS: 'reports',
   ANALYTICS: 'analytics',
+  ACTIVITY_LOGS: 'activity_logs',
   
-  // Automations and integrations
+  // Automações e integrações - PESSOAIS
   AUTOMATIONS: 'automations',
   INTEGRATIONS: 'integrations',
+  WEBHOOKS: 'webhooks',
   
-  // Calendar and scheduling
+  // Calendário e agendamento - INDIVIDUAIS  
   CALENDAR_EVENTS: 'calendar_events',
   REMINDERS: 'reminders',
   
-  // Logs and audit
-  ACTIVITY_LOGS: 'activity_logs',
-  AUTOMATION_LOGS: 'automation_logs',
-  INTEGRATION_LOGS: 'integration_logs',
-  
-  // Notifications and communication
-  NOTIFICATIONS: 'notifications',
-  WEBHOOKS: 'webhooks',
-  
-  // Configuration
+  // Configurações e templates - CUSTOMIZADAS
   USER_SETTINGS: 'user_settings',
-  TEMPLATES: 'templates'
+  TEMPLATES: 'templates',
+  NOTIFICATIONS: 'notifications'
 };
 
-/**
- * ⚙️ CONFIGURAÇÕES DO SERVIÇO
- */
 export const CONFIG = {
   CACHE_TTL: 5 * 60 * 1000, // 5 minutos
   DEFAULT_LIMIT: 25,
@@ -79,30 +67,24 @@ export const CONFIG = {
   BATCH_SIZE: 500
 };
 
-// 🏭 CLASSE PRINCIPAL DO SERVIÇO
-// ==============================
-
+// CLASSE PRINCIPAL FIREBASE SERVICE
 class FirebaseService {
   constructor() {
     this.currentUser = null;
     this.cache = new Map();
     this.listeners = new Map();
+    this.retryQueue = new Map();
     
-    console.log('🏗️ FirebaseService inicializado');
+    console.log('🏗️ FirebaseService Multi-Tenant inicializado');
   }
 
-  // 👤 GESTÃO DE UTILIZADOR
-  // =======================
-
-  /**
-   * 🔐 Definir utilizador atual
-   */
+  // GESTÃO DE UTILIZADOR
   setCurrentUser(user) {
     if (!user) {
       this.currentUser = null;
       this.clearCache();
       this.clearAllListeners();
-      console.log('👤 Utilizador removido');
+      console.log('👤 Utilizador removido - cache e listeners limpos');
       return;
     }
 
@@ -114,51 +96,54 @@ class FirebaseService {
     }
   }
 
-  /**
-   * 📂 Obter referência para subcoleção do utilizador
-   */
+  getCurrentUser() {
+    return this.currentUser;
+  }
+
+  // REFERÊNCIAS DE SUBCOLEÇÕES ISOLADAS
   getUserSubcollection(subcollectionName) {
     if (!this.currentUser) {
-      throw new Error('FirebaseService: Utilizador não definido. Use setCurrentUser() primeiro.');
+      throw new Error('FirebaseService: Utilizador não definido. Faça login primeiro.');
     }
 
+    if (!Object.values(SUBCOLLECTIONS).includes(subcollectionName)) {
+      throw new Error(`FirebaseService: Subcoleção inválida: ${subcollectionName}`);
+    }
+
+    // ISOLAMENTO TOTAL: users/{userId}/{subcollection}
     const userDocRef = doc(db, 'users', this.currentUser.uid);
     return collection(userDocRef, subcollectionName);
   }
 
-  /**
-   * 📝 Obter referência para documento específico na subcoleção
-   */
   getUserDocument(subcollectionName, documentId) {
-    if (!this.currentUser) {
-      throw new Error('FirebaseService: Utilizador não definido. Use setCurrentUser() primeiro.');
-    }
-
-    const userDocRef = doc(db, 'users', this.currentUser.uid);
-    const subcollectionRef = collection(userDocRef, subcollectionName);
+    const subcollectionRef = this.getUserSubcollection(subcollectionName);
     return doc(subcollectionRef, documentId);
   }
 
-  // 📊 OPERAÇÕES CRUD PARA SUBCOLEÇÕES
-  // =================================
-
+  // OPERAÇÕES CRUD PRINCIPAIS
+  
   /**
-   * ➕ Criar documento numa subcoleção
+   * CRIAR DOCUMENTO - Com isolamento multi-tenant
    */
   async createDocument(subcollectionName, data) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const subcollectionRef = this.getUserSubcollection(subcollectionName);
       
-      // Adicionar metadados obrigatórios
+      // DADOS ENRIQUECIDOS COM METADADOS MULTI-TENANT
       const enrichedData = {
         ...data,
+        // Metadados obrigatórios para isolamento
         userId: this.currentUser.uid,
         userEmail: this.currentUser.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        createdBy: this.currentUser.uid,
-        lastModifiedBy: this.currentUser.uid,
-        isActive: data.isActive !== undefined ? data.isActive : true
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        // Versão da estrutura para migrações futuras
+        structureVersion: '3.0'
       };
 
       const docRef = await addDoc(subcollectionRef, enrichedData);
@@ -171,7 +156,7 @@ class FirebaseService {
       return {
         success: true,
         id: docRef.id,
-        data: enrichedData
+        data: { id: docRef.id, ...enrichedData }
       };
 
     } catch (error) {
@@ -184,63 +169,94 @@ class FirebaseService {
   }
 
   /**
-   * 📖 Ler documentos de uma subcoleção
+   * LER DOCUMENTOS - Com filtros e paginação
    */
   async readDocuments(subcollectionName, options = {}) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const {
         whereClause = [],
         orderByClause = [],
         limitCount = CONFIG.DEFAULT_LIMIT,
-        includeInactive = false
+        includeInactive = false,
+        startAfterDoc = null,
+        useCache = true
       } = options;
+
+      // Verificar cache primeiro (se solicitado)
+      const cacheKey = this.generateCacheKey(subcollectionName, options);
+      if (useCache && this.cache.has(cacheKey)) {
+        const cached = this.cache.get(cacheKey);
+        if (Date.now() - cached.timestamp < CONFIG.CACHE_TTL) {
+          console.log(`💾 Cache hit: ${subcollectionName}`);
+          return cached.data;
+        }
+      }
 
       let queryRef = this.getUserSubcollection(subcollectionName);
       
-      // Filtro de documentos ativos por defeito
+      // FILTRO ATIVO POR DEFEITO (isolamento + performance)
       if (!includeInactive) {
         queryRef = query(queryRef, where('isActive', '==', true));
       }
 
-      // Aplicar filtros where
-      if (whereClause.length > 0) {
-        whereClause.forEach(([field, operator, value]) => {
-          queryRef = query(queryRef, where(field, operator, value));
-        });
-      }
+      // APLICAR FILTROS WHERE
+      whereClause.forEach(([field, operator, value]) => {
+        queryRef = query(queryRef, where(field, operator, value));
+      });
 
-      // Aplicar ordenação
+      // APLICAR ORDENAÇÃO
       if (orderByClause.length > 0) {
         orderByClause.forEach(([field, direction = 'desc']) => {
           queryRef = query(queryRef, orderBy(field, direction));
         });
       } else {
-        // Ordenação padrão
+        // Ordenação padrão por data de criação
         queryRef = query(queryRef, orderBy('createdAt', 'desc'));
       }
 
-      // Aplicar limite
+      // APLICAR LIMITE
       if (limitCount) {
         queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
       }
 
+      // PAGINAÇÃO
+      if (startAfterDoc) {
+        queryRef = query(queryRef, startAfter(startAfterDoc));
+      }
+
       const snapshot = await getDocs(queryRef);
+      
       const documents = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        // Converter timestamps para datas se necessário
-        createdAt: doc.data().createdAt?.toDate?.() || null,
-        updatedAt: doc.data().updatedAt?.toDate?.() || null
+        // Converter timestamps para objetos Date
+        createdAt: doc.data().createdAt?.toDate() || null,
+        updatedAt: doc.data().updatedAt?.toDate() || null
       }));
 
-      console.log(`📖 ${documents.length} documentos lidos: ${subcollectionName}`);
-
-      return {
+      const result = {
         success: true,
         data: documents,
         count: documents.length,
-        hasMore: documents.length === limitCount
+        hasMore: snapshot.docs.length === limitCount,
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null
       };
+
+      // Armazenar em cache
+      if (useCache) {
+        this.cache.set(cacheKey, {
+          data: result,
+          timestamp: Date.now()
+        });
+      }
+
+      console.log(`📖 Lidos ${documents.length} documentos de ${subcollectionName}`);
+      
+      return result;
 
     } catch (error) {
       console.error(`❌ Erro ao ler documentos ${subcollectionName}:`, error);
@@ -254,9 +270,13 @@ class FirebaseService {
   }
 
   /**
-   * 📖 Ler um documento específico
+   * LER DOCUMENTO ÚNICO
    */
   async readDocument(subcollectionName, documentId) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const docRef = this.getUserDocument(subcollectionName, documentId);
       const docSnap = await getDoc(docRef);
@@ -264,49 +284,67 @@ class FirebaseService {
       if (!docSnap.exists()) {
         return {
           success: false,
-          error: 'Documento não encontrado',
-          data: null
+          error: 'Documento não encontrado'
         };
       }
 
-      const data = {
+      const data = docSnap.data();
+      
+      // Verificar se pertence ao utilizador atual
+      if (data.userId !== this.currentUser.uid) {
+        return {
+          success: false,
+          error: 'Acesso negado: documento não pertence ao utilizador'
+        };
+      }
+
+      const document = {
         id: docSnap.id,
-        ...docSnap.data(),
-        createdAt: docSnap.data().createdAt?.toDate?.() || null,
-        updatedAt: docSnap.data().updatedAt?.toDate?.() || null
+        ...data,
+        createdAt: data.createdAt?.toDate() || null,
+        updatedAt: data.updatedAt?.toDate() || null
       };
 
-      console.log(`📖 Documento lido: ${subcollectionName}/${documentId}`);
-
+      console.log(`📄 Documento lido: ${subcollectionName}/${documentId}`);
+      
       return {
         success: true,
-        data: data
+        data: document
       };
 
     } catch (error) {
       console.error(`❌ Erro ao ler documento ${subcollectionName}/${documentId}:`, error);
       return {
         success: false,
-        error: error.message,
-        data: null
+        error: error.message
       };
     }
   }
 
   /**
-   * 🔄 Atualizar documento
+   * ATUALIZAR DOCUMENTO
    */
   async updateDocument(subcollectionName, documentId, updates) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const docRef = this.getUserDocument(subcollectionName, documentId);
       
-      const enrichedUpdates = {
+      // Verificar se documento existe e pertence ao utilizador
+      const existingDoc = await this.readDocument(subcollectionName, documentId);
+      if (!existingDoc.success) {
+        return existingDoc;
+      }
+
+      const updateData = {
         ...updates,
         updatedAt: serverTimestamp(),
         lastModifiedBy: this.currentUser.uid
       };
 
-      await updateDoc(docRef, enrichedUpdates);
+      await updateDoc(docRef, updateData);
       
       // Invalidar cache
       this.invalidateCache(subcollectionName);
@@ -315,7 +353,8 @@ class FirebaseService {
       
       return {
         success: true,
-        id: documentId
+        id: documentId,
+        data: updateData
       };
 
     } catch (error) {
@@ -328,24 +367,35 @@ class FirebaseService {
   }
 
   /**
-   * 🗑️ Eliminar documento (soft delete por defeito)
+   * ELIMINAR DOCUMENTO (soft delete por defeito)
    */
   async deleteDocument(subcollectionName, documentId, hardDelete = false) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const docRef = this.getUserDocument(subcollectionName, documentId);
       
+      // Verificar se documento existe e pertence ao utilizador
+      const existingDoc = await this.readDocument(subcollectionName, documentId);
+      if (!existingDoc.success) {
+        return existingDoc;
+      }
+
       if (hardDelete) {
+        // Eliminação permanente
         await deleteDoc(docRef);
         console.log(`🗑️ Documento eliminado permanentemente: ${subcollectionName}/${documentId}`);
       } else {
-        // Soft delete
-        const softDeleteUpdates = {
+        // Soft delete - apenas desativar
+        const softDeleteData = {
           isActive: false,
           deletedAt: serverTimestamp(),
           deletedBy: this.currentUser.uid
         };
         
-        await updateDoc(docRef, softDeleteUpdates);
+        await updateDoc(docRef, softDeleteData);
         console.log(`🗑️ Documento desativado: ${subcollectionName}/${documentId}`);
       }
       
@@ -366,39 +416,92 @@ class FirebaseService {
     }
   }
 
-  // 📊 OPERAÇÕES AVANÇADAS
-  // ======================
-
   /**
-   * 🔢 Contar documentos
+   * CONTAR DOCUMENTOS
    */
   async countDocuments(subcollectionName, whereClause = [], includeInactive = false) {
+    const result = await this.readDocuments(subcollectionName, {
+      whereClause,
+      includeInactive,
+      limitCount: CONFIG.MAX_LIMIT,
+      useCache: false
+    });
+
+    return {
+      success: result.success,
+      count: result.success ? result.count : 0,
+      error: result.error
+    };
+  }
+
+  /**
+   * OPERAÇÕES EM LOTE (BATCH)
+   */
+  async batchOperation(operations) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
-      const result = await this.readDocuments(subcollectionName, {
-        whereClause,
-        includeInactive,
-        limitCount: CONFIG.MAX_LIMIT
+      const batch = writeBatch(db);
+      
+      operations.forEach(({ type, subcollection, id, data }) => {
+        const docRef = id ? 
+          this.getUserDocument(subcollection, id) : 
+          doc(this.getUserSubcollection(subcollection));
+
+        switch (type) {
+          case 'create':
+            batch.set(docRef, {
+              ...data,
+              userId: this.currentUser.uid,
+              userEmail: this.currentUser.email,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              isActive: true
+            });
+            break;
+          case 'update':
+            batch.update(docRef, {
+              ...data,
+              updatedAt: serverTimestamp(),
+              lastModifiedBy: this.currentUser.uid
+            });
+            break;
+          case 'delete':
+            batch.delete(docRef);
+            break;
+        }
       });
 
+      await batch.commit();
+      
+      // Invalidar cache para todas as subcoleções afetadas
+      const affectedCollections = [...new Set(operations.map(op => op.subcollection))];
+      affectedCollections.forEach(coll => this.invalidateCache(coll));
+      
+      console.log(`✅ Operação em lote concluída: ${operations.length} operações`);
+      
       return {
         success: true,
-        count: result.count
+        operationsCount: operations.length
       };
 
     } catch (error) {
-      console.error(`❌ Erro ao contar documentos ${subcollectionName}:`, error);
+      console.error('❌ Erro na operação em lote:', error);
       return {
         success: false,
-        count: 0,
         error: error.message
       };
     }
   }
 
-  /**
-   * 👂 Subscrever mudanças em tempo real
-   */
-  async subscribeToCollection(subcollectionName, onData, onError, options = {}) {
+  // LISTENERS EM TEMPO REAL
+  subscribeToCollection(subcollectionName, callback, options = {}) {
+    if (!this.currentUser) {
+      throw new Error('Utilizador não autenticado');
+    }
+
     try {
       const {
         whereClause = [],
@@ -409,19 +512,14 @@ class FirebaseService {
 
       let queryRef = this.getUserSubcollection(subcollectionName);
       
-      // Filtro de documentos ativos por defeito
       if (!includeInactive) {
         queryRef = query(queryRef, where('isActive', '==', true));
       }
 
-      // Aplicar filtros where
-      if (whereClause.length > 0) {
-        whereClause.forEach(([field, operator, value]) => {
-          queryRef = query(queryRef, where(field, operator, value));
-        });
-      }
+      whereClause.forEach(([field, operator, value]) => {
+        queryRef = query(queryRef, where(field, operator, value));
+      });
 
-      // Aplicar ordenação
       if (orderByClause.length > 0) {
         orderByClause.forEach(([field, direction = 'desc']) => {
           queryRef = query(queryRef, orderBy(field, direction));
@@ -430,7 +528,6 @@ class FirebaseService {
         queryRef = query(queryRef, orderBy('createdAt', 'desc'));
       }
 
-      // Aplicar limite
       if (limitCount) {
         queryRef = query(queryRef, limit(Math.min(limitCount, CONFIG.MAX_LIMIT)));
       }
@@ -441,161 +538,61 @@ class FirebaseService {
           const documents = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate?.() || null,
-            updatedAt: doc.data().updatedAt?.toDate?.() || null
+            createdAt: doc.data().createdAt?.toDate() || null,
+            updatedAt: doc.data().updatedAt?.toDate() || null
           }));
 
-          console.log(`👂 Dados atualizados: ${subcollectionName} (${documents.length} docs)`);
-          onData(documents);
+          callback({
+            success: true,
+            data: documents,
+            count: documents.length
+          });
         },
         (error) => {
-          console.error(`❌ Erro na subscrição ${subcollectionName}:`, error);
-          if (onError) onError(error);
+          console.error(`❌ Erro no listener ${subcollectionName}:`, error);
+          callback({
+            success: false,
+            error: error.message,
+            data: []
+          });
         }
       );
 
-      // Guardar referência do listener
       const listenerId = `${subcollectionName}_${Date.now()}`;
       this.listeners.set(listenerId, unsubscribe);
       
-      console.log(`👂 Listener criado: ${listenerId}`);
+      console.log(`👂 Listener ativo: ${subcollectionName} (${listenerId})`);
       
-      return unsubscribe;
+      return listenerId;
 
     } catch (error) {
-      console.error(`❌ Erro ao criar subscrição ${subcollectionName}:`, error);
-      if (onError) onError(error);
+      console.error(`❌ Erro ao criar listener ${subcollectionName}:`, error);
+      return null;
     }
   }
 
-  /**
-   * ⚡ Operações em lote
-   */
-  async batchOperation(operations) {
-    try {
-      const batch = writeBatch(db);
-      
-      for (const operation of operations) {
-        const { type, subcollectionName, documentId, data } = operation;
-        
-        switch (type) {
-          case 'create':
-            const createRef = this.getUserDocument(subcollectionName, documentId);
-            batch.set(createRef, {
-              ...data,
-              userId: this.currentUser.uid,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-            break;
-            
-          case 'update':
-            const updateRef = this.getUserDocument(subcollectionName, documentId);
-            batch.update(updateRef, {
-              ...data,
-              updatedAt: serverTimestamp()
-            });
-            break;
-            
-          case 'delete':
-            const deleteRef = this.getUserDocument(subcollectionName, documentId);
-            batch.update(deleteRef, {
-              isActive: false,
-              deletedAt: serverTimestamp()
-            });
-            break;
-        }
-      }
-      
-      await batch.commit();
-      
-      console.log(`⚡ ${operations.length} operações em lote concluídas`);
-      
-      return {
-        success: true,
-        operationsCount: operations.length
-      };
-
-    } catch (error) {
-      console.error(`❌ Erro em operações lote:`, error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+  // GESTÃO DE CACHE
+  generateCacheKey(subcollectionName, options) {
+    return `${this.currentUser.uid}_${subcollectionName}_${JSON.stringify(options)}`;
   }
 
-  // 🛠️ UTILIDADES
-  // =============
-
-  /**
-   * 🔢 Incrementar valor
-   */
-  increment(value = 1) {
-    return firestoreIncrement(value);
-  }
-
-  /**
-   * ⏰ Timestamp do servidor
-   */
-  timestamp() {
-    return serverTimestamp();
-  }
-
-  // 💾 GESTÃO DE CACHE
-  // ==================
-
-  /**
-   * 💾 Obter do cache
-   */
-  getFromCache(key) {
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < CONFIG.CACHE_TTL) {
-      return cached.data;
-    }
-    return null;
-  }
-
-  /**
-   * 💾 Adicionar ao cache
-   */
-  addToCache(key, data) {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
-  }
-
-  /**
-   * 🗑️ Invalidar cache de uma subcoleção
-   */
   invalidateCache(subcollectionName) {
     const keysToDelete = [];
-    
     for (const [key] of this.cache) {
-      if (key.includes(`_${subcollectionName}_`)) {
+      if (key.includes(`${this.currentUser.uid}_${subcollectionName}`)) {
         keysToDelete.push(key);
       }
     }
-    
     keysToDelete.forEach(key => this.cache.delete(key));
-    console.log(`💾 Cache invalidado para ${subcollectionName}: ${keysToDelete.length} entradas removidas`);
+    console.log(`💾 Cache invalidado: ${subcollectionName} (${keysToDelete.length} entradas)`);
   }
 
-  /**
-   * 🧹 Limpar todo o cache
-   */
   clearCache() {
     this.cache.clear();
     console.log('💾 Cache completamente limpo');
   }
 
-  // 👂 SISTEMA DE LISTENERS
-  // ======================
-
-  /**
-   * 🔇 Remover listener
-   */
+  // GESTÃO DE LISTENERS
   removeListener(listenerId) {
     if (this.listeners.has(listenerId)) {
       this.listeners.get(listenerId)();
@@ -604,43 +601,37 @@ class FirebaseService {
     }
   }
 
-  /**
-   * 🔇 Remover todos os listeners
-   */
   clearAllListeners() {
     this.listeners.forEach(unsubscribe => unsubscribe());
     this.listeners.clear();
     console.log('🔇 Todos os listeners removidos');
   }
 
-  // 🧪 UTILIDADES DE DIAGNÓSTICO
-  // ============================
-
-  /**
-   * 🔍 Diagnosticar subcoleção
-   */
+  // DIAGNÓSTICO E DEBUG
   async diagnoseSubcollection(subcollectionName) {
+    if (!this.currentUser) {
+      return { error: 'Utilizador não autenticado' };
+    }
+
     try {
       const result = await this.readDocuments(subcollectionName, {
         limitCount: 5,
-        includeInactive: true
+        includeInactive: true,
+        useCache: false
       });
 
-      const diagnosis = {
+      return {
         subcollection: subcollectionName,
         userId: this.currentUser.uid,
-        totalDocuments: result.count,
-        sampleDocuments: result.data,
-        cacheStatus: this.cache.size > 0 ? 'active' : 'empty',
+        userEmail: this.currentUser.email,
+        documentsFound: result.count,
+        sampleData: result.data.slice(0, 2),
+        cacheSize: this.cache.size,
+        activeListeners: this.listeners.size,
         timestamp: new Date().toISOString()
       };
 
-      console.log(`🔍 Diagnóstico ${subcollectionName}:`, diagnosis);
-      
-      return diagnosis;
-
     } catch (error) {
-      console.error(`❌ Erro no diagnóstico ${subcollectionName}:`, error);
       return {
         subcollection: subcollectionName,
         error: error.message,
@@ -649,9 +640,6 @@ class FirebaseService {
     }
   }
 
-  /**
-   * 📊 Status geral do serviço
-   */
   getServiceStatus() {
     return {
       currentUser: this.currentUser ? {
@@ -660,39 +648,28 @@ class FirebaseService {
       } : null,
       cacheSize: this.cache.size,
       activeListeners: this.listeners.size,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      version: '3.0-MULTI-TENANT'
     };
   }
 }
 
-// 🏭 INSTÂNCIA SINGLETON
-// ======================
+// INSTÂNCIA SINGLETON
 const firebaseService = new FirebaseService();
 
-// 🚀 EXPORTS
-// ==========
+// EXPORTS
 export default firebaseService;
-
-// Exports nomeados para facilitar importação
 export { firebaseService };
 
-// 🎯 HELPER FUNCTIONS PARA HOOKS
-// ==============================
-
-/**
- * 🎣 Hook helper para inicializar serviço com user
- */
+// HELPER HOOK PARA HOOKS
 export const useFirebaseService = (user) => {
   if (user && firebaseService.currentUser?.uid !== user.uid) {
     firebaseService.setCurrentUser(user);
   }
-  
   return firebaseService;
 };
 
-/**
- * 📋 Helper para operações CRUD simples
- */
+// HELPER PARA OPERAÇÕES CRUD SIMPLIFICADAS
 export const createCRUDHelpers = (subcollectionName) => {
   return {
     create: (data) => firebaseService.createDocument(subcollectionName, data),
@@ -700,6 +677,7 @@ export const createCRUDHelpers = (subcollectionName) => {
     readOne: (id) => firebaseService.readDocument(subcollectionName, id),
     update: (id, data) => firebaseService.updateDocument(subcollectionName, id, data),
     delete: (id, hard = false) => firebaseService.deleteDocument(subcollectionName, id, hard),
-    count: (where, includeInactive) => firebaseService.countDocuments(subcollectionName, where, includeInactive)
+    count: (where, includeInactive) => firebaseService.countDocuments(subcollectionName, where, includeInactive),
+    subscribe: (callback, options) => firebaseService.subscribeToCollection(subcollectionName, callback, options)
   };
 };
